@@ -9,3 +9,4 @@ venv
 .pg_service.conf
 .idea
 .env
+.vscode
