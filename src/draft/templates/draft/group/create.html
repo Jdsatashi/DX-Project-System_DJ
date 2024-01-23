@@ -1,0 +1,36 @@
+{% extends 'layouts/layout.html' %}
+{% block header-content %}{% endblock %}
+{% block content %}
+    <div class="element-center">
+        <div class="card-simple w-[480px]">
+            <div class="card-header">
+                <div class="card-title">Add Group Draft</div>
+            </div>
+            <div class="card-content">
+                <form class="mt-4" method="post">
+                    {% csrf_token %}
+                    {% for field in form %}
+                        <div class="form-group">
+                            {{ field.label_tag }}
+                            {{ field }}
+                            <div class="text-red-600">
+                                {{ field.errors }}
+                            </div>
+                        </div>
+                    {% endfor %}
+                    <div class="mt-2 mx-auto text-center">
+                        <button class="btn-primary w-52 py-2.5" type="submit">Add</button>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+    <div class="grid grid-cols-5 md-max:grid-cols-3 gap-4">
+        {% for group in groups %}
+            <div class="w-auto h-full py-8 px-24 bg-slate-300 rounded-md">
+                <p class="text-md font-medium">Name: {{ group.name }}</p>
+                <p class="text-md font-medium">Level: {{ group.level }}</p>
+            </div>
+        {% endfor %}
+    </div>
+{% endblock %}
