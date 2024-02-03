@@ -1,0 +1,19 @@
+{% extends 'layouts/layout.html' %}
+{% block header-content %}{% endblock %}
+{% block content %}
+    <form action="" method="POST">
+        {% csrf_token %}
+        {{ form }}
+        <button type="submit" class="w-auto h-full py-4 px-12 bg-slate-300 rounded-md font-medium text-slate-800">Add
+        </button>
+    </form>
+    {% if form.errors %}
+    <ul>
+        {% for field_errors in form.errors.values %}
+            {% for error in field_errors %}
+                <li>{{ error }}</li>
+            {% endfor %}
+        {% endfor %}
+    </ul>
+{% endif %}
+{% endblock %}
