@@ -7,6 +7,6 @@ node_modules
 venv
 .my_pgpass
 .pg_service.conf
-.idea
+.idea/
 .env
-.vscode
+.vscode/
