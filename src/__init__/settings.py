@@ -20,6 +20,9 @@ DEBUG = os.environ.get('DEBUG', True)
 
 ALLOWED_HOSTS = []
 
+# Customize authentication
+AUTH_USER_MODEL = 'account.User'
+
 # Application definition
 INSTALLED_APPS = [
 	'django.contrib.admin',
@@ -31,7 +34,7 @@ INSTALLED_APPS = [
 	
 	# My app
 	'draft',
-
+	'account',
 ]
 
 LOGGING = {
@@ -56,6 +59,7 @@ MIDDLEWARE = [
 	'django.contrib.auth.middleware.AuthenticationMiddleware',
 	'django.contrib.messages.middleware.MessageMiddleware',
 	'django.middleware.clickjacking.XFrameOptionsMiddleware',
+	'account.middlewares.CustomAuthMiddleware'
 ]
 
 ROOT_URLCONF = '__init__.urls'
@@ -82,15 +86,21 @@ WSGI_APPLICATION = '__init__.wsgi.application'
 # https://docs.djangoproject.com/en/5.0/ref/settings/#databases
 
 DATABASES = {
+	# 'default': {
+	# 	'ENGINE': 'django.db.backends.postgresql',
+	# 	'NAME': os.environ['DB_NAME'],
+	# 	'HOST': os.environ['DB_HOST'],
+	# 	'PORT': os.environ['DB_PORT'],
+	# 	'USER': os.environ['DB_USER'],
+	# 	'PASSWORD': os.environ['DB_PASSWORD'],
+	# 	'OPTIONS': {
+	# 		'sslmode': os.environ['DB_SSLMODE'],
+	# 		'options': f'?options=endpoint%3D{os.environ["DB_ENDPOINT_ID"]}',
+	# 	},
+	# }
 	'default': {
-		'ENGINE': 'django.db.backends.postgresql',
-		'NAME': os.environ['DB_NAME'],
-		'HOST': os.environ['DB_HOST'],
-		'PORT': os.environ['DB_PORT'],
-		'USER': os.environ['DB_USER'],
-		'PASSWORD': os.environ['DB_PASSWORD'],
-		'OPTIONS': {'sslmode': os.environ['DB_SSLMODE']},
-		
+		'ENGINE': 'django.db.backends.sqlite3',
+		'NAME': BASE_DIR / 'db.sqlite3',
 	}
 }
 
