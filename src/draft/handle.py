@@ -1,5 +1,3 @@
-from django.shortcuts import get_object_or_404
-
 from .forms import CreateGroupDraftForm, CreateDraftForm
 from .models import GroupDraft, Draft
 

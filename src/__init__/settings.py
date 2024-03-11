@@ -31,10 +31,12 @@ INSTALLED_APPS = [
 	'django.contrib.sessions',
 	'django.contrib.messages',
 	'django.contrib.staticfiles',
-	
+
 	# My app
 	'draft',
 	'account',
+	# Old data app
+	'qlsx.khach_hang',
 ]
 
 LOGGING = {
@@ -86,22 +88,23 @@ WSGI_APPLICATION = '__init__.wsgi.application'
 # https://docs.djangoproject.com/en/5.0/ref/settings/#databases
 
 DATABASES = {
-	# 'default': {
-	# 	'ENGINE': 'django.db.backends.postgresql',
-	# 	'NAME': os.environ['DB_NAME'],
-	# 	'HOST': os.environ['DB_HOST'],
-	# 	'PORT': os.environ['DB_PORT'],
-	# 	'USER': os.environ['DB_USER'],
-	# 	'PASSWORD': os.environ['DB_PASSWORD'],
-	# 	'OPTIONS': {
-	# 		'sslmode': os.environ['DB_SSLMODE'],
-	# 		'options': f'?options=endpoint%3D{os.environ["DB_ENDPOINT_ID"]}',
-	# 	},
-	# }
 	'default': {
-		'ENGINE': 'django.db.backends.sqlite3',
-		'NAME': BASE_DIR / 'db.sqlite3',
+		'ENGINE': 'mssql',
+		'NAME': os.environ['DB_NAME'],
+		'HOST': os.environ['DB_HOST'],
+		'PORT': os.environ['DB_PORT'],
+		'USER': os.environ['DB_USER'],
+		'PASSWORD': os.environ['DB_PASSWORD'],
+		"OPTIONS": {"driver": "ODBC Driver 17 for SQL Server"}
+		# 'OPTIONS': {
+		# 	'sslmode': os.environ['DB_SSLMODE'],
+		# 	'options': f'?options=endpoint%3D{os.environ["DB_ENDPOINT_ID"]}',
+		# },
 	}
+	# 'default': {
+	# 	'ENGINE': 'django.db.backends.sqlite3',
+	# 	'NAME': BASE_DIR / 'db.sqlite3',
+	# }
 }
 
 # Password validation
