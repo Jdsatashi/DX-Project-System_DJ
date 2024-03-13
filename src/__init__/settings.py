@@ -37,6 +37,11 @@ INSTALLED_APPS = [
 	'account',
 	# Old data app
 	'qlsx.khach_hang',
+	# User system structure
+	'user_system.kh_nhomkh',
+	'user_system.kh_profile',
+	'user_system.nv_profile',
+	'user_system.user_type',
 ]
 
 LOGGING = {
@@ -87,24 +92,36 @@ WSGI_APPLICATION = '__init__.wsgi.application'
 # Database
 # https://docs.djangoproject.com/en/5.0/ref/settings/#databases
 
-DATABASES = {
-	'default': {
+MSSQL = {
 		'ENGINE': 'mssql',
 		'NAME': os.environ['DB_NAME'],
 		'HOST': os.environ['DB_HOST'],
 		'PORT': os.environ['DB_PORT'],
 		'USER': os.environ['DB_USER'],
 		'PASSWORD': os.environ['DB_PASSWORD'],
-		"OPTIONS": {"driver": "ODBC Driver 17 for SQL Server"}
-		# 'OPTIONS': {
-		# 	'sslmode': os.environ['DB_SSLMODE'],
-		# 	'options': f'?options=endpoint%3D{os.environ["DB_ENDPOINT_ID"]}',
-		# },
-	}
-	# 'default': {
-	# 	'ENGINE': 'django.db.backends.sqlite3',
-	# 	'NAME': BASE_DIR / 'db.sqlite3',
-	# }
+		'OPTIONS': {'driver': 'ODBC Driver 17 for SQL Server'}
+}
+
+SQLITE = {
+		'ENGINE': 'django.db.backends.sqlite3',
+		'NAME': BASE_DIR / 'db.sqlite3',
+}
+
+POSTGRESQL = {
+		'ENGINE': 'django.db.backends.postgresql',
+		'NAME': os.environ['PGS_DB'],
+		'HOST': os.environ['PGS_HOST'],
+		'PORT': os.environ['PGS_PORT'],
+		'USER': os.environ['PGS_USER'],
+		'PASSWORD': os.environ['PGS_PASSWORD'],
+		'OPTIONS': {
+			# 'sslmode': os.environ['PGS_SSL'],
+			# 'options': f'?options=endpoint%3D{os.environ["PGS_ENDPOINT_ID"]}',
+		},
+}
+
+DATABASES = {
+	'default': POSTGRESQL
 }
 
 # Password validation
