@@ -14,3 +14,6 @@ class KHProfile(models.Model):
     diaChi = models.TextField(null=True)
     nguoiLap = models.TextField(null=True)
     maKHCap1 = models.CharField(max_length=255, null=True)
+
+    class Meta:
+        db_table = 'kh_profile'

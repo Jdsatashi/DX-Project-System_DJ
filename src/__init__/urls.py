@@ -8,5 +8,6 @@ urlpatterns = [
     path('', home, name='home'),
     path('admin/', admin.site.urls),
     path('draft/', include('draft.urls', 'draft')),
-    path('khach-hang/', include('qlsx.khach_hang.urls', 'khach_hang'))
+    path('khach-hang/', include('qlsx.khach_hang.urls', 'khach_hang')),
+    path('accounts/', include('account.urls', namespace='account'))
 ]
