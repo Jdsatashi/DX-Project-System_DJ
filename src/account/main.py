@@ -24,6 +24,7 @@ password = os.environ.get('MSSQL_PASSWORD')
 type_nv, created = UserType.objects.get_or_create(loaiUser="nhanvien")
 type_kh, created = UserType.objects.get_or_create(loaiUser="khachhang")
 
+
 # Configuration to connect PostgreSQL
 def load_config(filename='postgresql.ini', section='postgresql'):
     parser = ConfigParser()
@@ -75,25 +76,25 @@ def append_kh():
     for k, v in enumerate(data):
         if k == 1:
             print(v)
-        if k < 5:
-            data_profile = {"maKH": v[0], "tenBanKe": v[1], "tenDoanhNghiep": v[2], "maNhomKH": v[3], "maNVTT": v[4], "diaChi": v[7], "nguoiLap": v[8]}
-            phone = v[5] if v[5] != '' else None
-            pw = v[0] if v[10] == '' else v[10]
-            hash_pw = make_password(pw)
-            data_user = {"usercode": v[0], "phone_number": phone, "loaiUser": type_kh, "password": hash_pw}
-            obj, created = User.objects.get_or_create(usercode=v[0], defaults={"phone_number": phone, "loaiUser": type_kh, "password": hash_pw})
-            if created:
-                print(f"User {v[0]} was created successfully.")
-            else:
-                print(f"User {v[0]} was existed, skipping...")
-            # obj, created = KHProfile.objects.get_or_create(**data_profile)
-            # if created:
-            #     print(f"User profile {v[0]} was created successfully.")
-            # else:
-            #     print(f"User profile {v[0]} was existed, skipping...")
-            ctx['users'].append(data_user)
-            ctx['profiles'].append(data_profile)
-            print(data_profile)
+        maNhomKH = NhomKH.objects.filter(maNhom=v[3]).first()
+        data_profile = {"tenBanKe": v[1], "tenDoanhNghiep": v[2], "maNhomKH": maNhomKH, "maNVTT": v[4], "diaChi": v[7], "nguoiLap": v[8]}
+        phone = v[5] if v[5] != '' else None
+        pw = v[0] if v[10] == '' else v[10]
+        hash_pw = make_password(pw)
+        data_user = {"usercode": v[0], "phone_number": phone, "loaiUser": type_kh, "password": hash_pw}
+        obj, created = User.objects.get_or_create(usercode=v[0], defaults={"phone_number": phone, "loaiUser": type_kh, "password": hash_pw})
+        if created:
+            print(f"User {v[0]} was created successfully.")
+        else:
+            print(f"User {v[0]} was existed, skipping...")
+        obj, created = KHProfile.objects.get_or_create(maKH=obj, defaults=data_profile)
+        if created:
+            print(f"User profile {v[0]} was created successfully.")
+        else:
+            print(f"User profile {v[0]} was existed, skipping...")
+        ctx['users'].append(data_user)
+        ctx['profiles'].append(data_profile)
+        print(data_profile)
     return ctx
 
 
@@ -103,26 +104,25 @@ def append_nv():
     for k, v in enumerate(data):
         if k == 1:
             print(v)
-        if k < 5:
-            data_profile = {'maNV': v[0], 'name': f"{v[2]} {v[3]}", 'gender': v[5]}
-            phone = v[28] if v[28] != '' else None
-            email = v[51] if v[51] != '' else None
-            pw_hash = make_password(v[0])
-            data_user = {'': v[0], 'phone_number': phone, 'email': email, 'loaiUser': type_nv, 'password': pw_hash}
-            obj, created = User.objects.get_or_create(usercode=v[0], defaults={'phone_number': phone, 'email': email, 'loaiUser': type_nv, 'password': pw_hash})
-            print(obj.usercode)
-            if created:
-                print(f"User {v[0]} was created successfully.")
-            else:
-                print(f"User {v[0]} was existed, skipping...")
+        data_profile = {'maNV': v[0], 'name': f"{v[2]} {v[3]}", 'gender': v[5]}
+        phone = v[28] if v[28] != '' else None
+        email = v[51] if v[51] != '' else None
+        pw_hash = make_password(v[0])
+        data_user = {'': v[0], 'phone_number': phone, 'email': email, 'loaiUser': type_nv, 'password': pw_hash}
+        obj, created = User.objects.get_or_create(usercode=v[0], defaults={'phone_number': phone, 'email': email, 'loaiUser': type_nv, 'password': pw_hash})
+        print(obj.usercode)
+        if created:
+            print(f"User {v[0]} was created successfully.")
+        else:
+            print(f"User {v[0]} was existed, skipping...")
 
-            obj, created = NVProfile.objects.get_or_create(maNV=obj, defaults={'fullname': f"{v[2]} {v[3]}", 'gioiTinh': v[5]})
-            if created:
-                print(f"User profile {v[0]} was created successfully.")
-            else:
-                print(f"User profile {v[0]} was existed, skipping...")
-            ctx['users'].append(data_user)
-            ctx['profiles'].append(data_profile)
+        obj, created = NVProfile.objects.get_or_create(maNV=obj, defaults={'fullname': f"{v[2]} {v[3]}", 'gioiTinh': v[5]})
+        if created:
+            print(f"User profile {v[0]} was created successfully.")
+        else:
+            print(f"User profile {v[0]} was existed, skipping...")
+        ctx['users'].append(data_user)
+        ctx['profiles'].append(data_profile)
     return ctx
 
 

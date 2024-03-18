@@ -29,7 +29,7 @@ class User(AbstractBaseUser, PermissionsMixin):
 	usercode = models.CharField(primary_key=True, unique=True)
 	username = models.CharField(max_length=255, unique=True, null=True)
 	email = models.EmailField(unique=True, null=True)
-	phone_number = models.CharField(max_length=15, unique=True, null=True)
+	phone_number = models.CharField(max_length=128, unique=False, null=True)
 	khuVuc = models.CharField(max_length=100, null=True, blank=True)
 	status = models.CharField(max_length=40, null=True)
 	loaiUser = models.ForeignKey(UserType, to_field='loaiUser', null=True, blank=False, on_delete=models.SET_NULL)
