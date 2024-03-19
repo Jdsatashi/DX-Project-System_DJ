@@ -1,0 +1,21 @@
+{% extends 'layouts/layout.html' %}
+{% block header-content %}{% endblock %}
+{% block content %}
+    <h1 class="text-3xl text-green-600">This is User page</h1>
+    <a href="{% url "user:create_user" %}"><h2>Create User</h2></a>
+    <div>
+        {% for user in users %}
+            <div class="card-simple w-[480px]">
+                <h2 class="card-title">{{ user.usercode }}{% if user.username != '' %}- {{ user.username }}{% endif %}</h2>
+                {#<a href="{% url "user:user_item" usercode=user.usercode %}">Edit</a>#}
+                <div class="card-content">
+                    <p>{{ user.email }}</p>
+                    <p>{{ user.phone_number }}</p>
+                    <p>{{ user.khuVuc }}</p>
+                    <p>{{ user.status }}</p>
+                    <p>{{ user.loaiUser }}</p>
+                </div>
+            </div>
+        {% endfor %}
+    </div>
+{% endblock %}

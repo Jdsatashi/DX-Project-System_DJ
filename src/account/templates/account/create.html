@@ -1,0 +1,34 @@
+{% extends 'layouts/layout.html' %}
+{% load static %}
+{% block header-content %}
+    <link rel="stylesheet" href={% static 'css/input-default.css' %}>
+{% endblock %}
+{% block content %}
+    <div class="element-center">
+        <div class="card-simple w-[480px] rounded-lg">
+            <div class="card-header">
+                <h3 class="card-title">Create user</h3>
+            </div>
+            <div class="card-content">
+                <form action="" method="POST">
+                    {% csrf_token %}
+                    {{ form }}
+                    <div class="element-center">
+                        <button type="submit"
+                            class="w-20 mt-4 h-full py-2 px-12 bg-blue-600 rounded-md font-medium text-white hover:bg-blue-700">Add
+                    </button>
+                    </div>
+                </form>
+                {% if form.errors %}
+                    <ul>
+                        {% for field_errors in form.errors.values %}
+                            {% for error in field_errors %}
+                                <li>{{ error }}</li>
+                            {% endfor %}
+                        {% endfor %}
+                    </ul>
+                {% endif %}
+            </div>
+        </div>
+    </div>
+{% endblock %}
