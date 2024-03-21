@@ -1,5 +1,4 @@
 import os
-import time
 from configparser import ConfigParser
 import psycopg2
 import pyodbc
@@ -21,8 +20,8 @@ db_name = os.environ.get('MSSQL_DATABASE')
 user = os.environ.get('MSSQL_USER')
 password = os.environ.get('MSSQL_PASSWORD')
 
-type_nv, created = UserType.objects.get_or_create(loaiUser="nhanvien")
-type_kh, created = UserType.objects.get_or_create(loaiUser="khachhang")
+type_nv, _ = UserType.objects.get_or_create(loaiUser="nhanvien")
+type_kh, _ = UserType.objects.get_or_create(loaiUser="khachhang")
 
 
 # Configuration to connect PostgreSQL
@@ -55,6 +54,7 @@ def connect_pgs():
         print(error)
 
 
+# Connect to MS SQL Server and get data of specific table
 def table_data(table_name: str):
     try:
         connection_string = f'DRIVER={{SQL Server}};SERVER={server};DATABASE={db_name};UID={user};PWD={password}'
@@ -79,7 +79,7 @@ def append_kh():
         maNhomKH = NhomKH.objects.filter(maNhom=v[3]).first()
         data_profile = {"tenBanKe": v[1], "tenDoanhNghiep": v[2], "maNhomKH": maNhomKH, "maNVTT": v[4], "diaChi": v[7], "nguoiLap": v[8]}
         phone = v[5] if v[5] != '' else None
-        pw = v[0] if v[10] == '' else v[10]
+        pw = v[0].lower() if v[10] == '' else v[10]
         hash_pw = make_password(pw)
         data_user = {"usercode": v[0], "phone_number": phone, "loaiUser": type_kh, "password": hash_pw}
         obj, created = User.objects.get_or_create(usercode=v[0], defaults={"phone_number": phone, "loaiUser": type_kh, "password": hash_pw})
@@ -107,7 +107,7 @@ def append_nv():
         data_profile = {'maNV': v[0], 'name': f"{v[2]} {v[3]}", 'gender': v[5]}
         phone = v[28] if v[28] != '' else None
         email = v[51] if v[51] != '' else None
-        pw_hash = make_password(v[0])
+        pw_hash = make_password(v[0].lower())
         data_user = {'': v[0], 'phone_number': phone, 'email': email, 'loaiUser': type_nv, 'password': pw_hash}
         obj, created = User.objects.get_or_create(usercode=v[0], defaults={'phone_number': phone, 'email': email, 'loaiUser': type_nv, 'password': pw_hash})
         print(obj.usercode)
