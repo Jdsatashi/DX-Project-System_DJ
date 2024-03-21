@@ -1,0 +1,36 @@
+/* Style for normal input */
+input[type="text"],
+input[type="number"],
+input[type="email"],
+input[type="password"] {
+  width: 100%;
+  padding: 8px 12px;
+  border: 1px solid #ccc;
+  border-radius: 4px;
+  box-sizing: border-box;
+}
+
+/* Style for focused input */
+input[type="text"]:focus,
+input[type="number"]:focus,
+input[type="email"]:focus,
+input[type="password"]:focus {
+  border-color: #007bff;
+  box-shadow: 0 0 0 2px rgba(0, 123, 255, 0.25);
+}
+
+/* Style for disabled input */
+input[type="text"]:disabled,
+input[type="number"]:disabled,
+input[type="email"]:disabled,
+input[type="password"]:disabled {
+  background-color: #f8f9fa;
+  color: #6c757d;
+}
+
+select {
+    width: 100%;
+  padding: 8px 12px;
+  border: 1px solid #ccc;
+  box-sizing: border-box;
+}
