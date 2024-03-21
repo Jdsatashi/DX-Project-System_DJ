@@ -14,7 +14,7 @@ def handle_create_acc(req):
         obj.usercode = obj.usercode.upper()
         obj.email = obj.email if obj.email != '' else None
         obj.phone_number = obj.phone_number if obj.phone_number != '' else None
-        obj.password = make_password(obj.usercode)
+        obj.password = make_password(obj.usercode.lower())
         obj.save()
         form.clean()
     ctx['form'] = form
@@ -27,3 +27,7 @@ def handle_list_acc(req):
     users = User.objects.all()
     ctx['users'] = users
     return ctx
+
+
+def register_acc(req):
+    ctx = {}

@@ -34,3 +34,9 @@ class CreateUserForm(forms.ModelForm):
         if User.objects.filter(usercode=usercode).exists():
             raise ValidationError("This user code is already in use.")
         return usercode
+
+
+class RegisterForm(forms.ModelForm):
+    class Meta:
+        model = User
+        fields = ['phone_number', 'password', 'khuVuc']

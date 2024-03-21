@@ -12,3 +12,11 @@ def create_acc(request):
 def list_acc(request):
     ctx = list_acc(request)
     return render(request, 'account/index.html', ctx)
+
+
+def register_acc(request):
+    ctx = register_acc(request)
+
+
+def login_acc(request):
+    pass
