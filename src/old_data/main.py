@@ -9,8 +9,7 @@ from account.models import User
 from user_system.kh_nhomkh.models import NhomKH
 from user_system.kh_profile.models import KHProfile
 from user_system.nv_profile.models import NVChucDanh, NVProfile
-from user_system.user_type.models import UserType
-from utils.constants import old_data
+from utils.constants import old_data, type_kh, type_nv, maNhomND as maNhom, tenNhomND as tenNhom
 
 dotenv.load_dotenv()
 
@@ -19,9 +18,6 @@ server = os.environ.get('MSSQL_HOST')
 db_name = os.environ.get('MSSQL_DATABASE')
 user = os.environ.get('MSSQL_USER')
 password = os.environ.get('MSSQL_PASSWORD')
-
-type_nv, _ = UserType.objects.get_or_create(loaiUser="nhanvien")
-type_kh, _ = UserType.objects.get_or_create(loaiUser="khachhang")
 
 
 # Configuration to connect PostgreSQL
@@ -146,3 +142,8 @@ def create_maNhomKH():
             print(f"Created new maNhom: {v[2]}")
         else:
             print(f"maNhom {v[2]} already existed, passing...")
+    obj, created = NhomKH.objects.get_or_create(maNhom=maNhom, defaults={'tenNhom': tenNhom})
+    if created:
+        print(f"Created new maNhom: {maNhom}")
+    else:
+        print(f"maNhom {maNhom} already existed, passing...")
