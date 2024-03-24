@@ -38,6 +38,7 @@ class User(AbstractBaseUser, PermissionsMixin):
 	timestamp = models.DateTimeField(auto_now_add=True)
 	nhomUser = models.ManyToManyField('NhomUser', blank=True, related_name='users_rela')
 	quyenUser = models.ManyToManyField('QuyenHanUser', blank=True, related_name='users_rela')
+	id = models.CharField(max_length=255, unique=True, null=True, blank=True, default=None)
 
 	# System auth django attribute
 	is_active = models.BooleanField(default=True)
@@ -61,6 +62,7 @@ class User(AbstractBaseUser, PermissionsMixin):
 
 	def save(self, *args, **kwargs):
 		self.usercode = self.usercode.upper()
+		self.id = self.usercode
 		super().save(*args, **kwargs)
 
 
@@ -85,3 +87,37 @@ class QuyenHanUser(models.Model):
 
 	class Meta:
 		db_table = 'users_quyenhan'
+
+
+class LoginToken(models.Model):
+	id = models.AutoField(primary_key=True, unique=True)
+	user = models.ForeignKey(User, on_delete=models.CASCADE)
+	token = models.CharField(max_length=255, null=False)
+	device = models.CharField(max_length=64, null=True, blank=True, default=None)
+	ip_address = models.CharField(max_length=64, null=True, blank=True, default=None)
+	status = models.CharField(max_length=64, default=None)
+	created_at = models.DateTimeField(auto_now_add=True)
+	expired_at = models.DateTimeField()
+
+	@classmethod
+	def delete_oldest_token(cls, user):
+		tokens = cls.objects.filter(user=user).order_by('created_at')
+		if tokens.count() >= 3:
+			oldest_token = tokens.first()
+			oldest_token.delete()
+
+	def save(self, *args, **kwargs):
+		if not self.pk:
+			self.delete_oldest_token(self.user)
+		super().save(*args, **kwargs)
+
+
+class XacThuc(models.Model):
+	id = models.AutoField(primary_key=True, unique=True)
+	user = models.ForeignKey(User, on_delete=models.CASCADE)
+	xac_thuc = models.BooleanField(default=False)
+	ma_xac_thuc = models.CharField(max_length=64)
+	loai_xac_thuc = models.CharField(max_length=128, default=None)
+	moTa = models.TextField(null=True, default=None)
+	time_xac_thuc = models.DateTimeField()
+	timestamp = models.DateTimeField(auto_now_add=True)

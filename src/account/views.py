@@ -1,6 +1,6 @@
 from django.shortcuts import render
 
-from account.handle import handle_create_acc
+from account.handle import handle_create_acc, handle_register_acc
 
 
 # Create your views here.
@@ -15,7 +15,8 @@ def list_acc(request):
 
 
 def register_acc(request):
-    ctx = register_acc(request)
+    ctx = handle_register_acc(request)
+
 
 
 def login_acc(request):

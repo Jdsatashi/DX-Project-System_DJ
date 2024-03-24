@@ -10,7 +10,7 @@ urlpatterns = [
     path('draft/', include('draft.urls', 'draft')),
     path('khach-hang/', include('qlsx.khach_hang.urls', 'khach_hang')),
     path('accounts/', include('account.urls', 'account')),
-    path('application/api/v1/2024/', include('api_routes.routes', 'api_routes')),
+    path('application/api/v1/2024/', include('__init__.api_routes.routes', 'api_routes')),
 
     path('old-data/', include('old_data.urls'))
 ]
