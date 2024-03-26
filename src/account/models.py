@@ -27,7 +27,7 @@ class CustomUserManager(BaseUserManager):
 
 # Self define user model attributes
 class User(AbstractBaseUser, PermissionsMixin):
-	usercode = models.CharField(primary_key=True, unique=True, null=False)
+	id = models.CharField(primary_key=True, unique=True, null=False)
 	username = models.CharField(max_length=255, unique=True, null=True, blank=True, default=None)
 	email = models.EmailField(unique=True, null=True, blank=True, default=None)
 	phone_number = models.CharField(max_length=128, unique=False, null=True, blank=True, default=None)
@@ -38,7 +38,6 @@ class User(AbstractBaseUser, PermissionsMixin):
 	timestamp = models.DateTimeField(auto_now_add=True)
 	nhomUser = models.ManyToManyField('NhomUser', blank=True, related_name='users_rela')
 	quyenUser = models.ManyToManyField('QuyenHanUser', blank=True, related_name='users_rela')
-	id = models.CharField(max_length=255, unique=True, null=True, blank=True, default=None)
 
 	# System auth django attribute
 	is_active = models.BooleanField(default=True)
@@ -50,7 +49,7 @@ class User(AbstractBaseUser, PermissionsMixin):
 
 	# Required fields for create account command
 	USERNAME_FIELD = 'username'
-	REQUIRED_FIELDS = ['usercode', 'email', 'phone_number']
+	REQUIRED_FIELDS = ['id', 'email', 'phone_number']
 
 	# define table name
 	class Meta:
@@ -58,11 +57,10 @@ class User(AbstractBaseUser, PermissionsMixin):
 
 	# Return data user object
 	def __str__(self):
-		return f"{self.usercode}"
+		return f"{self.id}"
 
 	def save(self, *args, **kwargs):
-		self.usercode = self.usercode.upper()
-		self.id = self.usercode
+		self.id = self.id.upper()
 		super().save(*args, **kwargs)
 
 

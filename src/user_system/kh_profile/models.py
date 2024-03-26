@@ -6,7 +6,7 @@ from user_system.kh_nhomkh.models import NhomKH
 
 # Create your models here.
 class KHProfile(models.Model):
-    maKH = models.ForeignKey(User, to_field='usercode', on_delete=models.CASCADE)
+    maKH = models.ForeignKey(User, to_field='id', on_delete=models.CASCADE)
     tenBanKe = models.CharField(max_length=255, null=False)
     tenDoanhNghiep = models.CharField(max_length=255, null=True)
     maNhomKH = models.ForeignKey(NhomKH, on_delete=models.CASCADE)

@@ -19,7 +19,7 @@ def handle_create_acc(req):
         obj = form.save(commit=False)
         obj.email = obj.email if obj.email != '' else None
         obj.phone_number = obj.phone_number if obj.phone_number != '' else None
-        obj.password = make_password(obj.usercode.lower())
+        obj.password = make_password(obj.id.lower())
         obj.save()
         form.clean()
     ctx['form'] = form
@@ -44,8 +44,8 @@ def handle_register_acc(req):
         # Set default value for user register (type = Nongdan)
         obj.loaiUser = type_kh
         nhomKH = maNhomND
-        usercode = generate_usercode(nhomKH)
-        obj.usercode = usercode.upper()
+        user_id = generate_id(nhomKH)
+        obj.id = user_id.upper()
         obj.password = make_password(obj.password)
         # Create user
         obj.save()
@@ -55,24 +55,24 @@ def handle_register_acc(req):
     return ctx
 
 
-def generate_usercode(maNhom):
+def generate_id(maNhom):
     # Get last 2 number of year (2024 => get '24')
     current_year = str(datetime.now().year)[-2:]
     if maNhom == maNhomND:
         code = 'ND'
     else:
         return None
-    usercode_template = f'{code}{current_year}'
+    id_template = f'{code}{current_year}'
 
-    existing_usercodes = User.objects.filter(usercode__startswith=usercode_template).values_list('usercode', flat=True)
+    existing_ids = User.objects.filter(id__startswith=id_template).values_list('id', flat=True)
 
-    if not existing_usercodes:
-        new_usercode = f'{usercode_template}0001'
+    if not existing_ids:
+        new_id = f'{id_template}0001'
     else:
-        last_usercode = max(existing_usercodes)
-        last_sequence_number = int(last_usercode[-4:])
+        last_id = max(existing_ids)
+        last_sequence_number = int(last_id[-4:])
         new_sequence_number = last_sequence_number + 1
 
-        new_usercode = f'{usercode_template}{new_sequence_number:04d}'
+        new_id = f'{id_template}{new_sequence_number:04d}'
 
-    return new_usercode
+    return new_id

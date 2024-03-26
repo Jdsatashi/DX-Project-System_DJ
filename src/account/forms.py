@@ -5,13 +5,13 @@ from account.models import User
 from user_system.user_type.models import UserType
 
 
-def validate_unique_usercode(value):
-    if User.objects.filter(usercode=value).exists():
-        raise ValidationError("This user code is already in use.")
+def validate_unique_userid(value):
+    if User.objects.filter(id=value).exists():
+        raise ValidationError("This user id is already in use.")
 
 
 class CreateUserForm(forms.ModelForm):
-    usercode = forms.CharField(required=True, label='User Code', validators=[validate_unique_usercode])
+    user_id = forms.CharField(required=True, label='User Code', validators=[validate_unique_userid])
     username = forms.CharField(required=False)
     email = forms.EmailField(required=False)
     phone_number = forms.CharField(required=False)
@@ -27,13 +27,13 @@ class CreateUserForm(forms.ModelForm):
 
     class Meta:
         model = User
-        fields = ['usercode', 'username', 'email', 'phone_number', 'khuVuc', 'status', 'loaiUser']
+        fields = ['id', 'username', 'email', 'phone_number', 'khuVuc', 'status', 'loaiUser']
 
-    def clean_usercode(self):
-        usercode = self.cleaned_data.get('usercode')
-        if User.objects.filter(usercode=usercode).exists():
+    def clean_id(self):
+        user_id = self.cleaned_data.get('id')
+        if User.objects.filter(id=user_id).exists():
             raise ValidationError("This user code is already in use.")
-        return usercode
+        return user_id
 
 
 class RegisterForm(forms.ModelForm):

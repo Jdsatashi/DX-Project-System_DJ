@@ -77,8 +77,8 @@ def append_kh():
         phone = v[5] if v[5] != '' else None
         pw = v[0].lower() if v[10] == '' else v[10]
         hash_pw = make_password(pw)
-        data_user = {"usercode": v[0], "phone_number": phone, "loaiUser": type_kh, "password": hash_pw}
-        obj, created = User.objects.get_or_create(usercode=v[0], defaults={"phone_number": phone, "loaiUser": type_kh, "password": hash_pw})
+        data_user = {"id": v[0], "phone_number": phone, "loaiUser": type_kh, "password": hash_pw}
+        obj, created = User.objects.get_or_create(id=v[0], defaults={"phone_number": phone, "loaiUser": type_kh, "password": hash_pw})
         if created:
             print(f"User {v[0]} was created successfully.")
         else:
@@ -105,8 +105,8 @@ def append_nv():
         email = v[51] if v[51] != '' else None
         pw_hash = make_password(v[0].lower())
         data_user = {'': v[0], 'phone_number': phone, 'email': email, 'loaiUser': type_nv, 'password': pw_hash}
-        obj, created = User.objects.get_or_create(usercode=v[0], defaults={'phone_number': phone, 'email': email, 'loaiUser': type_nv, 'password': pw_hash})
-        print(obj.usercode)
+        obj, created = User.objects.get_or_create(id=v[0], defaults={'phone_number': phone, 'email': email, 'loaiUser': type_nv, 'password': pw_hash})
+        print(obj.id)
         if created:
             print(f"User {v[0]} was created successfully.")
         else:

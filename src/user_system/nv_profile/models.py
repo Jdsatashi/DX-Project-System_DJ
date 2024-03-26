@@ -31,7 +31,7 @@ class NVChucDanh(models.Model):
 
 
 class NVProfile(models.Model):
-    maNV = models.ForeignKey(User, to_field='usercode', null=False, on_delete=models.CASCADE)
+    maNV = models.ForeignKey(User, to_field='id', null=False, on_delete=models.CASCADE)
     maPhongBan = models.ForeignKey(NVPhongBan, to_field='maPhongBan', null=True, blank=False, on_delete=models.SET_NULL)
     maChucDanh = models.ForeignKey(NVChucDanh, to_field='maChucDanh', null=True, blank=False, on_delete=models.SET_NULL)
     fullname = models.CharField(max_length=255)

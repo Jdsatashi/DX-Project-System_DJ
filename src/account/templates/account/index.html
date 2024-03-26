@@ -6,7 +6,7 @@
     <div>
         {% for user in users %}
             <div class="card-simple w-[480px]">
-                <h2 class="card-title">{{ user.usercode }}{% if user.username != '' %}- {{ user.username }}{% endif %}</h2>
+                <h2 class="card-title">{{ user.id }}{% if user.username != '' %}- {{ user.username }}{% endif %}</h2>
                 {#<a href="{% url "user:user_item" usercode=user.usercode %}">Edit</a>#}
                 <div class="card-content">
                     <p>{{ user.email }}</p>

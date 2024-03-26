@@ -12,11 +12,11 @@ from account.models import User
 
 class CustomTokenObtainPairSerializer(TokenObtainPairSerializer):
     def validate(self, attrs):
-        usercode = attrs['username'].upper()
+        user_id = attrs['username'].upper()
         password = attrs['password']
 
         # Get user object for validating
-        user = User.objects.filter(usercode=usercode).first()
+        user = User.objects.filter(id=user_id).first()
 
         # Validating login request
         if user is None:
@@ -28,14 +28,14 @@ class CustomTokenObtainPairSerializer(TokenObtainPairSerializer):
         token = super().get_token(user)
         # Add custom data to token payload
         token['user_data'] = {
-            'usercode': user.usercode,
+            'user_id': user.id,
             'email': user.email,
             'phone_number': user.phone_number,
             'khuVuc': user.khuVuc,
             'status': user.status,
             'loaiUser': user.loaiUser.loaiUser if user.loaiUser else None,
         }
-        token['user_id'] = user.usercode
+        token['user_id'] = user.id
 
         return {
             'refresh': str(token),
@@ -45,28 +45,3 @@ class CustomTokenObtainPairSerializer(TokenObtainPairSerializer):
 
 class CustomTokenObtainPairView(TokenObtainPairView):
     serializer_class = CustomTokenObtainPairSerializer
-
-
-class MyTokenObtainPairSerializer(TokenObtainPairSerializer):
-    @classmethod
-    def get_token(cls, user):
-        token = super().get_token(user)
-        token['user_data'] = {
-            'usercode': user.usercode,
-            'username': user.username,
-            'email': user.email,
-            'phone_number': user.phone_number,
-            'khuVuc': user.khuVuc,
-            'status': user.status,
-            'loaiUser': user.loaiUser,
-        }
-        return token
-
-
-def get_tokens_for_user(user):
-    refresh = RefreshToken.for_user(user)
-
-    return {
-        'access': str(refresh.access_token),
-        'refresh': str(refresh),
-    }

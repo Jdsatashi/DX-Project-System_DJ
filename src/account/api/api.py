@@ -1,16 +1,17 @@
+import datetime
+import jwt
 import os
-import time, jwt, datetime
+import time
 
-from rest_framework import status
-
-from account.handle import handle_create_acc, handle_list_acc
-from account.models import User, LoginToken
-from account.api.serializers import UserSerializer
 from django.contrib.auth.hashers import check_password
 from django.http import HttpResponse, JsonResponse
-from rest_framework.exceptions import AuthenticationFailed
+from rest_framework import status
 from rest_framework.response import Response
 from rest_framework.views import APIView
+
+from account.api.serializers import UserSerializer
+from account.handle import handle_create_acc, handle_list_acc
+from account.models import User, LoginToken
 
 
 def api_create_user(req):
@@ -48,11 +49,11 @@ class ApiRegister(APIView):
 class ApiLogin(APIView):
     def post(self, request):
         # Get request data
-        usercode = request.data.get('usercode')
-        usercode = usercode.upper()
+        user_id = request.data.get('user_id')
+        user_id = user_id.upper()
         password = request.data.get('password')
         # Get user object for validating
-        user = User.objects.filter(usercode=usercode).first()
+        user = User.objects.filter(id=user_id).first()
         # Validating login request
         if user is None:
             return Response({'message': 'User not found'}, status.HTTP_401_UNAUTHORIZED)
@@ -61,7 +62,7 @@ class ApiLogin(APIView):
         # Set data for create jwt token
         expired = datetime.datetime.utcnow() + datetime.timedelta(minutes=60)
         payload = {
-            'id': usercode,
+            'id': user_id,
             'exp': expired,
             'iat': datetime.datetime.utcnow()
         }
@@ -73,7 +74,7 @@ class ApiLogin(APIView):
         response = Response()
         response.set_cookie(key='jwt', value=token, httponly=True)
         response.data = {
-            'message': f'Login success! Welcome {user.usercode}',
+            'message': f'Login success! Welcome {user.id}',
             'data': {
                 'user': UserSerializer(user).data,
                 'login_data': {
@@ -89,10 +90,9 @@ class ApiLogin(APIView):
 # Logout api
 class ApiLogout(APIView):
     def post(self, request):
-        usercode = request.data.get('usercode')
+        user_id = request.data.get('user_id')
         token = request.COOKIES.get('jwt')
-        print(usercode)
-        user = User.objects.filter(usercode=usercode.upper()).first()
+        user = User.objects.filter(id=user_id.upper()).first()
         if not user:
             return Response({'message': 'User not found'}, status=status.HTTP_401_UNAUTHORIZED)
         LoginToken.objects.get(user=user, token=token).delete()
@@ -124,10 +124,10 @@ class ApiTest(APIView):
         if not token:
             return Response({'message': 'unauthorized'})
         verify = verify_token(token)
-        usercode = verify.get('data').get('id')
+        user_id = verify.get('data').get('id')
         if not verify:
             return Response({'message': verify.get('message')})
-        user = User.objects.get(usercode=usercode)
+        user = User.objects.get(id=user_id)
         serializer = UserSerializer(user)
         return Response({'data': serializer.data})
 
