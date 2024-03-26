@@ -1,5 +1,8 @@
 import os
 import time, jwt, datetime
+
+from rest_framework import status
+
 from account.handle import handle_create_acc, handle_list_acc
 from account.models import User, LoginToken
 from account.api.serializers import UserSerializer
@@ -52,9 +55,9 @@ class ApiLogin(APIView):
         user = User.objects.filter(usercode=usercode).first()
         # Validating login request
         if user is None:
-            raise AuthenticationFailed(f'User not found!')
+            return Response({'message': 'User not found'}, status.HTTP_401_UNAUTHORIZED)
         if not check_password(password, user.password):
-            return Response({'message': 'Wrong password!'})
+            return Response({'message': 'Wrong password!'}, status=status.HTTP_401_UNAUTHORIZED)
         # Set data for create jwt token
         expired = datetime.datetime.utcnow() + datetime.timedelta(minutes=60)
         payload = {
@@ -79,6 +82,7 @@ class ApiLogin(APIView):
                 }
             }
         }
+        response.status_code = status.HTTP_200_OK
         return response
 
 
@@ -90,7 +94,7 @@ class ApiLogout(APIView):
         print(usercode)
         user = User.objects.filter(usercode=usercode.upper()).first()
         if not user:
-            return Response({'message': 'User not found', 'status': 401})
+            return Response({'message': 'User not found'}, status=status.HTTP_401_UNAUTHORIZED)
         LoginToken.objects.get(user=user, token=token).delete()
         response = Response()
         response.delete_cookie('jwt')
