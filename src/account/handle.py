@@ -7,7 +7,7 @@ from account.models import User
 from user_system.kh_nhomkh.models import NhomKH
 from user_system.kh_profile.models import KHProfile
 from user_system.user_type.models import UserType
-from utils.constants import type_kh, maNhomND
+from utils.constants import maNhomND, type_kh
 
 
 # Create new account

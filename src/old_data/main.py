@@ -9,8 +9,8 @@ from account.models import User
 from user_system.kh_nhomkh.models import NhomKH
 from user_system.kh_profile.models import KHProfile
 from user_system.nv_profile.models import NVChucDanh, NVProfile
-from utils.constants import old_data, type_kh, type_nv, maNhomND as maNhom, tenNhomND as tenNhom
-
+from utils.constants import (old_data, maNhomND as maNhom, tenNhomND as tenNhom
+, type_kh, type_nv)
 dotenv.load_dotenv()
 
 # Get env values
