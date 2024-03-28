@@ -1,12 +1,8 @@
 from django.contrib.auth.hashers import check_password
-from rest_framework import serializers
 from rest_framework.exceptions import AuthenticationFailed
-from rest_framework.response import Response
-from rest_framework_simplejwt.tokens import RefreshToken
-from rest_framework_simplejwt.views import TokenObtainPairView
 from rest_framework_simplejwt.serializers import TokenObtainPairSerializer
+from rest_framework_simplejwt.views import TokenObtainPairView
 
-from account.api.serializers import UserSerializer
 from account.models import User
 
 
@@ -26,8 +22,9 @@ class CustomTokenObtainPairSerializer(TokenObtainPairSerializer):
 
         # Generate token
         token = super().get_token(user)
+
         # Add custom data to token payload
-        token['user_data'] = {
+        token['user'] = {
             'user_id': user.id,
             'email': user.email,
             'phone_number': user.phone_number,
@@ -36,7 +33,6 @@ class CustomTokenObtainPairSerializer(TokenObtainPairSerializer):
             'loaiUser': user.loaiUser.loaiUser if user.loaiUser else None,
         }
         token['user_id'] = user.id
-
         return {
             'refresh': str(token),
             'access': str(token.access_token),
