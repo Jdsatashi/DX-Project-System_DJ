@@ -1,8 +1,11 @@
 # models.py
 from django.contrib import admin
-from django.contrib.auth.models import AbstractBaseUser, BaseUserManager, PermissionsMixin
+from django.contrib.auth.models import AbstractBaseUser, BaseUserManager
+from django.contrib.contenttypes.fields import GenericForeignKey
+from django.contrib.contenttypes.models import ContentType
 from django.db import models
 from rest_framework.authtoken.models import Token
+from django.contrib.auth.models import Permission
 
 from user_system.user_type.models import UserType
 
@@ -28,7 +31,7 @@ class CustomUserManager(BaseUserManager):
 
 
 # Self define user model attributes
-class User(AbstractBaseUser, PermissionsMixin):
+class User(AbstractBaseUser):
     id = models.CharField(primary_key=True, unique=True, null=False)
     username = models.CharField(max_length=255, unique=True, null=True, blank=True, default=None)
     email = models.EmailField(unique=True, null=True, blank=True, default=None)
@@ -38,8 +41,8 @@ class User(AbstractBaseUser, PermissionsMixin):
     status = models.CharField(max_length=40, null=True, default=None)
     loaiUser = models.ForeignKey(UserType, to_field='loaiUser', null=True, blank=False, on_delete=models.SET_NULL)
     timestamp = models.DateTimeField(auto_now_add=True)
-    nhomUser = models.ManyToManyField('NhomUser', blank=True, related_name='users_rela')
-    quyenUser = models.ManyToManyField('QuyenHanUser', blank=True, related_name='users_rela')
+    nhomUser = models.ManyToManyField('NhomQuyen', through='NhomQuyenUser', blank=True, related_name='users_rela')
+    quyenUser = models.ManyToManyField('Quyen', through='QuyenUser', blank=True, related_name='users_rela')
 
     # System auth django attribute
     is_active = models.BooleanField(default=True)
@@ -66,52 +69,6 @@ class User(AbstractBaseUser, PermissionsMixin):
         super().save(*args, **kwargs)
 
 
-# NhomUser as Role or Permission Groups
-class NhomUser(models.Model):
-    maNhom = models.CharField(primary_key=True, unique=True)
-    tenNhom = models.CharField(max_length=255)
-    moTa = models.TextField(null=True)
-    timestamp = models.DateTimeField(auto_now_add=True)
-    quyen = models.ManyToManyField('QuyenHanUser', related_name='nhomUser_rela')
-
-    class Meta:
-        db_table = 'users_nhomuser'
-
-
-# QuyenHanUser as Permission
-class QuyenHanUser(models.Model):
-    maQuyenHan = models.CharField(primary_key=True, unique=True)
-    tenQuyen = models.CharField(max_length=255, unique=True)
-    moTa = models.TextField(null=True)
-    timestamp = models.DateTimeField(auto_now_add=True)
-
-    class Meta:
-        db_table = 'users_quyenhan'
-
-
-class LoginToken(models.Model):
-    id = models.AutoField(primary_key=True, unique=True)
-    user = models.ForeignKey(User, on_delete=models.CASCADE)
-    token = models.CharField(max_length=255, null=False)
-    device = models.CharField(max_length=64, null=True, blank=True, default=None)
-    ip_address = models.CharField(max_length=64, null=True, blank=True, default=None)
-    status = models.CharField(max_length=64, default=None)
-    created_at = models.DateTimeField(auto_now_add=True)
-    expired_at = models.DateTimeField()
-
-    @classmethod
-    def delete_oldest_token(cls, user):
-        tokens = cls.objects.filter(user=user).order_by('created_at')
-        if tokens.count() >= 3:
-            oldest_token = tokens.first()
-            oldest_token.delete()
-
-    def save(self, *args, **kwargs):
-        if not self.pk:
-            self.delete_oldest_token(self.user)
-        super().save(*args, **kwargs)
-
-
 class XacThuc(models.Model):
     id = models.AutoField(primary_key=True, unique=True)
     user = models.ForeignKey(User, on_delete=models.CASCADE)
@@ -121,6 +78,51 @@ class XacThuc(models.Model):
     moTa = models.TextField(null=True, default=None)
     time_xac_thuc = models.DateTimeField()
     timestamp = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        db_table = 'users_xac_thuc'
+
+
+class Quyen(models.Model):
+    name = models.CharField(max_length=255, primary_key=True)
+    mota = models.TextField(null=True, default=None, blank=True)
+    timestamp = models.DateTimeField(auto_now_add=True)
+
+    content_type = models.ForeignKey(ContentType, on_delete=models.CASCADE)
+    object_id = models.CharField(max_length=255)
+    content_object = GenericForeignKey('content_type', 'object_id')
+
+    class Meta:
+        db_table = 'users_quyen'
+
+
+class NhomQuyen(models.Model):
+    name = models.CharField(max_length=255, primary_key=True)
+    mota = models.TextField(null=True, default=None, blank=True)
+    quyen = models.ManyToManyField(Quyen, blank=True)
+    allow = models.BooleanField(default=True)
+    timestamp = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        db_table = 'users_nhom'
+
+
+class QuyenUser(models.Model):
+    user = models.ForeignKey(User, on_delete=models.CASCADE)
+    quyen = models.ForeignKey(Quyen, on_delete=models.CASCADE)
+    allow = models.BooleanField(default=True)
+
+    class Meta:
+        db_table = 'users_quyen_user'
+
+
+class NhomQuyenUser(models.Model):
+    user = models.ForeignKey(User, on_delete=models.CASCADE)
+    nhom = models.ForeignKey(NhomQuyen, on_delete=models.CASCADE)
+    allow = models.BooleanField(default=True)
+
+    class Meta:
+        db_table = 'users_nhomQuyen_user'
 
 
 class UserAdmin(admin.ModelAdmin):
