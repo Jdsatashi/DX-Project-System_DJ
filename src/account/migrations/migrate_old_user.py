@@ -1,6 +1,5 @@
 import os
-from configparser import ConfigParser
-import psycopg2
+import time
 import pyodbc
 import dotenv
 from django.contrib.auth.hashers import make_password
@@ -9,49 +8,20 @@ from account.models import User
 from user_system.kh_nhomkh.models import NhomKH
 from user_system.kh_profile.models import KHProfile
 from user_system.nv_profile.models import NVChucDanh, NVProfile
-from utils.constants import (old_data, maNhomND as maNhom, tenNhomND as tenNhom
-, type_kh, type_nv)
+from user_system.user_type.models import UserType
+from utils.constants import (old_data, maNhomND as maNhom, tenNhomND as tenNhom)
+from django.db import migrations
+
 dotenv.load_dotenv()
-
-# Get env values
-server = os.environ.get('MSSQL_HOST')
-db_name = os.environ.get('MSSQL_DATABASE')
-user = os.environ.get('MSSQL_USER')
-password = os.environ.get('MSSQL_PASSWORD')
-
-
-# Configuration to connect PostgreSQL
-def load_config(filename='postgresql.ini', section='postgresql'):
-    parser = ConfigParser()
-    parser.read(filename)
-
-    # get section, default to postgresql
-    config = {}
-    if parser.has_section(section):
-        params = parser.items(section)
-        for param in params:
-            config[param[0]] = param[1]
-    else:
-        raise Exception(
-            'Section {0} not found in the {1} file'.format(section, filename))
-    return config
-
-
-# Connect to PostgreSQL
-def connect_pgs():
-    config = load_config()
-    """ Connect to the PostgreSQL database server """
-    try:
-        # connecting to the PostgreSQL server
-        with psycopg2.connect(**config) as conn:
-            print('Connected to the PostgreSQL server.')
-            return conn
-    except (psycopg2.DatabaseError, Exception) as error:
-        print(error)
 
 
 # Connect to MS SQL Server and get data of specific table
 def table_data(table_name: str):
+    # Get env values
+    server = os.environ.get('MSSQL_HOST')
+    db_name = os.environ.get('MSSQL_DATABASE')
+    user = os.environ.get('MSSQL_USER')
+    password = os.environ.get('MSSQL_PASSWORD')
     try:
         connection_string = f'DRIVER={{SQL Server}};SERVER={server};DATABASE={db_name};UID={user};PWD={password}'
         con = pyodbc.connect(connection_string)
@@ -66,7 +36,7 @@ def table_data(table_name: str):
         return None
 
 
-def append_kh():
+def append_kh(type_kh):
     ctx = {'users': [], 'profiles': []}
     data = table_data(old_data['tb_kh'])
     for k, v in enumerate(data):
@@ -77,7 +47,6 @@ def append_kh():
         phone = v[5] if v[5] != '' else None
         pw = v[0].lower() if v[10] == '' else v[10]
         hash_pw = make_password(pw)
-        data_user = {"id": v[0], "phone_number": phone, "loaiUser": type_kh, "password": hash_pw}
         obj, created = User.objects.get_or_create(id=v[0], defaults={"phone_number": phone, "loaiUser": type_kh, "password": hash_pw})
         if created:
             print(f"User {v[0]} was created successfully.")
@@ -88,23 +57,18 @@ def append_kh():
             print(f"User profile {v[0]} was created successfully.")
         else:
             print(f"User profile {v[0]} was existed, skipping...")
-        ctx['users'].append(data_user)
-        ctx['profiles'].append(data_profile)
-        print(data_profile)
     return ctx
 
 
-def append_nv():
+def append_nv(type_nv):
     ctx = {'users': [], 'profiles': []}
     data = table_data(old_data['tb_nhanvien'])
     for k, v in enumerate(data):
         if k == 1:
             print(v)
-        data_profile = {'maNV': v[0], 'name': f"{v[2]} {v[3]}", 'gender': v[5]}
         phone = v[28] if v[28] != '' else None
         email = v[51] if v[51] != '' else None
         pw_hash = make_password(v[0].lower())
-        data_user = {'': v[0], 'phone_number': phone, 'email': email, 'loaiUser': type_nv, 'password': pw_hash}
         obj, created = User.objects.get_or_create(id=v[0], defaults={'phone_number': phone, 'email': email, 'loaiUser': type_nv, 'password': pw_hash})
         print(obj.id)
         if created:
@@ -117,8 +81,6 @@ def append_nv():
             print(f"User profile {v[0]} was created successfully.")
         else:
             print(f"User profile {v[0]} was existed, skipping...")
-        ctx['users'].append(data_user)
-        ctx['profiles'].append(data_profile)
     return ctx
 
 
@@ -147,3 +109,32 @@ def create_maNhomKH():
         print(f"Created new maNhom: {maNhom}")
     else:
         print(f"maNhom {maNhom} already existed, passing...")
+
+
+def insertDB(apps, schema_editor):
+    start_time = time.time()
+    type_nv, _ = UserType.objects.get_or_create(loaiUser="nhanvien")
+    type_kh, _ = UserType.objects.get_or_create(loaiUser="khachhang")
+    create_chucdanh()
+    create_maNhomKH()
+    append_nv(type_nv)
+    append_kh(type_kh)
+    print(f"\n__FINISHED__")
+    print(f"Complete time: {time.time() - start_time} seconds")
+
+
+class Migration(migrations.Migration):
+
+    dependencies = [
+        ('contenttypes', '0002_remove_content_type_name'),
+        ('user_type', '0001_initial'),
+        ('account', '0001_initial'),
+        ('kh_nhomkh', '0001_initial'),
+        ('kh_profile', '0001_initial'),
+        ('nv_profile', '0001_initial'),
+        ('account', 'migrate_perm')
+    ]
+
+    operations = [
+        migrations.RunPython(insertDB),
+    ]
