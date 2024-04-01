@@ -1,17 +1,13 @@
-import datetime
 import jwt
 import os
 import time
 
-from django.contrib.auth.hashers import check_password
 from django.http import HttpResponse, JsonResponse
-from rest_framework import status
 from rest_framework.response import Response
 from rest_framework.views import APIView
 
 from account.api.serializers import UserSerializer
 from account.handle import handle_create_acc, handle_list_acc
-from account.models import User
 
 
 def api_create_user(req):
@@ -44,6 +40,7 @@ class ApiRegister(APIView):
         serializer.save()
         return Response(serializer.data)
 
+
 # Checking token function
 def verify_token(token):
     try:
@@ -57,6 +54,7 @@ def verify_token(token):
         'valid': True,
         'data': payload
     }
+
 
 # Get public ip of client
 def get_client_ip(request):

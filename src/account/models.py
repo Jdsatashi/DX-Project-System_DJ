@@ -1,6 +1,6 @@
 # models.py
 from django.contrib import admin
-from django.contrib.auth.models import AbstractBaseUser, BaseUserManager
+from django.contrib.auth.models import AbstractBaseUser, BaseUserManager, PermissionsMixin
 from django.contrib.contenttypes.fields import GenericForeignKey
 from django.contrib.contenttypes.models import ContentType
 from django.db import models
@@ -27,14 +27,17 @@ class CustomUserManager(BaseUserManager):
         extra_fields.setdefault('is_staff', True)
         extra_fields.setdefault('is_superuser', True)
         user = self.create_user(username, email, phone_number, password, **extra_fields)
+        quyens = Quyen.objects.all()
+        for i, q in enumerate(quyens):
+            user.quyenUser.add(q)
         return user
 
 
 # Self define user model attributes
-class User(AbstractBaseUser):
+class User(AbstractBaseUser, PermissionsMixin):
     id = models.CharField(primary_key=True, unique=True, null=False)
     username = models.CharField(max_length=255, unique=True, null=True, blank=True, default=None)
-    email = models.EmailField(unique=True, null=True, blank=True, default=None)
+    email = models.EmailField(unique=False, null=True, blank=True, default=None)
     phone_number = models.CharField(max_length=128, unique=False, null=True, blank=True, default=None)
     password = models.CharField(max_length=256, null=False)
     khuVuc = models.CharField(max_length=100, null=True, blank=True, default=None)
@@ -68,9 +71,11 @@ class User(AbstractBaseUser):
         self.id = self.id.upper()
         super().save(*args, **kwargs)
 
+    def has_quyen(self, permission):
+        return self.quyenUser.filter(name=permission).exists()
+
 
 class XacThuc(models.Model):
-    id = models.AutoField(primary_key=True, unique=True)
     user = models.ForeignKey(User, on_delete=models.CASCADE)
     xac_thuc = models.BooleanField(default=False)
     ma_xac_thuc = models.CharField(max_length=64)
@@ -83,12 +88,13 @@ class XacThuc(models.Model):
         db_table = 'users_xac_thuc'
 
 
+# Quyen as known as Permissions
 class Quyen(models.Model):
     name = models.CharField(max_length=255, primary_key=True)
     mota = models.TextField(null=True, default=None, blank=True)
     timestamp = models.DateTimeField(auto_now_add=True)
 
-    content_type = models.ForeignKey(ContentType, on_delete=models.CASCADE)
+    content_type = models.ForeignKey(ContentType, null=True, blank=True, on_delete=models.CASCADE)
     object_id = models.CharField(max_length=255)
     content_object = GenericForeignKey('content_type', 'object_id')
 
@@ -96,6 +102,7 @@ class Quyen(models.Model):
         db_table = 'users_quyen'
 
 
+# NhomQuyen as a Permissions Group or Roles User
 class NhomQuyen(models.Model):
     name = models.CharField(max_length=255, primary_key=True)
     mota = models.TextField(null=True, default=None, blank=True)
@@ -107,6 +114,7 @@ class NhomQuyen(models.Model):
         db_table = 'users_nhom'
 
 
+# Table/Model middleman of Quyen and User
 class QuyenUser(models.Model):
     user = models.ForeignKey(User, on_delete=models.CASCADE)
     quyen = models.ForeignKey(Quyen, on_delete=models.CASCADE)
@@ -116,6 +124,7 @@ class QuyenUser(models.Model):
         db_table = 'users_quyen_user'
 
 
+# Table/Model middleman of Nhom and User
 class NhomQuyenUser(models.Model):
     user = models.ForeignKey(User, on_delete=models.CASCADE)
     nhom = models.ForeignKey(NhomQuyen, on_delete=models.CASCADE)

@@ -1,5 +1,6 @@
 from datetime import datetime
 
+from django.contrib.auth import authenticate
 from django.contrib.auth.hashers import make_password
 
 from account.forms import CreateUserForm, RegisterForm
@@ -7,7 +8,7 @@ from account.models import User
 from user_system.kh_nhomkh.models import NhomKH
 from user_system.kh_profile.models import KHProfile
 from user_system.user_type.models import UserType
-from utils.constants import maNhomND, type_kh
+from utils.constants import maNhomND
 
 
 # Create new account
@@ -42,6 +43,7 @@ def handle_register_acc(req):
     if form.is_valid() and req.method == 'POST':
         obj = form.save(commit=False)
         # Set default value for user register (type = Nongdan)
+        type_kh, _ = UserType.objects.get_or_create(loaiUser="khachhang")
         obj.loaiUser = type_kh
         nhomKH = maNhomND
         user_id = generate_id(nhomKH)
@@ -52,6 +54,22 @@ def handle_register_acc(req):
         # Handle create user profile
         objNhomND = NhomKH.objects.get(maNhom=maNhomND)
         KHProfile.objects.create(maKH=obj, maNhomKH=objNhomND)
+    return ctx
+
+
+def handle_login_acc(req):
+    ctx = {}
+    if req.method == 'POST':
+        user_id = req.POST.get('user_id')
+        password = req.POST.get('password')
+        user = None
+        try:
+            user = authenticate(req, id=user_id.upper(), password=password)
+            print(user)
+            print("logged in")
+        except Exception as e:
+            print(e)
+        ctx['user'] = user
     return ctx
 
 

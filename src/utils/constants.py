@@ -8,7 +8,5 @@ old_data = {
     "tb_nhomKH": "tbl_QLTT_DanhMucNhomKhachHang"
 }
 api_path = 'api/v1/'
-type_nv, _ = UserType.objects.get_or_create(loaiUser="nhanvien")
-type_kh, _ = UserType.objects.get_or_create(loaiUser="khachhang")
 maNhomND = 'DMNKH000005'
 tenNhomND = 'Khách hàng Nông dân'
