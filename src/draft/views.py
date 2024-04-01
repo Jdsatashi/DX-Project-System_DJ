@@ -1,12 +1,26 @@
+from django.contrib.contenttypes.models import ContentType
+from django.http import HttpResponse
 from django.shortcuts import render, redirect
+from rest_framework import response
+
+from account.validate_quyen import quyen
 # Create your views here.
 from .handle import handle_create_group_draft, handle_get_list_draft, handle_create_draft, handle_draft_id, \
     handle_delete_draft
+from draft.models import Draft, GroupDraft
 
+# draft_content = ContentType.objects.get_for_model(Draft)
+# draft_group_content = ContentType.objects.get_for_model(GroupDraft)
 
+# draft_name = f"{draft_content.app_label}_{draft_content.model}"
+# draft_group_name = f"{draft_group_content.app_label}_{draft_group_content.model}"
+draft_group_name = ""
+
+@quyen(f"create_{draft_group_name}")
 def create_group_draft(request):
     context = handle_create_group_draft(request)
     return render(request, 'draft/group/create.html', context)
+    # return HttpResponse(context)
 
 
 def list_draft(request):
