@@ -23,6 +23,8 @@ ALLOWED_HOSTS = []
 # Customize authentication
 AUTH_USER_MODEL = 'account.User'
 
+DJANGO_ALLOW_ASYNC_UNSAFE=True
+
 # Application definition
 INSTALLED_APPS = [
     'django.contrib.admin',
@@ -42,7 +44,6 @@ INSTALLED_APPS = [
     'account',
     # Old data app
     'qlsx.khach_hang',
-    'old_data',
     # User system structure
     'user_system.kh_nhomkh',
     'user_system.kh_profile',
@@ -211,7 +212,7 @@ PASSWORD_HASHERS = [
 # Internationalization
 # https://docs.djangoproject.com/en/5.0/topics/i18n/
 
-LANGUAGE_CODE = 'en-us'
+LANGUAGE_CODE = 'vi'    # 'en-us'
 
 TIME_ZONE = 'Asia/Ho_Chi_Minh'
 
