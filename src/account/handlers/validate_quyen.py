@@ -6,6 +6,7 @@ from rest_framework import permissions
 
 
 def quyen(model, method):
+    """ quyen use as class method @quyen for view function"""
     model_content = ContentType.objects.get_for_model(model)
 
     required_perm = f"{method}_{model_content.app_label}_{model_content.model}"
@@ -44,7 +45,7 @@ class ValidateQuyenRest(permissions.BasePermission):
         except AttributeError:
             view_func = None
         try:
-            module_name = view_func.__qualname__.split('.')[2]  # Lấy phần tên nằm ở vị trí thứ 3
+            module_name = view_func.__qualname__.split('.')[2]
         except IndexError:
             module_name = view.__module__.split('.')[0]
         print("---------- TEST ----------")
