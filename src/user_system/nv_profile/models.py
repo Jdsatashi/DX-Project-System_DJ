@@ -7,7 +7,7 @@ from account.models import User
 class NVPhongBan(models.Model):
     maPhongBan = models.CharField(max_length=50, primary_key=True, unique=True)
     tenPhongBan = models.CharField(max_length=255, null=False, blank=False)
-    moTa = models.TextField(null=True, blank=True)
+    mota = models.TextField(null=True, blank=True)
     timestamp = models.DateTimeField(auto_now_add=True)
 
     class Meta:
@@ -20,7 +20,7 @@ class NVPhongBan(models.Model):
 class NVChucDanh(models.Model):
     maChucDanh = models.CharField(max_length=50, primary_key=True, unique=True)
     tenChucDanh = models.CharField(max_length=255, null=False, blank=False)
-    moTa = models.TextField(null=True, blank=True)
+    mota = models.TextField(null=True, blank=True)
     timestamp = models.DateTimeField(auto_now_add=True)
 
     class Meta:
