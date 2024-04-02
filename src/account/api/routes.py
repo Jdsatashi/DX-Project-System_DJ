@@ -1,6 +1,6 @@
 from django.urls import path
 
-from account.api.api import api_list_user, api_create_user, ApiRegister
+from account.api.views import api_list_user, api_create_user, ApiRegister
 
 app_name = 'api_account'
 

@@ -1,20 +1,22 @@
-import inspect
 from functools import wraps
 
-from django.apps import apps
-from django.shortcuts import render
 from django.contrib.contenttypes.models import ContentType
-from django.urls import resolve
+from django.shortcuts import render
 from rest_framework import permissions
 
-from account.models import Quyen
 
+def quyen(model, method):
+    model_content = ContentType.objects.get_for_model(model)
 
-def quyen(required_permissions):
+    required_perm = f"{method}_{model_content.app_label}_{model_content.model}"
+
     def decorator(view_func):
         @wraps(view_func)
         def wrapped_view(request, *args, **kwargs):
-            if not request.user.has_perm(required_permissions):
+            if not request.user.is_authenticated:
+                ctx = {'message': "Bạn chưa đăng nhập."}
+                return render(request, 'errors/403.html', ctx)
+            if not request.user.has_quyen(required_perm):
                 ctx = {'message': "Bạn không có quyền truy cập vào trang này."}
                 return render(request, 'errors/403.html', ctx)
             return view_func(request, *args, **kwargs)
@@ -23,9 +25,13 @@ def quyen(required_permissions):
 
 
 class ValidateQuyenRest(permissions.BasePermission):
-    def __init__(self, model_name):
+    """
+    ValidateQuyenRest is a custom permission for Rest Framework API, use functools.partial to add attribute.
+    Example: partial(ValidateQuyenRest, model=models.Test)
+    """
+    def __init__(self, model):
         super().__init__()
-        self.model_name = model_name
+        self.model = model
 
     def has_permission(self, request, view):
         # Authenticate
@@ -46,11 +52,10 @@ class ValidateQuyenRest(permissions.BasePermission):
         print(f"module_name: {module_name}")
         # Get action of function
         action = view.action
-        model_name = apps.get_model(module_name, self.model_name)
-        content_type = ContentType.objects.get_for_model(model_name)
+        content_type = ContentType.objects.get_for_model(self.model)
 
         required_permission = f'{action}_{module_name}_{content_type.model}'
         print(required_permission)
         print(f"Checking quyền: {user.has_quyen(required_permission)}")
         print(f"Checking permission: {user.has_perm(required_permission)}")
-        return user.has_perm(required_permission)
+        return user.has_quyen(required_permission)

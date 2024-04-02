@@ -1,5 +1,5 @@
-from .forms import CreateGroupDraftForm, CreateDraftForm
-from .models import GroupDraft, Draft
+from draft.forms import CreateGroupDraftForm, CreateDraftForm
+from draft.models import GroupDraft, Draft
 
 
 def handle_create_group_draft(request):
