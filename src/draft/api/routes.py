@@ -1,7 +1,7 @@
 from django.urls import path
 from rest_framework.routers import DefaultRouter
 
-from draft.api.api import GenericDraft, GenericGroupDraft
+from draft.api.views import GenericDraft, GenericGroupDraft
 
 app_name = 'api_draft'
 router = DefaultRouter()
