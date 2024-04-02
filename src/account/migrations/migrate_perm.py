@@ -10,7 +10,7 @@ def create_initial_permission(apps, schema_editor):
     for i, content_type in enumerate(content_types):
         if i > 6:
             quyen_name = f'{content_type.app_label}_{content_type.model}'
-            tasks = ['list', 'create', 'retrieve', 'update', 'delete']
+            tasks = ['list', 'create', 'retrieve', 'update', 'partial_update', 'destroy']
             for task in tasks:
                 quyen_name_ = f'{task}_{quyen_name}'
                 Quyen.objects.create(name=quyen_name_, mota=f'{task.capitalize()} {content_type.model}')
