@@ -1,6 +1,6 @@
 from django.shortcuts import render
 
-from account.handle import handle_create_acc, handle_register_acc, handle_login_acc
+from account.handlers.handle import handle_create_acc, handle_register_acc, handle_login_acc
 
 
 # Create your views here.
