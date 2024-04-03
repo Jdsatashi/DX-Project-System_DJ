@@ -24,16 +24,16 @@ def create_draft(request):
     return render(request, "draft/create.html", context)
 
 
-def draft_item(request, id):
-    context = handle_draft_id(request, id)
+def draft_item(request, pk):
+    context = handle_draft_id(request, pk)
     if context == "direct":
         return redirect("draft:draft_item", id=id)
     return render(request, "draft/show.html", context)
 
 
-def draft_delete(request, id):
-    is_deleted = handle_delete_draft(request, id)
+def draft_delete(request, pk):
+    is_deleted = handle_delete_draft(request, pk)
     if is_deleted:
         return redirect("draft:list_draft")
     else:
-        return redirect("draft:draft_item", id=id)
+        return redirect("draft:draft_item", pk=pk)
