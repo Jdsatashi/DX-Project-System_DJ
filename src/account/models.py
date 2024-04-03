@@ -74,6 +74,14 @@ class User(AbstractBaseUser, PermissionsMixin):
     def has_quyen(self, permission):
         return self.quyenUser.filter(name=permission).exists()
 
+    def is_allow(self, permission):
+        has_quyen = self.has_quyen(permission)
+        if has_quyen:
+            quyen = self.quyenUser.filter(name=permission).first()
+            quyen_user = QuyenUser.objects.get(user=self,quyen=quyen)
+            return quyen_user.allow
+        return has_quyen
+
 
 class XacThuc(models.Model):
     user = models.ForeignKey(User, on_delete=models.CASCADE)
