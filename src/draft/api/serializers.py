@@ -1,19 +1,20 @@
-import asyncio
-
-from asgiref.sync import sync_to_async
 from django.contrib.contenttypes.models import ContentType
 from rest_framework import serializers
 
-from account.models import Quyen, User
+from account.handlers.restrict_serializer import BaseRestrictSerializer, split_data
+from account.models import Quyen, User, NhomQuyen
 from draft.models import Draft, GroupDraft
 from utils.constants import acquy
 
 
 def handle_restrict(data, _id):
     if data.get('restrict', False):
-        users = data.get('allow_users', [])
-        print(users)
-        actions = acquy.get('view')
+        allow_users = data['allow_users'] if data['allow_users'] is not None else []
+        allow_nhoms = data['allow_nhom'] if data['allow_nhom'] is not None else []
+        restrict_users = data['restrict_users'] if data['restrict_users'] is not None else []
+        restrict_nhoms = data['restrict_nhom'] if data['restrict_nhom'] is not None else []
+        actions = acquy.get('full')
+        user_actions = data.get('allow_actions', [])
         content = ContentType.objects.get_for_model(Draft)
         quyen_name = f'{content.app_label}_{content.model}_{_id}'
         list_quyen = list()
@@ -24,45 +25,43 @@ def handle_restrict(data, _id):
                 mota=f"{action.capitalize()} {content.model} - {_id}",
                 object_id=str(_id)
             )
-            list_quyen.append(_quyen_name)
+            if action in acquy.get(user_actions[0]):
+                list_quyen.append(_quyen_name)
+        add_quyen_users(allow_users, list_quyen, True)
+        add_quyen_nhoms(allow_nhoms, list_quyen, True)
+        add_quyen_users(restrict_users, list_quyen, False)
+        add_quyen_nhoms(restrict_nhoms, list_quyen, False)
+
+
+def add_quyen_users(users: list, quyens: list, allow: bool):
+    if len(users) > 0 and users[0] != '':
         for user_id in users:
             user = User.objects.get(id=user_id.upper())
-            for quyen in list_quyen:
-                user.quyenUser.add(quyen, through_defaults={'allow': True})
+            for quyen in quyens:
+                user.quyenUser.add(quyen, through_defaults={'allow': allow})
 
 
-class DraftSerializer(serializers.ModelSerializer):
+def add_quyen_nhoms(nhoms: list, quyens: list, allow: bool):
+    if len(nhoms) > 0 and nhoms[0] != '':
+        for nhom_id in nhoms:
+            nhom = NhomQuyen.objects.get(name=nhom_id)
+            for quyen in quyens:
+                nhom.quyen.add(quyen, through_defaults={'allow': allow})
+
+
+class DraftSerializer(BaseRestrictSerializer):
     class Meta:
         model = Draft
         fields = '__all__'
 
-    restrict = serializers.BooleanField(required=False)
-    allow_nhom = serializers.ListField(child=serializers.CharField(), required=False)
-    restrict_nhom = serializers.ListField(child=serializers.CharField(), required=False)
-    allow_users = serializers.ListField(child=serializers.CharField(), required=False)
-    restrict_users = serializers.ListField(child=serializers.CharField(), required=False)
-
     def create(self, validated_data):
         print(validated_data)
-        restrict = validated_data.pop('restrict', False)
-        allow_nhom = validated_data.pop('allow_nhom', None)
-        restrict_nhom = validated_data.pop('restrict_nhom', None)
-        allow_users = validated_data.pop('allow_users', None)
-        restrict_users = validated_data.pop('restrict_users', None)
-        data = {
-            "restrict": restrict,
-            "allow_nhom": allow_nhom,
-            "restrict_nhom": restrict_nhom,
-            "allow_users": allow_users,
-            "restrict_users": restrict_users,
-        }
+        data, quyen_data = split_data(validated_data)
+        restrict = quyen_data.get('restrict')
         print(data)
-        if 'restrict' in validated_data:
-            print("__________ TEST __________")
-            print(restrict)
-        instance = super().create(validated_data)
+        instance = super().create(data)
         if restrict:
-            handle_restrict(data, instance.id)
+            handle_restrict(quyen_data, instance.id)
         return instance
 
 
