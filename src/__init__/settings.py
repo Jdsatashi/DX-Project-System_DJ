@@ -42,8 +42,6 @@ INSTALLED_APPS = [
     # My app
     'draft',
     'account',
-    # Old data app
-    'qlsx.khach_hang',
     # User system structure
     'user_system.kh_nhomkh',
     'user_system.kh_profile',
