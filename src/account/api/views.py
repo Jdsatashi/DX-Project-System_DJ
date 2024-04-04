@@ -13,23 +13,6 @@ def api_create_user(req):
     return HttpResponse(ctx, content_type='application/json')
 
 
-def api_list_user(request):
-    start = time.time()
-    token = request.COOKIES.get('token')
-    ctx = {}
-    if not token:
-        ctx['message'] = 'Unauthorized'
-        return JsonResponse(ctx)
-    ctx['token'] = token
-    ctx = handle_list_acc(request)
-    ctx = list(ctx['users'].values())
-    for user in ctx:
-        user.pop('last_login')
-        user.pop('is_superuser')
-    print(time.time() - start)
-    return JsonResponse(ctx)
-
-
 # Register api view
 class ApiRegister(APIView):
     def post(self, request):
