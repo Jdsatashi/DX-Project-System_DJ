@@ -78,9 +78,18 @@ class User(AbstractBaseUser, PermissionsMixin):
         has_quyen = self.has_quyen(permission)
         if has_quyen:
             quyen = self.quyenUser.filter(name=permission).first()
-            quyen_user = QuyenUser.objects.get(user=self,quyen=quyen)
+            quyen_user = QuyenUser.objects.get(user=self, quyen=quyen)
             return quyen_user.allow
         return has_quyen
+
+    def has_nhom_with_quyen(self, permission):
+        nhom_user = self.nhomUser.all()
+        valid = False
+        for nhom in nhom_user:
+            valid = nhom.nhom_has_quyen(permission)
+            if valid:
+                break
+        return valid
 
 
 class XacThuc(models.Model):
@@ -120,6 +129,10 @@ class NhomQuyen(models.Model):
 
     class Meta:
         db_table = 'users_nhom'
+
+    def nhom_has_quyen(self, permission):
+        quyen = self.quyen.filter(name=permission)
+        return quyen.exists() and self.allow
 
 
 # Table/Model middleman of Quyen and User
