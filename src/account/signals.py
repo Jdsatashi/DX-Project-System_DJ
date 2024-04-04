@@ -4,7 +4,7 @@ from account.models import Quyen, User
 
 
 @receiver(post_save, sender=Quyen)
-def update_permissions(sender, instance, created, **kwargs):
+def add_quyen_to_superuser(sender, instance, created, **kwargs):
     if created:
         superusers = User.objects.filter(is_superuser=True)
 
