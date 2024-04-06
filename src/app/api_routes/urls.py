@@ -1,11 +1,10 @@
-from django.urls import path, include
+from django.urls import path
 
 from rest_framework_simplejwt.views import (
-    TokenObtainPairView,
     TokenRefreshView,
 )
 
-from __init__.api_routes.handlers import CustomTokenObtainPairView
+from app.api_routes.handlers import CustomTokenObtainPairView
 
 app_name = 'api_token'
 
