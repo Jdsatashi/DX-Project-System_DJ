@@ -53,6 +53,9 @@ class ValidateQuyenRest(permissions.BasePermission):
         self.model = model
 
     def has_permission(self, request, view):
+        print(f"-------- Test --------")
+        if request.path == '/api_schema':
+            return True
         # Authenticate
         user = request.user
         if not user.is_authenticated:
