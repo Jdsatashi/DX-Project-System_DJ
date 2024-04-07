@@ -7,6 +7,17 @@ from utils.helpers import value_or_none
 
 # Create user serializer for rest api form
 class UserSerializer(serializers.ModelSerializer):
+    # Field meta
+    class Meta:
+        model = User
+        fields = ['id', 'username', 'email', 'phone_number', 'khuVuc', 'status', 'loaiUser']
+        extra_kwargs = {
+            'phone_number': {'required': False},
+            'username': {'required': False},
+            'email': {'required': False},
+            'password': {'write_only': True}
+        }
+
     def create(self, validated_data):
         # Set fields = None/Null when it's blank
         validated_data['username'] = value_or_none(validated_data['username'], '', None)
@@ -18,17 +29,6 @@ class UserSerializer(serializers.ModelSerializer):
         validated_data['password'] = pw_hash
 
         return super().create(validated_data)
-
-    # Field meta
-    class Meta:
-        model = User
-        fields = ['id', 'username', 'email', 'phone_number', 'khuVuc', 'status', 'loaiUser']
-        extra_kwargs = {
-            'phone_number': {'required': False},
-            'username': {'required': False},
-            'email': {'required': False},
-            'password': {'write_only': True}
-        }
 
 
 class NhomQuyenSerializer(serializers.ModelSerializer):
