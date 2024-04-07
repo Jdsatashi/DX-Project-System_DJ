@@ -9,7 +9,7 @@ from account.models import Quyen
 
 def quyen(model, method):
     """ quyen use as class method @quyen for view function"""
-    model_content = ContentType.objects.get_for_model(model)
+    model_content = "ContentType.objects.get_for_model(model)"
 
     # Create decorator function
     def decorator(view_func):

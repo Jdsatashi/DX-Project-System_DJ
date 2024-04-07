@@ -87,7 +87,7 @@ def append_nv(type_nv):
 def create_chucdanh():
     data = table_data(old_data['tb_chucdanh'])
     for k, v in enumerate(data):
-        obj, created = NVChucDanh.objects.get_or_create(maChucDanh=v[0], defaults={'tenChucDanh': v[1], 'moTa': v[2]})
+        obj, created = NVChucDanh.objects.get_or_create(maChucDanh=v[0], defaults={'tenChucDanh': v[1], 'mota': v[2]})
         if created:
             print(f"Created new chucDanh: {v[1]}")
         else:
@@ -126,7 +126,6 @@ def insertDB(apps, schema_editor):
 class Migration(migrations.Migration):
 
     dependencies = [
-        ('contenttypes', '0002_remove_content_type_name'),
         ('user_type', '0001_initial'),
         ('account', '0001_initial'),
         ('kh_nhomkh', '0001_initial'),

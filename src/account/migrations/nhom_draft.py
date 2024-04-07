@@ -14,7 +14,7 @@ def create_initial_permission(apps, schema_editor):
 class Migration(migrations.Migration):
 
     dependencies = [
-        ('account', '0001_alter_user_last_login'),
+        ('account', 'migrate_old_user'),
     ]
 
     operations = [

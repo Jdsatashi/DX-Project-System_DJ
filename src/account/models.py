@@ -1,11 +1,8 @@
 # models.py
-from django.contrib import admin
 from django.contrib.auth.models import AbstractBaseUser, BaseUserManager, PermissionsMixin
 from django.contrib.contenttypes.fields import GenericForeignKey
 from django.contrib.contenttypes.models import ContentType
 from django.db import models
-from rest_framework.authtoken.models import Token
-from django.contrib.auth.models import Permission
 
 from user_system.user_type.models import UserType
 
