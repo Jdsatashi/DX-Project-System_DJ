@@ -4,18 +4,18 @@ from django.contrib.contenttypes.models import ContentType
 from django.shortcuts import render
 from rest_framework import permissions
 
-from account.models import Quyen
+from account.models import Perm
 
 
-def quyen(model, method):
-    """ quyen use as class method @quyen for view function"""
+def perm(model, method):
+    """ perm use as class method @perm for view function"""
     model_content = "ContentType.objects.get_for_model(model)"
 
     # Create decorator function
     def decorator(view_func):
         @wraps(view_func)
         def wrapped_view(request, *args, **kwargs):
-            # Get string quyen name
+            # Get string perm name
             required_perm = f"{method}_{model_content.app_label}_{model_content.model}"
             # Get primary key if exist
             pk = kwargs.get('pk')
@@ -25,15 +25,15 @@ def quyen(model, method):
                 return render(request, 'errors/403.html', ctx)
             # Block message
             ctx = {'message': "Bạn không có quyền truy cập vào trang này."}
-            # Check user has quyen
-            check_quyen = request.user.has_quyen(required_perm)
+            # Check user has perm
+            check_perm = request.user.is_perm(required_perm)
             # Return when false
-            if not check_quyen:
+            if not check_perm:
                 return render(request, 'errors/403.html', ctx)
-            # If user has quyen, check PK
+            # If user has perm, check PK
             if pk:
                 required_perm = f"{required_perm}_{pk}"
-                if not check_quyen and not request.user.has_quyen(required_perm):
+                if not check_perm and not request.user.is_perm(required_perm):
                     return render(request, 'errors/403.html', ctx)
             return view_func(request, *args, **kwargs)
 
@@ -42,10 +42,10 @@ def quyen(model, method):
     return decorator
 
 
-class ValidateQuyenRest(permissions.BasePermission):
+class ValidatePermRest(permissions.BasePermission):
     """
-    ValidateQuyenRest is a custom permission for Rest Framework API, use functools.partial to add attribute.
-    Example: partial(ValidateQuyenRest, model=models.Test)
+    ValidatePermRest is a custom permission for Rest Framework API, use functools.partial to add attribute.
+    Example: partial(ValidatePermRest, model=models.Test)
     """
 
     def __init__(self, model):
@@ -53,7 +53,7 @@ class ValidateQuyenRest(permissions.BasePermission):
         self.model = model
 
     def has_permission(self, request, view):
-        print(f"-------- Test --------")
+        # Allow showing on api schema
         if request.path == '/api_schema':
             return True
         # Authenticate
@@ -75,32 +75,33 @@ class ValidateQuyenRest(permissions.BasePermission):
         content_type = ContentType.objects.get_for_model(self.model)
         # Merge string from above data to generated permission name
         required_permission = f'{action}_{module_name}_{content_type.model}'
-        # Check if user or user_nhom has quyen
-        user_nhom_perm = user.has_nhom_with_quyen(required_permission)
-        user_perm = user.has_quyen(required_permission)
+        # Check if user or user_nhom has perm
+        user_nhom_perm = user.is_group_has_perm(required_permission)
+        user_perm = user.is_perm(required_permission)
         # Check if object has PK
         if object_pk is not None:
-            # Add PK to string quyen
+            # Add PK to string perm
             required_permission = f"{required_permission}_{object_pk}"
-            # Checking quyen with PK is exist
-            quyen = quyen_exist({'name': required_permission})
-            # If quyen PK exist, handling validate quyen user
-            if quyen is not None:
-                # Check if user or user_nhom has quyen PK
+            # Checking perm with PK is exist
+            perm = perm_exist({'name': required_permission})
+            # If perm PK exist, handling validate perm user
+            if perm is not None:
+                # Check if user or user_nhom has perm PK
                 user_perm = user.is_allow(required_permission)
-                user_nhom_perm = user.has_nhom_with_quyen(required_permission)
-                # If user or nhom user has quyen, return True
+                user_nhom_perm = user.is_group_has_perm(required_permission)
+                # If user or nhom user has perm, return True
                 return user_nhom_perm or user_perm
-            # Return True (not required quyen) when object with PK doesn't required Quyen PK
+            # Return True (not required perm) when object with PK doesn't required perm PK
             return True
-        # If user or nhom user has quyen, return True
+        # If user or nhom user has perm, return True
         return user_nhom_perm or user_perm
 
 
-def quyen_exist(quyen: dict):
-    # Validate quyen is dictionary and quyen has value
-    if not isinstance(quyen, dict) or quyen is None:
-        raise ValueError("quyen must be a dictionary {'key': value}.")
+# Check if permission exist
+def perm_exist(perm: dict):
+    # Validate perm is dictionary and perm has value
+    if not isinstance(perm, dict) or perm is None:
+        raise ValueError("perm must be a dictionary {'key': value}.")
 
-    q = Quyen.objects.filter(name=quyen.get('name'))
+    q = Perm.objects.filter(name=perm.get('name'))
     return q.first() if q.exists() else None
