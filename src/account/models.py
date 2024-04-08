@@ -36,7 +36,7 @@ class User(AbstractBaseUser, PermissionsMixin):
     username = models.CharField(max_length=255, unique=True, null=True, blank=True, default=None)
     email = models.EmailField(unique=False, null=True, blank=True, default=None)
     phone_number = models.CharField(max_length=128, unique=False, null=True, blank=True, default=None)
-    password = models.CharField(max_length=256, null=False)
+    password = models.CharField(max_length=512, null=False)
     region = models.CharField(max_length=100, null=True, blank=True, default=None)
     status = models.CharField(max_length=40, null=True, default=None)
     user_type = models.ForeignKey(UserType, to_field='user_type', null=True, blank=False, on_delete=models.SET_NULL)
