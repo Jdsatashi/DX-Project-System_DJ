@@ -1,12 +1,12 @@
 from django.shortcuts import render, redirect
 
-from account.handlers.validate_quyen import quyen
+from account.handlers.validate_perm import perm
 from draft.handlers.handle import handle_create_group_draft, handle_get_list_draft, handle_create_draft, handle_draft_id, \
     handle_delete_draft
 from draft.models import GroupDraft
 
 
-@quyen(GroupDraft, 'create')
+@perm(GroupDraft, 'create')
 def create_group_draft(request):
     context = handle_create_group_draft(request)
     return render(request, 'draft/group/create.html', context)

@@ -7,7 +7,7 @@ from rest_framework_simplejwt.authentication import JWTAuthentication
 
 from account.api.serializers import UserSerializer
 from account.handlers.handle import handle_create_acc
-from account.handlers.validate_quyen import ValidateQuyenRest
+from account.handlers.validate_perm import ValidatePermRest
 from account.models import User
 from user_system.user_type.api.views import filter_data
 
@@ -23,7 +23,7 @@ class ApiAccount(viewsets.GenericViewSet, mixins.ListModelMixin, mixins.CreateMo
     serializer_class = UserSerializer
     queryset = User.objects.all()
     authentication_classes = [JWTAuthentication, BasicAuthentication, SessionAuthentication]
-    permission_classes = [partial(ValidateQuyenRest, model=User)]
+    permission_classes = [partial(ValidatePermRest, model=User)]
 
 
 def filter_user(r):
@@ -32,5 +32,5 @@ def filter_user(r):
     search_query = query_params.get('query', {})
     limit = query_params.get('limit', 10)
     page_number = query_params.get('page', 1)
-    print([search_query, limit, page_number, search_query])
+    print([search_query, limit, page_number])
     return filter_data(search_query, limit, page_number, User)
