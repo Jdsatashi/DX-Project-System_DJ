@@ -23,7 +23,7 @@ class Migration(migrations.Migration):
                 ('username', models.CharField(blank=True, default=None, max_length=255, null=True, unique=True)),
                 ('email', models.EmailField(blank=True, default=None, max_length=254, null=True)),
                 ('phone_number', models.CharField(blank=True, default=None, max_length=128, null=True)),
-                ('password', models.CharField(max_length=256)),
+                ('password', models.CharField(max_length=512)),
                 ('region', models.CharField(blank=True, default=None, max_length=100, null=True)),
                 ('status', models.CharField(default=None, max_length=40, null=True)),
                 ('created_at', models.DateTimeField(auto_now_add=True)),
