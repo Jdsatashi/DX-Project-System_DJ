@@ -5,8 +5,8 @@ from django.contrib.auth.hashers import make_password
 
 from account.forms import CreateUserForm, RegisterForm
 from account.models import User
-from user_system.kh_nhomkh.models import NhomKH
-from user_system.kh_profile.models import KHProfile
+from user_system.client_group.models import ClientGroup
+from user_system.client_profile.models import ClientProfile
 from user_system.user_type.models import UserType
 from utils.constants import maNhomND
 
@@ -52,8 +52,8 @@ def handle_register_acc(req):
         # Create user
         obj.save()
         # Handle create user profile
-        objNhomND = NhomKH.objects.get(maNhom=maNhomND)
-        KHProfile.objects.create(maKH=obj, maNhomKH=objNhomND)
+        objNhomND = ClientGroup.objects.get(maNhom=maNhomND)
+        ClientProfile.objects.create(maKH=obj, maNhomKH=objNhomND)
     return ctx
 
 

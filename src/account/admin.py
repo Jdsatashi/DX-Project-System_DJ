@@ -1,13 +1,13 @@
 from django.contrib import admin
-from account.models import User, NhomQuyen, Quyen, NhomQuyenUser, QuyenUser
+from account.models import User, UserPerm, UserGroupPerm, Perm, GroupPerm
 
 
 class NhomQuyenUserInline(admin.TabularInline):  # Hoặc StackedInline
-    model = NhomQuyenUser
+    model = UserGroupPerm
 
 
 class QuyenUserInline(admin.TabularInline):  # Hoặc StackedInline
-    model = QuyenUser
+    model = UserPerm
 
 
 class UserAdmin(admin.ModelAdmin):
@@ -26,5 +26,5 @@ class UserAdmin(admin.ModelAdmin):
 
 # Register your models here.
 admin.site.register(User, UserAdmin)
-admin.site.register(NhomQuyen)
-admin.site.register(Quyen)
+admin.site.register(GroupPerm)
+admin.site.register(Perm)

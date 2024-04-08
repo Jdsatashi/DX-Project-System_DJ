@@ -5,11 +5,11 @@ import dotenv
 from django.contrib.auth.hashers import make_password
 
 from account.models import User
-from user_system.kh_nhomkh.models import NhomKH
-from user_system.kh_profile.models import KHProfile
-from user_system.nv_profile.models import NVChucDanh, NVProfile
+from user_system.client_group.models import ClientGroup
+from user_system.client_profile.models import ClientProfile
+from user_system.employee_profile.models import Position, Department, EmployeeProfile
 from user_system.user_type.models import UserType
-from utils.constants import (old_data, maNhomND as maNhom, tenNhomND as tenNhom)
+from utils.constants import (old_data, maNhomND as farmerID, tenNhomND as farmerGroupName)
 from django.db import migrations
 
 dotenv.load_dotenv()
@@ -42,17 +42,18 @@ def append_kh(type_kh):
     for k, v in enumerate(data):
         if k == 1:
             print(v)
-        maNhomKH = NhomKH.objects.filter(maNhom=v[3]).first()
-        data_profile = {"tenBanKe": v[1], "tenDoanhNghiep": v[2], "maNhomKH": maNhomKH, "maNVTT": v[4], "diaChi": v[7], "nguoiLap": v[8]}
+        client_group_id = ClientGroup.objects.filter(id=v[3]).first()
+        code_client_lv1 = v[11] if v[11] != '' else None
+        data_profile = {"register_name": v[1], "organization": v[2], "client_group_id": client_group_id, "nvtt_id": v[4], "address": v[7],"client_lv1_id": code_client_lv1, "created_by": v[8]}
         phone = v[5] if v[5] != '' else None
         pw = v[0].lower() if v[10] == '' else v[10]
         hash_pw = make_password(pw)
-        obj, created = User.objects.get_or_create(id=v[0], defaults={"phone_number": phone, "loaiUser": type_kh, "password": hash_pw})
+        obj, created = User.objects.get_or_create(id=v[0], defaults={"phone_number": phone, "user_type": type_kh, "password": hash_pw})
         if created:
             print(f"User {v[0]} was created successfully.")
         else:
             print(f"User {v[0]} was existed, skipping...")
-        obj, created = KHProfile.objects.get_or_create(maKH=obj, defaults=data_profile)
+        obj, created = ClientProfile.objects.get_or_create(client_id=obj, defaults=data_profile)
         if created:
             print(f"User profile {v[0]} was created successfully.")
         else:
@@ -69,14 +70,15 @@ def append_nv(type_nv):
         phone = v[28] if v[28] != '' else None
         email = v[51] if v[51] != '' else None
         pw_hash = make_password(v[0].lower())
-        obj, created = User.objects.get_or_create(id=v[0], defaults={'phone_number': phone, 'email': email, 'loaiUser': type_nv, 'password': pw_hash})
+        obj, created = User.objects.get_or_create(
+            id=v[0], defaults={'phone_number': phone, 'email': email, 'user_type': type_nv, 'password': pw_hash})
         print(obj.id)
         if created:
             print(f"User {v[0]} was created successfully.")
         else:
             print(f"User {v[0]} was existed, skipping...")
 
-        obj, created = NVProfile.objects.get_or_create(maNV=obj, defaults={'fullname': f"{v[2]} {v[3]}", 'gioiTinh': v[5]})
+        obj, created = EmployeeProfile.objects.get_or_create(employee_id=obj, defaults={'fullname': f"{v[2]} {v[3]}", 'gender': v[5]})
         if created:
             print(f"User profile {v[0]} was created successfully.")
         else:
@@ -84,39 +86,39 @@ def append_nv(type_nv):
     return ctx
 
 
-def create_chucdanh():
+def create_position():
     data = table_data(old_data['tb_chucdanh'])
     for k, v in enumerate(data):
-        obj, created = NVChucDanh.objects.get_or_create(maChucDanh=v[0], defaults={'tenChucDanh': v[1], 'mota': v[2]})
+        obj, created = Position.objects.get_or_create(id=v[0], defaults={'name': v[1], 'note': v[2]})
         if created:
-            print(f"Created new chucDanh: {v[1]}")
+            print(f"Created new Position: {v[1]}")
         else:
-            print(f"ChucDanh {v[1]} already existed, passing...")
+            print(f"Position {v[1]} already existed, passing...")
 
 
-def create_maNhomKH():
+def create_client_group_id():
     data = table_data(old_data['tb_nhomKH'])
     for k, v in enumerate(data):
-        parentGroup = NhomKH.objects.filter(maNhom=v[1]).first()
+        parentGroup = ClientGroup.objects.filter(id=v[1]).first()
 
-        obj, created = NhomKH.objects.get_or_create(maNhom=v[0], defaults={'maNhomCha': parentGroup, 'tenNhom': v[2]})
+        obj, created = ClientGroup.objects.get_or_create(id=v[0], defaults={'parent_id': parentGroup, 'name': v[2]})
         if created:
-            print(f"Created new maNhom: {v[2]}")
+            print(f"Created new Group id: {v[2]}")
         else:
-            print(f"maNhom {v[2]} already existed, passing...")
-    obj, created = NhomKH.objects.get_or_create(maNhom=maNhom, defaults={'tenNhom': tenNhom})
+            print(f"Group id {v[2]} already existed, passing...")
+    obj, created = ClientGroup.objects.get_or_create(id=farmerID, defaults={'name': farmerGroupName})
     if created:
-        print(f"Created new maNhom: {maNhom}")
+        print(f"Created new Group id: {farmerID}")
     else:
-        print(f"maNhom {maNhom} already existed, passing...")
+        print(f"Group id {farmerID} already existed, passing...")
 
 
 def insertDB(apps, schema_editor):
     start_time = time.time()
-    type_nv, _ = UserType.objects.get_or_create(loaiUser="nhanvien")
-    type_kh, _ = UserType.objects.get_or_create(loaiUser="khachhang")
-    create_chucdanh()
-    create_maNhomKH()
+    type_nv, _ = UserType.objects.get_or_create(user_type="nhanvien")
+    type_kh, _ = UserType.objects.get_or_create(user_type="khachhang")
+    create_position()
+    create_client_group_id()
     append_nv(type_nv)
     append_kh(type_kh)
     print(f"\n__FINISHED__")
@@ -128,9 +130,9 @@ class Migration(migrations.Migration):
     dependencies = [
         ('user_type', '0001_initial'),
         ('account', '0001_initial'),
-        ('kh_nhomkh', '0001_initial'),
-        ('kh_profile', '0001_initial'),
-        ('nv_profile', '0001_initial'),
+        ('client_group', '0001_initial'),
+        ('client_profile', '0001_initial'),
+        ('employee_profile', '0001_initial'),
         ('account', 'migrate_perm')
     ]
 

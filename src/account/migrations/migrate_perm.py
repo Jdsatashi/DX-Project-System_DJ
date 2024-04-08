@@ -1,7 +1,7 @@
 from django.contrib.contenttypes.models import ContentType
 from django.db import migrations
 
-from account.models import Quyen
+from account.models import Perm
 from utils.constants import acquy
 
 
@@ -10,11 +10,11 @@ def create_initial_permission(apps, schema_editor):
 
     for i, content_type in enumerate(content_types):
         if i > 6:
-            quyen_name = f'{content_type.app_label}_{content_type.model}'
+            perm_name = f'{content_type.app_label}_{content_type.model}'
             tasks = acquy['full']
             for task in tasks:
-                quyen_name_ = f'{task}_{quyen_name}'
-                Quyen.objects.create(name=quyen_name_, mota=f'{task.capitalize()} {content_type.model}')
+                perm_name_ = f'{task}_{perm_name}'
+                Perm.objects.create(name=perm_name_, mota=f'{task.capitalize()} {content_type.model}')
 
 
 class Migration(migrations.Migration):

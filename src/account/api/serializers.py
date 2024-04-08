@@ -1,7 +1,7 @@
 from django.contrib.auth.hashers import make_password
 from rest_framework import serializers
 
-from account.models import User, NhomQuyen, Quyen
+from account.models import User, GroupPerm, Perm
 from utils.helpers import value_or_none
 
 
@@ -31,13 +31,13 @@ class UserSerializer(serializers.ModelSerializer):
         return super().create(validated_data)
 
 
-class NhomQuyenSerializer(serializers.ModelSerializer):
+class GroupPermSerializer(serializers.ModelSerializer):
     class Meta:
-        model = NhomQuyen
+        model = GroupPerm
         fields = '__all__'
 
 
-class QuyenSerializer(serializers.ModelSerializer):
+class PermSerializer(serializers.ModelSerializer):
     class Meta:
-        model = Quyen
+        model = Perm
         fields = '__all__'

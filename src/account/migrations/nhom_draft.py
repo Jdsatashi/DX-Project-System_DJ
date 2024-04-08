@@ -1,14 +1,14 @@
 from django.db import migrations
 
-from account.models import Quyen, NhomQuyen
+from account.models import Perm, GroupPerm
 
 
 def create_initial_permission(apps, schema_editor):
-    matching_quyens = Quyen.objects.filter(name__icontains="draft").all()
+    matching_quyens = Perm.objects.filter(name__icontains="draft").all()
     list_drafts_quyens = list(matching_quyens)
-    nhom_quyen, _ = NhomQuyen.objects.get_or_create(name="nhom_draft")
+    grorup_perm, _ = GroupPerm.objects.get_or_create(name="group_draft")
     for q in list_drafts_quyens:
-        nhom_quyen.quyen.add(q.name)
+        grorup_perm.quyen.add(q.name)
 
 
 class Migration(migrations.Migration):

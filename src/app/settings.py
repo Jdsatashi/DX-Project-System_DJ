@@ -39,9 +39,9 @@ INSTALLED_APPS = [
     'draft',
     'account',
     # User system structure
-    'user_system.kh_nhomkh',
-    'user_system.kh_profile',
-    'user_system.nv_profile',
+    'user_system.client_group',
+    'user_system.client_profile',
+    'user_system.employee_profile',
     'user_system.user_type',
 ]
 
