@@ -10,3 +10,4 @@ venv
 .idea/
 .env
 .vscode/
+user_adding.json
