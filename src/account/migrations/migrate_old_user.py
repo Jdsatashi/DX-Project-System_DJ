@@ -46,7 +46,7 @@ def append_kh(type_kh):
         code_client_lv1 = v[11] if v[11] != '' else None
         data_profile = {"register_name": v[1], "organization": v[2], "client_group_id": client_group_id, "nvtt_id": v[4], "address": v[7],"client_lv1_id": code_client_lv1, "created_by": v[8]}
         phone = v[5] if v[5] != '' else None
-        pw = v[0].lower() if v[10] == '' else v[10]
+        pw = v[0].lower() if v[10] == '' or v[10] is None else v[10]
         hash_pw = make_password(pw)
         obj, created = User.objects.get_or_create(id=v[0], defaults={"phone_number": phone, "user_type": type_kh, "password": hash_pw})
         if created:
