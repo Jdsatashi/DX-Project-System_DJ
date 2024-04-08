@@ -1,6 +1,6 @@
 from django.apps import AppConfig
 
 
-class KhNhomkhConfig(AppConfig):
+class NvProfileConfig(AppConfig):
     default_auto_field = 'django.db.models.BigAutoField'
-    name = 'user_system.kh_nhomkh'
+    name = 'user_system.employee_profile'
