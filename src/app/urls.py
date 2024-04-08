@@ -20,7 +20,7 @@ schema_view = get_schema_view(
 
 urlpatterns = [
     path('', home, name='home'),
-    path('admin/', admin.site.urls),
+    path('system/admin/', admin.site.urls),
     path('draft/', include('draft.urls', 'draft')),
     path('accounts/', include('account.urls', 'account')),
     path('api_schema', schema_view, name='api_schema'),
