@@ -6,7 +6,7 @@ from account.api.views import api_create_user, ApiAccount
 app_name = 'api_account'
 
 router = DefaultRouter()
-router.register('genericview', ApiAccount, basename='draft')
+router.register('genericview', ApiAccount, basename='api_account')
 
 # Draft view
 account_view = ApiAccount.as_view({'get': 'list', 'post': 'create'})
