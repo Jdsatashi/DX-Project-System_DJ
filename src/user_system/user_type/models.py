@@ -3,12 +3,13 @@ from django.db import models
 
 # Create your models here.
 class UserType(models.Model):
-    loaiUser = models.CharField(max_length=100, unique=True, null=False, blank=False)
-    mota = models.TextField(null=True, blank=True)
-    timestamp = models.DateTimeField(auto_now_add=True)
+    user_type = models.CharField(max_length=100, unique=True, null=False, blank=False)
+    note = models.TextField(null=True, blank=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
 
     class Meta:
         db_table = 'users_type'
 
     def __str__(self):
-        return self.loaiUser
+        return self.user_type

@@ -24,9 +24,9 @@ class CustomUserManager(BaseUserManager):
         extra_fields.setdefault('is_staff', True)
         extra_fields.setdefault('is_superuser', True)
         user = self.create_user(username, email, phone_number, password, **extra_fields)
-        quyens = Quyen.objects.all()
-        for i, q in enumerate(quyens):
-            user.quyenUser.add(q)
+        perms = Perm.objects.all()
+        for i, q in enumerate(perms):
+            user.perm_user.add(q)
         return user
 
 
@@ -37,12 +37,13 @@ class User(AbstractBaseUser, PermissionsMixin):
     email = models.EmailField(unique=False, null=True, blank=True, default=None)
     phone_number = models.CharField(max_length=128, unique=False, null=True, blank=True, default=None)
     password = models.CharField(max_length=256, null=False)
-    khuVuc = models.CharField(max_length=100, null=True, blank=True, default=None)
+    region = models.CharField(max_length=100, null=True, blank=True, default=None)
     status = models.CharField(max_length=40, null=True, default=None)
-    loaiUser = models.ForeignKey(UserType, to_field='loaiUser', null=True, blank=False, on_delete=models.SET_NULL)
-    timestamp = models.DateTimeField(auto_now_add=True)
-    nhomUser = models.ManyToManyField('NhomQuyen', through='NhomQuyenUser', blank=True, related_name='users_rela')
-    quyenUser = models.ManyToManyField('Quyen', through='QuyenUser', blank=True, related_name='users_rela')
+    user_type = models.ForeignKey(UserType, to_field='user_type', null=True, blank=False, on_delete=models.SET_NULL)
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+    group_user = models.ManyToManyField('GroupPerm', through='UserGroupPerm', blank=True, related_name='users_rela')
+    perm_user = models.ManyToManyField('Perm', through='UserPerm', blank=True, related_name='users_rela')
 
     # System auth django attribute
     is_active = models.BooleanField(default=True)
@@ -68,85 +69,90 @@ class User(AbstractBaseUser, PermissionsMixin):
         self.id = self.id.upper()
         super().save(*args, **kwargs)
 
-    def has_quyen(self, permission):
-        return self.quyenUser.filter(name=permission).exists()
+    def is_perm(self, permission):
+        return self.perm_user.filter(name=permission).exists()
 
     def is_allow(self, permission):
-        has_quyen = self.has_quyen(permission)
-        if has_quyen:
-            quyen = self.quyenUser.filter(name=permission).first()
-            quyen_user = QuyenUser.objects.get(user=self, quyen=quyen)
-            return quyen_user.allow
-        return has_quyen
+        is_perm = self.is_perm(permission)
+        if is_perm:
+            perm = self.perm_user.filter(name=permission).first()
+            user_perm = UserPerm.objects.get(user=self, perm=perm)
+            return user_perm.allow
+        return is_perm
 
-    def has_nhom_with_quyen(self, permission):
-        nhom_user = self.nhomUser.all()
+    def is_group_has_perm(self, permission):
+        group_user = self.group_user.all()
         valid = False
-        for nhom in nhom_user:
-            valid = nhom.nhom_has_quyen(permission)
+        for group in group_user:
+            valid = group.group_has_perm(permission)
             if valid:
                 break
         return valid
 
 
-class XacThuc(models.Model):
+class Verify(models.Model):
     user = models.ForeignKey(User, on_delete=models.CASCADE)
-    xac_thuc = models.BooleanField(default=False)
-    ma_xac_thuc = models.CharField(max_length=64)
-    loai_xac_thuc = models.CharField(max_length=128, default=None)
-    moTa = models.TextField(null=True, default=None)
-    time_xac_thuc = models.DateTimeField()
-    timestamp = models.DateTimeField(auto_now_add=True)
+    is_verify = models.BooleanField(default=False)
+    verify_code = models.CharField(max_length=64)
+    verify_type = models.CharField(max_length=128, default=None)
+    note = models.TextField(null=True, default=None)
+    verify_time = models.DateTimeField()
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
 
     class Meta:
-        db_table = 'users_xac_thuc'
+        db_table = 'users_verify'
 
 
-# Quyen as known as Permissions
-class Quyen(models.Model):
+# Perm as known as Permissions
+class Perm(models.Model):
     name = models.CharField(max_length=255, primary_key=True)
-    mota = models.TextField(null=True, default=None, blank=True)
-    timestamp = models.DateTimeField(auto_now_add=True)
+    note = models.TextField(null=True, default=None, blank=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
 
     content_type = models.ForeignKey(ContentType, null=True, blank=True, on_delete=models.CASCADE)
     object_id = models.CharField(max_length=255)
     content_object = GenericForeignKey('content_type', 'object_id')
 
     class Meta:
-        db_table = 'users_quyen'
+        db_table = 'users_perm'
 
 
-# NhomQuyen as a Permissions Group or Roles User
-class NhomQuyen(models.Model):
+# GroupPerm as a Permissions Group or Roles User
+class GroupPerm(models.Model):
     name = models.CharField(max_length=255, primary_key=True)
-    mota = models.TextField(null=True, default=None, blank=True)
-    quyen = models.ManyToManyField(Quyen, blank=True)
+    note = models.TextField(null=True, default=None, blank=True)
+    perm = models.ManyToManyField(Perm, blank=True)
     allow = models.BooleanField(default=True)
-    timestamp = models.DateTimeField(auto_now_add=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
 
     class Meta:
-        db_table = 'users_nhom'
+        db_table = 'users_group_perm'
 
-    def nhom_has_quyen(self, permission):
-        quyen = self.quyen.filter(name=permission)
-        return quyen.exists() and self.allow
+    def group_has_perm(self, permission):
+        perm = self.perm.filter(name=permission)
+        return perm.exists() and self.allow
 
 
-# Table/Model middleman of Quyen and User
-class QuyenUser(models.Model):
+# Table/Model middleman of Perm and User
+class UserPerm(models.Model):
     user = models.ForeignKey(User, on_delete=models.CASCADE)
-    quyen = models.ForeignKey(Quyen, on_delete=models.CASCADE)
+    perm = models.ForeignKey(Perm, on_delete=models.CASCADE)
     allow = models.BooleanField(default=True)
+    created_at = models.DateTimeField(auto_now_add=True)
 
     class Meta:
-        db_table = 'users_quyen_user'
+        db_table = 'users_user_perm'
 
 
-# Table/Model middleman of Nhom and User
-class NhomQuyenUser(models.Model):
+# Table/Model middleman of Group and User
+class UserGroupPerm(models.Model):
     user = models.ForeignKey(User, on_delete=models.CASCADE)
-    nhom = models.ForeignKey(NhomQuyen, on_delete=models.CASCADE)
+    group = models.ForeignKey(GroupPerm, on_delete=models.CASCADE)
     allow = models.BooleanField(default=True)
+    created_at = models.DateTimeField(auto_now_add=True)
 
     class Meta:
-        db_table = 'users_nhomQuyen_user'
+        db_table = 'users_user_group_perm'
