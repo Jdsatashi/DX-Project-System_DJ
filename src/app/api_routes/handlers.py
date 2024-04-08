@@ -19,7 +19,6 @@ class CustomTokenObtainPairSerializer(TokenObtainPairSerializer):
             raise AuthenticationFailed(f'User not found!')
         if not check_password(password, user.password):
             raise AuthenticationFailed('Wrong password!')
-
         # Generate token
         token = super().get_token(user)
 
@@ -28,9 +27,9 @@ class CustomTokenObtainPairSerializer(TokenObtainPairSerializer):
             'user_id': user.id,
             'email': user.email,
             'phone_number': user.phone_number,
-            'khuVuc': user.khuVuc,
+            'region': user.region,
             'status': user.status,
-            'loaiUser': user.loaiUser.loaiUser if user.loaiUser else None,
+            'loaiUser': user.user_type.user_type if user.user_type else None,
         }
         token['user_id'] = user.id
         return {
