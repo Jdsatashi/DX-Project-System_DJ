@@ -20,7 +20,7 @@ class UserAdmin(admin.ModelAdmin):
         # Remove 'groups' and 'user_permissions' from the fieldsets
         fieldsets = list(fieldsets)
         fieldsets[0] = (
-        None, {'fields': ['id', 'username', 'email', 'phone_number', 'password', 'khuVuc', 'status', 'loaiUser', 'is_active', 'is_staff', 'is_superuser', 'last_login']})
+        None, {'fields': ['id', 'username', 'email', 'phone_number', 'password', 'region', 'status', 'uer_type', 'is_active', 'is_staff', 'is_superuser', 'last_login']})
         return tuple(fieldsets)
 
 
