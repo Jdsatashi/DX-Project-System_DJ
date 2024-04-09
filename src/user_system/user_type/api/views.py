@@ -27,8 +27,8 @@ class GenericApiUserType(viewsets.GenericViewSet, mixins.ListModelMixin, mixins.
                    mixins.RetrieveModelMixin, mixins.UpdateModelMixin, mixins.DestroyModelMixin):
     serializer_class = UserTypeSerializer
     queryset = UserType.objects.all()
-    # authentication_classes = [JWTAuthentication, BasicAuthentication, SessionAuthentication]
-    # permission_classes = [partial(ValidatePermRest, model=UserType)]
+    authentication_classes = [JWTAuthentication, BasicAuthentication, SessionAuthentication]
+    permission_classes = [partial(ValidatePermRest, model=UserType)]
 
 
 def filter_user_type(r):
