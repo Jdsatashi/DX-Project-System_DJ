@@ -3,6 +3,7 @@ from django.shortcuts import render
 from django.urls import path, include
 from rest_framework.permissions import AllowAny
 from rest_framework.schemas import get_schema_view
+from django.contrib.staticfiles.urls import staticfiles_urlpatterns
 
 
 # Create homepage view
@@ -25,4 +26,4 @@ urlpatterns = [
     path('accounts/', include('account.urls', 'account')),
     path('api_schema', schema_view, name='api_schema'),
     path('application/api/v1/2024/', include('app.api_routes.routes', 'api_routes')),
-]
+] + staticfiles_urlpatterns()
