@@ -11,7 +11,7 @@ from user_system.employee_profile.models import EmployeeProfile, Department, Pos
 
 
 class GenericApiEmployee(viewsets.GenericViewSet, mixins.ListModelMixin, mixins.CreateModelMixin,
-                   mixins.RetrieveModelMixin, mixins.UpdateModelMixin, mixins.DestroyModelMixin):
+                         mixins.RetrieveModelMixin, mixins.UpdateModelMixin, mixins.DestroyModelMixin):
     serializer_class = EmployeeProfileSerializer
     queryset = EmployeeProfile.objects.all()
     authentication_classes = [JWTAuthentication, BasicAuthentication, SessionAuthentication]
@@ -19,7 +19,7 @@ class GenericApiEmployee(viewsets.GenericViewSet, mixins.ListModelMixin, mixins.
 
 
 class GenericApiDepartment(viewsets.GenericViewSet, mixins.ListModelMixin, mixins.CreateModelMixin,
-                   mixins.RetrieveModelMixin, mixins.UpdateModelMixin, mixins.DestroyModelMixin):
+                           mixins.RetrieveModelMixin, mixins.UpdateModelMixin, mixins.DestroyModelMixin):
     serializer_class = DepartmentSerializer
     queryset = Department.objects.all()
     authentication_classes = [JWTAuthentication, BasicAuthentication, SessionAuthentication]
@@ -27,7 +27,7 @@ class GenericApiDepartment(viewsets.GenericViewSet, mixins.ListModelMixin, mixin
 
 
 class GenericApiPosition(viewsets.GenericViewSet, mixins.ListModelMixin, mixins.CreateModelMixin,
-                   mixins.RetrieveModelMixin, mixins.UpdateModelMixin, mixins.DestroyModelMixin):
+                         mixins.RetrieveModelMixin, mixins.UpdateModelMixin, mixins.DestroyModelMixin):
     serializer_class = PositionSerializer
     queryset = Position.objects.all()
     authentication_classes = [JWTAuthentication, BasicAuthentication, SessionAuthentication]

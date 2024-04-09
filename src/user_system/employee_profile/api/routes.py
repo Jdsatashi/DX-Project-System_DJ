@@ -23,9 +23,9 @@ position_detail_view = GenericApiPosition.as_view({'get': 'retrieve', 'put': 'up
 
 urlpatterns = [
     path('profile/', employees_view),
-    path('profile/<int:pk>/', employee_detail_view),
-    path('departments/', departments_view),
-    path('departments/<int:pk>/', department_detail_view),
-    path('positions/', positions_view),
-    path('positions/<int:pk>/', position_detail_view),
+    path('profile/<pk>/', employee_detail_view),
+    # path('departments/', departments_view),
+    # path('departments/<pk>/', department_detail_view),
+    # path('positions/', positions_view),
+    # path('positions/<pk>/', position_detail_view),
 ]
