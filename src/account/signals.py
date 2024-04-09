@@ -9,4 +9,4 @@ def add_quyen_to_superuser(sender, instance, created, **kwargs):
         superusers = User.objects.filter(is_superuser=True)
 
         for user in superusers:
-            user.quyenUser.add(instance, through_defaults={'allow': True})
+            user.perm_user.add(instance, through_defaults={'allow': True})

@@ -14,7 +14,7 @@ def create_initial_permission(apps, schema_editor):
             tasks = acquy['full']
             for task in tasks:
                 perm_name_ = f'{task}_{perm_name}'
-                Perm.objects.create(name=perm_name_, mota=f'{task.capitalize()} {content_type.model}')
+                Perm.objects.create(name=perm_name_, note=f'{task.capitalize()} {content_type.model}')
 
 
 class Migration(migrations.Migration):

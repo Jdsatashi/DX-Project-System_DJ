@@ -54,8 +54,8 @@ class User(AbstractBaseUser, PermissionsMixin):
     objects = CustomUserManager()
 
     # Required fields for create account command
-    USERNAME_FIELD = 'username'
-    REQUIRED_FIELDS = ['id', 'email', 'phone_number']
+    USERNAME_FIELD = 'id'
+    REQUIRED_FIELDS = ['email', 'phone_number']
 
     # define table name
     class Meta:
