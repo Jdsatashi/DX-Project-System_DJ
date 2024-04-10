@@ -3,15 +3,18 @@ from user_system.employee_profile.models import Department, Position, EmployeePr
 
 
 class DepartmentSerializer(BaseRestrictSerializer):
-    model = Department
-    fields = '__all__'
+    class Meta:
+        model = Department
+        fields = '__all__'
 
 
 class PositionSerializer(BaseRestrictSerializer):
-    model = Position
-    fields = '__all__'
+    class Meta:
+        model = Position
+        fields = '__all__'
 
 
 class EmployeeProfileSerializer(BaseRestrictSerializer):
-    model = EmployeeProfile
-    fields = '__all__'
+    class Meta:
+        model = EmployeeProfile
+        fields = '__all__'
