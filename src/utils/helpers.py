@@ -23,7 +23,7 @@ def table_data(table_name: str):
         try:
             connection_string = f"DRIVER={{{driver}}};SERVER={server};DATABASE={db_name};UID={user};PWD={password}"
             if i >= 1:
-                connection_string += ";Encrypt=no;TrustServerCertificate=yes"
+                connection_string += ";TrustServerCertificate=yes"
             print(f"Attempting to connect using driver: {driver}")
             print(f"Connection string: {connection_string}")
             con = pyodbc.connect(connection_string)
