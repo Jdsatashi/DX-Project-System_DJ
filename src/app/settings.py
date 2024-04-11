@@ -20,7 +20,7 @@ ALLOWED_HOSTS = ['0.0.0.0', 'localhost', '127.0.0.1', '192.168.1.17', 'jdserver.
 # Customize authentication
 AUTH_USER_MODEL = 'account.User'
 
-DJANGO_ALLOW_ASYNC_UNSAFE=True
+DJANGO_ALLOW_ASYNC_UNSAFE = True
 
 # Application definition
 INSTALLED_APPS = [
@@ -36,6 +36,9 @@ INSTALLED_APPS = [
     'rest_framework_simplejwt.token_blacklist',
     # Cors header
     'corsheaders',
+    # System applications
+    'system.file_upload',
+    'system.status_group',
     # My app
     'draft',
     'account',
@@ -44,6 +47,8 @@ INSTALLED_APPS = [
     'user_system.client_profile',
     'user_system.employee_profile',
     'user_system.user_type',
+    # NVTT functions
+    'marketing.company'
 ]
 
 LOGGING = {
@@ -205,9 +210,8 @@ PASSWORD_HASHERS = [
 ]
 
 # Internationalization
-# https://docs.djangoproject.com/en/5.0/topics/i18n/
 
-LANGUAGE_CODE = 'en-us'    # 'vi'
+LANGUAGE_CODE = 'en-us'  # 'vi'
 
 TIME_ZONE = 'Asia/Ho_Chi_Minh'
 
@@ -222,7 +226,14 @@ STATIC_URL = '/static/'
 
 STATIC_ROOT = BASE_DIR / 'staticfiles'
 
-STATICFILES_DIRS = [BASE_DIR / 'static']
+STATICFILES_DIRS = [
+    os.path.join(BASE_DIR / 'static'),
+    os.path.join(BASE_DIR / 'storage')
+]
+
+MEDIA_URL = '/storage/'
+
+MEDIA_ROOT = BASE_DIR / 'storage'
 
 # Default primary key field type
 # https://docs.djangoproject.com/en/5.0/ref/settings/#default-auto-field
