@@ -9,7 +9,6 @@ old_data = {
     "tb_thuocChitiet": "tbl_QLTT_DanhMucThuoc_ChiTiet",
     "tb_sanpham": "tbl_QLTT_DanhMucSanPham",
 }
-api_path = 'api/v1/'
 maNhomND = 'DMNKH000005'
 tenNhomND = 'Khách hàng Nông dân'
 # Action of Quyen
@@ -24,3 +23,4 @@ acquy = {
     'partial_update': 'partial_update',
     'destroy': 'destroy'
 }
+status = ['active', 'pending', 'deactivate', 'draft']
