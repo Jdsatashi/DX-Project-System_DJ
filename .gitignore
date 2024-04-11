@@ -12,3 +12,4 @@ venv
 .vscode/
 user_adding.json
 staticfiles/
+storage/
