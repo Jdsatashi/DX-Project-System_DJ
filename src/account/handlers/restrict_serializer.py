@@ -10,12 +10,12 @@ from utils.constants import acquy
 
 class BaseRestrictSerializer(serializers.ModelSerializer):
     # Get field for create perm
-    restrict = serializers.BooleanField(required=False)
-    allow_actions = serializers.ListField(child=serializers.CharField(), required=False)
-    allow_nhom = serializers.ListField(child=serializers.CharField(), required=False)
-    restrict_nhom = serializers.ListField(child=serializers.CharField(), required=False)
-    allow_users = serializers.ListField(child=serializers.CharField(), required=False)
-    restrict_users = serializers.ListField(child=serializers.CharField(), required=False)
+    restrict = serializers.BooleanField(required=False, default=False, write_only=True)
+    allow_actions = serializers.ListField(child=serializers.CharField(), required=False, write_only=True)
+    allow_nhom = serializers.ListField(child=serializers.CharField(), required=False, write_only=True)
+    restrict_nhom = serializers.ListField(child=serializers.CharField(), required=False, write_only=True)
+    allow_users = serializers.ListField(child=serializers.CharField(), required=False, write_only=True)
+    restrict_users = serializers.ListField(child=serializers.CharField(), required=False, write_only=True)
 
     @staticmethod
     def split_data(data):
