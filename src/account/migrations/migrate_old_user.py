@@ -1,39 +1,19 @@
-import os
 import time
-import pyodbc
+import time
+
 import dotenv
 from django.contrib.auth.hashers import make_password
+from django.db import migrations
 
 from account.models import User
 from user_system.client_group.models import ClientGroup
 from user_system.client_profile.models import ClientProfile
-from user_system.employee_profile.models import Position, Department, EmployeeProfile
+from user_system.employee_profile.models import Position, EmployeeProfile
 from user_system.user_type.models import UserType
 from utils.constants import (old_data, maNhomND as farmerID, tenNhomND as farmerGroupName)
-from django.db import migrations
+from utils.helpers import table_data
 
 dotenv.load_dotenv()
-
-
-# Connect to MS SQL Server and get data of specific table
-def table_data(table_name: str):
-    # Get env values
-    server = os.environ.get('MSSQL_HOST')
-    db_name = os.environ.get('MSSQL_DATABASE')
-    user = os.environ.get('MSSQL_USER')
-    password = os.environ.get('MSSQL_PASSWORD')
-    try:
-        connection_string = f'DRIVER={{SQL Server}};SERVER={server};DATABASE={db_name};UID={user};PWD={password}'
-        con = pyodbc.connect(connection_string)
-        cursor = con.cursor()
-        query = f'SELECT * FROM {table_name}'
-        cursor.execute(query)
-        rows = cursor.fetchall()
-        con.close()
-        return rows
-    except pyodbc.Error as e:
-        print(f"Error: {e}")
-        return None
 
 
 def append_kh(type_kh):
@@ -44,11 +24,13 @@ def append_kh(type_kh):
             print(v)
         client_group_id = ClientGroup.objects.filter(id=v[3]).first()
         code_client_lv1 = v[11] if v[11] != '' else None
-        data_profile = {"register_name": v[1], "organization": v[2], "client_group_id": client_group_id, "nvtt_id": v[4], "address": v[7],"client_lv1_id": code_client_lv1, "created_by": v[8]}
+        data_profile = {"register_name": v[1], "organization": v[2], "client_group_id": client_group_id,
+                        "nvtt_id": v[4], "address": v[7], "client_lv1_id": code_client_lv1, "created_by": v[8]}
         phone = v[5] if v[5] != '' else None
         pw = v[0].lower() if v[10] == '' or v[10] is None else v[10]
         hash_pw = make_password(pw)
-        obj, created = User.objects.get_or_create(id=v[0], defaults={"phone_number": phone, "user_type": type_kh, "password": hash_pw})
+        obj, created = User.objects.get_or_create(id=v[0], defaults={"phone_number": phone, "user_type": type_kh,
+                                                                     "password": hash_pw})
         if created:
             print(f"User {v[0]} was created successfully.")
         else:
@@ -78,7 +60,8 @@ def append_nv(type_nv):
         else:
             print(f"User {v[0]} was existed, skipping...")
 
-        obj, created = EmployeeProfile.objects.get_or_create(employee_id=obj, defaults={'fullname': f"{v[2]} {v[3]}", 'gender': v[5]})
+        obj, created = EmployeeProfile.objects.get_or_create(employee_id=obj,
+                                                             defaults={'fullname': f"{v[2]} {v[3]}", 'gender': v[5]})
         if created:
             print(f"User profile {v[0]} was created successfully.")
         else:
@@ -126,7 +109,6 @@ def insertDB(apps, schema_editor):
 
 
 class Migration(migrations.Migration):
-
     dependencies = [
         ('user_type', '0001_initial'),
         ('account', '0001_initial'),
