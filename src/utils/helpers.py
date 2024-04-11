@@ -14,19 +14,18 @@ def table_data(table_name: str):
     db_name = os.environ.get('MSSQL_DATABASE')
     user = os.environ.get('MSSQL_USER')
     password = os.environ.get('MSSQL_PASSWORD')
-    try:
-        connection_string = f'DRIVER={{SQL Server}};SERVER={server};DATABASE={db_name};UID={user};PWD={password}'
-        print(f"--- --- --- TEST SQL SERVER --- --- ---")
-        con = pyodbc.connect(connection_string)
-        print(f'{con}')
-        cursor = con.cursor()
-        print(f'{cursor}')
-        query = f'SELECT * FROM {table_name}'
-        cursor.execute(query)
-        rows = cursor.fetchall()
-        print(f'{rows}')
-        con.close()
-        return rows
-    except pyodbc.Error as e:
-        print(f"Error: {e}")
-        return None
+    drivers = ["SQL Server", "ODBC Driver 18 for SQL Server", "ODBC Driver 17 for SQL Server"]
+    for driver in drivers:
+        try:
+            connection_string = f"DRIVER={{{driver}}};SERVER={server};DATABASE={db_name};UID={user};PWD={password}"
+            print(f"Attempting to connect using driver: {driver}")
+            con = pyodbc.connect(connection_string)
+            cursor = con.cursor()
+            query = f"SELECT * FROM {table_name}"
+            cursor.execute(query)
+            rows = cursor.fetchall()
+            con.close()
+            return rows
+        except pyodbc.Error as e:
+            print(f"Error with driver '{driver}': {e}")
+    return None
