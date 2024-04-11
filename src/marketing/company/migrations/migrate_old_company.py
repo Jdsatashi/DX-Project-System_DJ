@@ -9,6 +9,8 @@ from utils.helpers import table_data
 
 def add_old_company(apps, schema_editor):
     data = table_data(old_data['tb_congty'])
+    print(f"---------- TESTING ----------")
+    print(f"{data}")
     for k, v in enumerate(data):
         try:
             Company.objects.create(id=v[0], name=v[1], note=v[2], color_code=v[5], created_at=v[3])
