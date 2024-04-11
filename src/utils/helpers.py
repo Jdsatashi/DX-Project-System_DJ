@@ -1,6 +1,10 @@
 import os
 
 import pyodbc
+import dotenv
+from constants import *
+
+dotenv.load_dotenv()
 
 
 def value_or_none(value, condition, _return):
@@ -14,7 +18,7 @@ def table_data(table_name: str):
     db_name = os.environ.get('MSSQL_DATABASE')
     user = os.environ.get('MSSQL_USER')
     password = os.environ.get('MSSQL_PASSWORD')
-    drivers = ["SQL Server", "ODBC Driver 17 for SQL Server"]
+    drivers = ["SQL Server", "ODBC Driver 18 for SQL Server", "ODBC Driver 17 for SQL Server"]
     for i, driver in enumerate(drivers):
         try:
             connection_string = f"DRIVER={{{driver}}};SERVER={server};DATABASE={db_name};UID={user};PWD={password}"
@@ -32,3 +36,10 @@ def table_data(table_name: str):
         except pyodbc.Error as e:
             print(f"Error with driver '{driver}': {e}")
     return None
+
+
+if __name__ == '__main__':
+    print(f"Test database")
+    if table_data(old_data['tb_congty']) is not None:
+        print(f"Connect ok!")
+    print(f"Fail to connect")
