@@ -2,7 +2,7 @@ import os
 
 import pyodbc
 import dotenv
-from constants import *
+from .constants import *
 
 dotenv.load_dotenv()
 
