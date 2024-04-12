@@ -1,4 +1,5 @@
 # models.py
+from django.contrib.auth.hashers import make_password
 from django.contrib.auth.models import AbstractBaseUser, BaseUserManager, PermissionsMixin
 from django.contrib.contenttypes.fields import GenericForeignKey
 from django.contrib.contenttypes.models import ContentType
@@ -67,6 +68,8 @@ class User(AbstractBaseUser, PermissionsMixin):
 
     def save(self, *args, **kwargs):
         self.id = self.id.upper()
+        if self.password is None or self.password == '':
+            self.password = make_password(self.id.lower())
         super().save(*args, **kwargs)
 
     def is_perm(self, permission):
