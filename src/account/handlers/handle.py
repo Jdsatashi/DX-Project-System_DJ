@@ -9,6 +9,7 @@ from user_system.client_group.models import ClientGroup
 from user_system.client_profile.models import ClientProfile
 from user_system.user_type.models import UserType
 from utils.constants import maNhomND
+from utils.helpers import generate_id
 
 
 # Create new account
@@ -71,26 +72,3 @@ def handle_login_acc(req):
             print(e)
         ctx['user'] = user
     return ctx
-
-
-def generate_id(maNhom):
-    # Get last 2 number of year (2024 => get '24')
-    current_year = str(datetime.now().year)[-2:]
-    if maNhom == maNhomND:
-        code = 'ND'
-    else:
-        return None
-    id_template = f'{code}{current_year}'
-
-    existing_ids = User.objects.filter(id__startswith=id_template).values_list('id', flat=True)
-
-    if not existing_ids:
-        new_id = f'{id_template}0001'
-    else:
-        last_id = max(existing_ids)
-        last_sequence_number = int(last_id[-4:])
-        new_sequence_number = last_sequence_number + 1
-
-        new_id = f'{id_template}{new_sequence_number:04d}'
-
-    return new_id

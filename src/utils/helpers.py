@@ -1,7 +1,13 @@
 import os
+from datetime import datetime
 
 import pyodbc
 import dotenv
+from django.core.exceptions import ValidationError
+from django.core.validators import RegexValidator
+from rest_framework import serializers
+
+from account.models import User
 from .constants import *
 
 dotenv.load_dotenv()
@@ -36,6 +42,53 @@ def table_data(table_name: str):
         except pyodbc.Error as e:
             print(f"Error with driver '{driver}': {e}")
     return None
+
+
+def generate_id(ma_nhom):
+    # Get last 2 number of year (2024 => get '24')
+    current_year = str(datetime.now().year)[-2:]
+    if ma_nhom == maNhomND:
+        code = 'ND'
+    else:
+        return None
+    id_template = f'{code}{current_year}'
+
+    existing_ids = User.objects.filter(id__startswith=id_template).values_list('id', flat=True)
+
+    if not existing_ids:
+        new_id = f'{id_template}0001'
+    else:
+        last_id = max(existing_ids)
+        last_sequence_number = int(last_id[-4:])
+        new_sequence_number = last_sequence_number + 1
+
+        new_id = f'{id_template}{new_sequence_number:04d}'
+
+    return new_id
+
+
+def phone_validate(phone):
+    """
+    Validate phone number
+    """
+    if phone is None or phone == '':
+        raise serializers.ValidationError({'phone_number': ['Bạn phải nhập số điện thoại.']})
+    if phone.startswith('0'):
+        phone = phone[1:]
+    if ' ' in phone:
+        raise serializers.ValidationError({'phone_number': ['Số điện thoại bắt buộc không có khoảng trắng.']})
+
+    phone_regex = RegexValidator(
+        regex=r'^\d{9,}$',
+        message="Số điện thoại phải được nhập ở định dạng: '+999999999'. Tối đa 15 chữ số."
+    )
+    try:
+        phone_regex(phone)
+        print(f"Phone valid")
+        return True, phone
+    except ValidationError:
+        print(f"Phone error")
+        return False, phone
 
 
 if __name__ == '__main__':
