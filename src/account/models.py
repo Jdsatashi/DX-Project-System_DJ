@@ -1,9 +1,12 @@
 # models.py
+import datetime
+
 from django.contrib.auth.hashers import make_password
 from django.contrib.auth.models import AbstractBaseUser, BaseUserManager, PermissionsMixin
 from django.contrib.contenttypes.fields import GenericForeignKey
 from django.contrib.contenttypes.models import ContentType
 from django.db import models
+from django.utils import timezone
 
 from user_system.user_type.models import UserType
 
@@ -24,6 +27,7 @@ class CustomUserManager(BaseUserManager):
     def create_superuser(self, username, email, phone_number, password=None, **extra_fields):
         extra_fields.setdefault('is_staff', True)
         extra_fields.setdefault('is_superuser', True)
+        username = username if username and username != '' else extra_fields.get('id')
         user = self.create_user(username, email, phone_number, password, **extra_fields)
         perms = Perm.objects.all()
         for i, q in enumerate(perms):
@@ -55,8 +59,8 @@ class User(AbstractBaseUser, PermissionsMixin):
     objects = CustomUserManager()
 
     # Required fields for create account command
-    USERNAME_FIELD = 'id'
-    REQUIRED_FIELDS = ['email', 'phone_number']
+    USERNAME_FIELD = 'username'
+    REQUIRED_FIELDS = ['id', 'email', 'phone_number']
 
     # define table name
     class Meta:
@@ -68,8 +72,9 @@ class User(AbstractBaseUser, PermissionsMixin):
 
     def save(self, *args, **kwargs):
         self.id = self.id.upper()
-        if self.password is None or self.password == '':
-            self.password = make_password(self.id.lower())
+        self.username = self.username if self.username and self.username != '' else self.id
+        # if self.password is None or self.password == '':
+        #     self.password = make_password(self.id.lower())
         super().save(*args, **kwargs)
 
     def is_perm(self, permission):
@@ -98,13 +103,24 @@ class Verify(models.Model):
     is_verify = models.BooleanField(default=False)
     verify_code = models.CharField(max_length=64)
     verify_type = models.CharField(max_length=128, default=None)
+    device_code = models.CharField(max_length=255, null=True)
     note = models.TextField(null=True, default=None)
-    verify_time = models.DateTimeField()
+    verify_time = models.DateTimeField(null=True)
+    expired_at = models.DateTimeField(null=True)
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
 
     class Meta:
         db_table = 'users_verify'
+
+    def save(self, *args, **kwargs):
+        if not self.id:
+            self.expired_at = timezone.now() + datetime.timedelta(seconds=1800)
+        super(Verify, self).save(*args, **kwargs)
+
+    def is_verify_valid(self):
+        now = timezone.now()
+        return self.created_at <= now <= self.expired_at
 
 
 # Perm as known as Permissions
