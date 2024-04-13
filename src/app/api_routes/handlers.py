@@ -9,21 +9,30 @@ from rest_framework_simplejwt.serializers import TokenObtainPairSerializer
 from rest_framework_simplejwt.views import TokenObtainPairView
 
 from account.models import User
+from user_system.user_type.models import UserType
+from utils.constants import user_type, status
+from utils.helpers import phone_validate
 
 
 class CustomTokenObtainPairSerializer(TokenObtainPairSerializer):
     def validate(self, attrs):
-        user_id = attrs['username'].upper()
+        username = attrs['username'].upper()
         password = attrs['password']
-
-        # Get user object for validating
-        user = User.objects.filter(id=user_id).first()
+        is_phone, username = phone_validate(username)
+        if not is_phone:
+            type_emp = UserType.objects.get(user_type=user_type.get('employee'))
+            user = User.objects.filter(id=username, user_type=type_emp).first()
+        else:
+            type_client = UserType.objects.get(user_type=user_type.get('client'))
+            user = User.objects.filter(phone_number=username, user_type=type_client).first()
 
         # Validating login request
         if user is None:
             raise AuthenticationFailed(f'User not found!')
-        if not check_password(password, user.password):
+        if not is_phone and not check_password(password, user.password):
             raise AuthenticationFailed('Wrong password!')
+        if user.status == status[1]:
+            raise AuthenticationFailed('User is not active!')
         # Generate token
         token = super().get_token(user)
 
