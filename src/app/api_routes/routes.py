@@ -15,5 +15,7 @@ urlpatterns = [
     path('client-group/', include('user_system.client_group.api.routes', 'api_client_group')),
     path('employees/', include('user_system.employee_profile.api.routes', 'api_employee_profile')),
     path('file-upload/', include('system.file_upload.api.routes', 'api_file_upload')),
-    path('status/', include('system.status_group.api.routes', 'api_status'))
+    path('status/', include('system.status_group.api.routes', 'api_status')),
+
+    path('products/', include('marketing.product.api.routes', 'api_products'))
 ]

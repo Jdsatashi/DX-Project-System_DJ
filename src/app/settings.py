@@ -55,7 +55,8 @@ INSTALLED_APPS = [
     'user_system.employee_profile',
     'user_system.user_type',
     # NVTT functions
-    'marketing.company'
+    'marketing.company',
+    'marketing.product'
 ]
 
 LOGGING = {
