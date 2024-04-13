@@ -22,6 +22,13 @@ AUTH_USER_MODEL = 'account.User'
 
 DJANGO_ALLOW_ASYNC_UNSAFE = True
 
+SMS_SERVICE = {
+    'host': os.environ.get('SMS_SERVICE'),
+    'username': os.environ.get('SMS_USERNAME'),
+    'sign': os.environ.get('SMS_SIGN'),
+    'brand': os.environ.get('SMS_BRAND')
+}
+
 # Application definition
 INSTALLED_APPS = [
     'django.contrib.admin',
