@@ -1,4 +1,5 @@
 import os
+import random
 from datetime import datetime
 
 import pyodbc
@@ -71,6 +72,7 @@ def phone_validate(phone):
     """
     Validate phone number
     """
+    origin_phone = phone
     if phone is None or phone == '':
         raise serializers.ValidationError({'phone_number': ['Bạn phải nhập số điện thoại.']})
     if phone.startswith('0'):
@@ -85,10 +87,30 @@ def phone_validate(phone):
     try:
         phone_regex(phone)
         print(f"Phone valid")
-        return True, phone
+        return True, origin_phone
     except ValidationError:
         print(f"Phone error")
-        return False, phone
+        return False, origin_phone
+
+
+def generate_digits_code():
+    list_digit = generate_digits(6)
+    random_digit_string = ''.join(map(str, list_digit))
+    return random_digit_string
+
+
+def generate_digits(amount: int):
+    selected_digits = list()
+    for i in range(amount):
+        digits = list(range(10))
+        random.shuffle(digits)
+        selected_digits.append(digits[:1][0])
+    print(f"------- | TEST | -------")
+    print(selected_digits)
+    print(f"Length of set: {len(set(selected_digits))}")
+    if len(set(selected_digits)) <= 1:
+        return generate_digits(amount)
+    return selected_digits
 
 
 if __name__ == '__main__':
