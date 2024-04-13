@@ -9,6 +9,8 @@ from django.core.validators import RegexValidator
 from rest_framework import serializers
 
 from account.models import User
+from marketing.company.models import Company
+from marketing.product.models import ProductType, RegistrationUnit, Producer, RegistrationCert, ProductCategory
 from .constants import *
 
 dotenv.load_dotenv()
@@ -105,12 +107,53 @@ def generate_digits(amount: int):
         digits = list(range(10))
         random.shuffle(digits)
         selected_digits.append(digits[:1][0])
-    print(f"------- | TEST | -------")
-    print(selected_digits)
-    print(f"Length of set: {len(set(selected_digits))}")
     if len(set(selected_digits)) <= 1:
         return generate_digits(amount)
     return selected_digits
+
+
+def old_product_type():
+    data = table_data(old_data['tb_loaiThuoc'])
+    print(f"--------------- TEST PRODUCT TYPE --------------")
+    for i, k in enumerate(data):
+        _type, _ = ProductType.objects.get_or_create(id=k[0], name=k[1])
+        print(_type)
+
+
+def old_product():
+    data = table_data(old_data['tb_thuoc'])
+    print(f"---------- TESTING ----------")
+    for i, v in enumerate(data):
+        v = [item.strip() if isinstance(item, str) else item for item in v]
+        product_type = ProductType.objects.get(id=v[2])
+
+        unit, _ = RegistrationUnit.objects.get_or_create(unit=v[11], address=v[12])
+        producer, _ = Producer.objects.get_or_create(name=v[13], address=v[14])
+        registration = {
+            'date_activated': v[6],
+            'date_expired': v[7],
+            'registered_unit': unit,
+            'producer': producer
+        }
+        register_cert, _ = RegistrationCert.objects.get_or_create(id=v[5], defaults=registration)
+        company = Company.objects.get(id=v[16])
+        insert_data = {
+            'name': v[1],
+            'product_type': product_type,
+            'ingredient': v[8],
+            'amount': v[9],
+            'poison_group': v[10],
+            'registration': register_cert,
+            'company': company,
+            'amount_warning': int(v[17]),
+            'status': 'active' if v[15] == 1 else 'deactivate'
+        }
+        product_cate, _ = ProductCategory.objects.get_or_create(id=v[0], defaults=insert_data)
+
+
+def test():
+    old_product_type()
+    old_product()
 
 
 if __name__ == '__main__':
