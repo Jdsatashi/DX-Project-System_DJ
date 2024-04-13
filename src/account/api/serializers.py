@@ -1,15 +1,17 @@
+import requests
 from django.contrib.auth.hashers import make_password
 from django.core.exceptions import ValidationError
 from django.core.validators import RegexValidator
 from rest_framework import serializers
 from rest_framework.response import Response
 
-from account.models import User, GroupPerm, Perm
+from account.models import User, GroupPerm, Perm, Verify
+from app.settings import SMS_SERVICE
 from user_system.client_group.models import ClientGroup
 from user_system.client_profile.models import ClientProfile
 from user_system.user_type.models import UserType
 from utils.constants import maNhomND, status
-from utils.helpers import value_or_none, phone_validate, generate_id
+from utils.helpers import value_or_none, phone_validate, generate_id, generate_digits_code
 
 
 # Create user serializer for rest api form
@@ -56,17 +58,37 @@ class RegisterSerializer(serializers.ModelSerializer):
         type_kh, _ = UserType.objects.get_or_create(user_type="khachhang")
         user_type = type_kh
         _id = generate_id(maNhomND)
-        user = User.objects.create(id=_id, phone_number=phone, user_type=user_type, status=status[0])
+        user = User.objects.create(id=_id, phone_number=phone, user_type=user_type, status=status[1], is_active=False)
         client_group = ClientGroup.objects.get(id=maNhomND)
         client_profile = ClientProfile.objects.create(client_id=user, client_group_id=client_group)
+        verify_code = generate_digits_code()
+        verify = Verify.objects.create(user=user, verify_code=verify_code, verify_type="SMS OTP")
         result = {
             'id': user.id,
             'phone_number': user.phone_number,
-            'status': user.status,
             'user_type': user.user_type.user_type,
-            'message': 'User has been registered successfully.'
+            'verify_code': verify.verify_code,
+            'message': f'[DONG XANH] Mã xác thực của bạn là {verify.verify_code}.'
         }
+        response = send_sms(user.phone_number, result['message'])
+        print(response)
         return result
+
+
+def send_sms(phone_number, message):
+    url = SMS_SERVICE.get('host')
+    params = {
+        'loginName': SMS_SERVICE.get('username'),
+        'sign': SMS_SERVICE.get('sign'),
+        'serviceTypeId': 530,
+        'phoneNumber': phone_number,
+        'message': message,
+    'brandName': SMS_SERVICE.get('brand'),
+        'callBack': 'False',
+        'smsGuid': 1
+    }
+    response = requests.get(url, params=params)
+    return response
 
 
 class GroupPermSerializer(serializers.ModelSerializer):
