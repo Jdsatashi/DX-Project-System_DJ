@@ -28,3 +28,5 @@ user_type = {
     'client': 'khachhang',
     'employee': 'nhanvien'
 }
+actions_views = {'get': 'list', 'post': 'create'}
+actions_detail = {'get': 'retrieve', 'put': 'update', 'patch': 'partial_update', 'delete': 'destroy'}
