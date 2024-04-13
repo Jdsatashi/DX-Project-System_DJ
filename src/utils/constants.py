@@ -23,4 +23,8 @@ acquy = {
     'partial_update': 'partial_update',
     'destroy': 'destroy'
 }
-status = ['active', 'pending', 'deactivate', 'draft']
+status = ['active', 'deactivate', 'pending', 'draft']
+user_type = {
+    'client': 'khachhang',
+    'employee': 'nhanvien'
+}
