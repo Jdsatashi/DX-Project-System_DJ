@@ -186,7 +186,7 @@ POSTGRESQL = {
     'USER': os.environ['PGS_USER'],
     'PASSWORD': os.environ['PGS_PASSWORD'],
     'OPTIONS': {
-        # 'sslmode': os.environ['PGS_SSL'],
+        'sslmode': os.environ['PGS_SSL'],
         # 'options': f'?options=endpoint%3D{os.environ["PGS_ENDPOINT_ID"]}',
     },
 }
