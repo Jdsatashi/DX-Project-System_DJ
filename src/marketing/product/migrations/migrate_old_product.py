@@ -5,7 +5,6 @@ from utils.helpers import table_data
 from django.db import migrations
 
 
-
 def old_product_type():
     data = table_data(old_data['tb_loaiThuoc'])
     print(f"--------------- ADDING PRODUCT TYPE --------------")
@@ -61,24 +60,21 @@ def old_product():
 
 
 def add_old_product(apps, schema_editor):
-    data = table_data(old_data['tb_congty'])
-    for k, v in enumerate(data):
-        try:
-            old_product_type()
-            old_product_category()
-            old_product()
-            print(f"Added company {v[1]} - {v[0]}")
-        except Exception as e:
-            print(f"----- ERROR -----")
-            print(f"Message: Error when adding company.")
-            print(e)
-            raise Exception(e)
+    try:
+        old_product_type()
+        old_product_category()
+        old_product()
+        print(f"Added company {v[1]} - {v[0]}")
+    except Exception as e:
+        print(f"----- ERROR -----")
+        print(f"Message: Error when adding company.")
+        print(e)
+        raise Exception(e)
 
 
 class Migration(migrations.Migration):
-
     dependencies = [
-        ('company', '0001_initial'),
+        ('product', '0001_initial'),
     ]
 
     operations = [
