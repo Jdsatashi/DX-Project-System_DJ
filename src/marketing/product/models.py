@@ -53,7 +53,7 @@ class Product(models.Model):
     name = models.CharField(max_length=255)
     price = models.BigIntegerField(default=0)
     quantity = models.IntegerField(default=1)
-    category = models.ForeignKey(ProductCategory, on_delete=models.CASCADE)
+    category = models.CharField(max_length=24, null=True)
     main_id = models.CharField(max_length=24, null=True)
     created_by = models.CharField(max_length=255, null=True)
     created_at = models.DateTimeField(auto_now_add=True)

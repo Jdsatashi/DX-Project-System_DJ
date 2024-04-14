@@ -1,5 +1,5 @@
 from account.handlers.restrict_serializer import BaseRestrictSerializer
-from marketing.product.models import ProductCategory, RegistrationUnit, Producer, RegistrationCert, ProductType
+from marketing.product.models import ProductCategory, RegistrationUnit, Producer, RegistrationCert, ProductType, Product
 
 
 class ProductTypeSerializer(BaseRestrictSerializer):
@@ -29,4 +29,10 @@ class RegistrationCertSerializer(BaseRestrictSerializer):
 class ProductCateSerializer(BaseRestrictSerializer):
     class Meta:
         model = ProductCategory
+        fields = '__all__'
+
+
+class ProductSerializer(BaseRestrictSerializer):
+    class Meta:
+        model = Product
         fields = '__all__'

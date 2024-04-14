@@ -6,8 +6,8 @@ from rest_framework_simplejwt.authentication import JWTAuthentication
 
 from account.handlers.validate_perm import ValidatePermRest
 from marketing.product.api.serializers import ProductTypeSerializer, ProductCateSerializer, RegistrationCertSerializer, \
-    ProducerSerializer, RegistrationUnitSerializer
-from marketing.product.models import ProductType, ProductCategory, RegistrationCert, Producer, RegistrationUnit
+    ProducerSerializer, RegistrationUnitSerializer, ProductSerializer
+from marketing.product.models import ProductType, ProductCategory, RegistrationCert, Producer, RegistrationUnit, Product
 
 
 class GenericApiProductType(viewsets.GenericViewSet, mixins.ListModelMixin, mixins.CreateModelMixin,
@@ -48,3 +48,11 @@ class GenericApiProductCategory(viewsets.GenericViewSet, mixins.ListModelMixin, 
     queryset = ProductCategory.objects.all()
     authentication_classes = [JWTAuthentication, BasicAuthentication, SessionAuthentication]
     permission_classes = [partial(ValidatePermRest, model=ProductCategory)]
+
+
+class GenericApiProduct(viewsets.GenericViewSet, mixins.ListModelMixin, mixins.CreateModelMixin,
+                                mixins.RetrieveModelMixin, mixins.UpdateModelMixin, mixins.DestroyModelMixin):
+    serializer_class = ProductSerializer
+    queryset = Product.objects.all()
+    authentication_classes = [JWTAuthentication, BasicAuthentication, SessionAuthentication]
+    permission_classes = [partial(ValidatePermRest, model=Product)]
