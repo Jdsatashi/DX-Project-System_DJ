@@ -19,17 +19,17 @@ router.register('genericview', GenericApiProduct, basename='api_product')
 prod_type_view = GenericApiProductType.as_view(actions_views)
 prod_type_detail = GenericApiProductType.as_view(actions_detail)
 
-register_unit_view = GenericApiProductType.as_view(actions_views)
-register_unit_detail = GenericApiProductType.as_view(actions_detail)
+register_unit_view = GenericApiRegistrationUnit.as_view(actions_views)
+register_unit_detail = GenericApiRegistrationUnit.as_view(actions_detail)
 
-producer_view = GenericApiProductType.as_view(actions_views)
-producer_detail = GenericApiProductType.as_view(actions_detail)
+producer_view = GenericApiProducer.as_view(actions_views)
+producer_detail = GenericApiProducer.as_view(actions_detail)
 
-register_cert_view = GenericApiProductType.as_view(actions_views)
-register_cert_detail = GenericApiProductType.as_view(actions_detail)
+register_cert_view = GenericApiRegistrationCert.as_view(actions_views)
+register_cert_detail = GenericApiRegistrationCert.as_view(actions_detail)
 
-prod_cate_view = GenericApiProductType.as_view(actions_views)
-prod_cate_detail = GenericApiProductType.as_view(actions_detail)
+prod_cate_view = GenericApiProductCategory.as_view(actions_views)
+prod_cate_detail = GenericApiProductCategory.as_view(actions_detail)
 
 prod_view = GenericApiProduct.as_view(actions_views)
 prod_detail = GenericApiProduct.as_view(actions_detail)

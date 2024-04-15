@@ -48,6 +48,24 @@ class ProductCategory(models.Model):
     updated_at = models.DateTimeField(auto_now=True)
 
 
+class UseObject(models.Model):
+    id = models.CharField(primary_key=True, max_length=64, unique=True)
+    name = models.CharField(max_length=255)
+
+
+class UseFor(models.Model):
+    id = models.CharField(primary_key=True, max_length=64, unique=True)
+    name = models.CharField(max_length=255)
+
+
+class CategoryDetail(models.Model):
+    cate_id = models.ForeignKey(ProductCategory, on_delete=models.CASCADE)
+    use_object = models.ForeignKey(UseObject, null=True, on_delete=models.SET_NULL)
+    use_for = models.ForeignKey(UseFor, null=True, on_delete=models.SET_NULL)
+    dosage = models.CharField(max_length=255)
+    usage = models.CharField(max_length=255)
+
+
 class Product(models.Model):
     id = models.CharField(primary_key=True, max_length=12, unique=True)
     name = models.CharField(max_length=255)
