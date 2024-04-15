@@ -9,11 +9,13 @@ def create_initial_permission(apps, schema_editor):
     content_types = ContentType.objects.all()
 
     for i, content_type in enumerate(content_types):
+        print(f"Perm: {i}")
         if i > 6:
             perm_name = f'{content_type.app_label}_{content_type.model}'
             tasks = acquy['full']
             for task in tasks:
                 perm_name_ = f'{task}_{perm_name}'
+                print(f"Adding permission: {perm_name}")
                 Perm.objects.create(name=perm_name_, note=f'{task.capitalize()} {content_type.model}')
 
 
