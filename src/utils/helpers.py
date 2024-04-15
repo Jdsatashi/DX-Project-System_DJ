@@ -2,15 +2,14 @@ import os
 import random
 from datetime import datetime
 
-import pyodbc
 import dotenv
+import pyodbc
+import unicodedata
 from django.core.exceptions import ValidationError
 from django.core.validators import RegexValidator
 from rest_framework import serializers
 
 from account.models import User
-from marketing.company.models import Company
-from marketing.product.models import ProductType, RegistrationUnit, Producer, RegistrationCert, ProductCategory, Product
 from .constants import *
 
 dotenv.load_dotenv()
@@ -110,6 +109,15 @@ def generate_digits(amount: int):
     if len(set(selected_digits)) <= 1:
         return generate_digits(amount)
     return selected_digits
+
+
+def normalize_vietnamese(text):
+    # Remove Vietnamese characters
+    text = unicodedata.normalize('NFKD', text)
+    text = text.encode('ASCII', 'ignore').decode('ASCII')
+    # Replace ' ' space to '_' dash
+    text = text.replace(' ', '_').lower()
+    return text
 
 
 if __name__ == '__main__':
