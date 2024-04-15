@@ -68,18 +68,23 @@ class ValidatePermRest(permissions.BasePermission):
             if module in contents_type:
                 module_name = module
                 break
-
+        print(f"--- Test Permission ---")
         object_pk = view.kwargs.get('pk', None)
         # Get action of function
         action = view.action
         content_type = ContentType.objects.get_for_model(self.model)
         # Merge string from above data to generated permission name
         required_permission = f'{action}_{module_name}_{content_type.model}'
+        is_perm = perm_exist({'name': required_permission})
+        if not is_perm:
+            print(f"Permission no exists")
+            return True
         # Check if user or user_nhom has perm
         user_nhom_perm = user.is_group_has_perm(required_permission)
         user_perm = user.is_perm(required_permission)
         # Check if object has PK
         if object_pk is not None:
+            print(f"PK is not None")
             # Add PK to string perm
             required_permission = f"{required_permission}_{object_pk}"
             # Checking perm with PK is exist
