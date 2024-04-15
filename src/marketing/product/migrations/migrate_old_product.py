@@ -1,7 +1,8 @@
 from marketing.company.models import Company
-from marketing.product.models import Product, ProductCategory, RegistrationCert, Producer, RegistrationUnit, ProductType
+from marketing.product.models import Product, ProductCategory, RegistrationCert, Producer, RegistrationUnit, \
+    ProductType, UseObject, UseFor, CategoryDetail
 from utils.constants import old_data
-from utils.helpers import table_data
+from utils.helpers import table_data, normalize_vietnamese
 from django.db import migrations
 
 
@@ -10,7 +11,6 @@ def old_product_type():
     print(f"--------------- ADDING PRODUCT TYPE --------------")
     for i, k in enumerate(data):
         _type, _ = ProductType.objects.get_or_create(id=k[0], name=k[1])
-        print(_type)
 
 
 def old_product_category():
@@ -59,12 +59,29 @@ def old_product():
         Product.objects.get_or_create(id=v[0], defaults=insert)
 
 
+def old_cate_detail():
+    data = table_data(old_data['tb_thuocChitiet'])
+    norm_vn = normalize_vietnamese
+    print(f"--------------- ADDING CATEGORY DETAIL --------------")
+    for i, v in enumerate(data):
+        use_on, _ = UseObject.objects.get_or_create(id=norm_vn(v[2]), defaults={'name': v[2]})
+        use_for, _ = UseFor.objects.get_or_create(id=norm_vn(v[3]), defaults={'name': v[3]})
+        category = ProductCategory.objects.get(id=v[1])
+        insert = {
+            'cate_id': category,
+            'use_object': use_on,
+            'use_for': use_for,
+            'dosage': v[4],
+            'usage': v[5]
+        }
+        cate_data = CategoryDetail.objects.create(**insert)
+
+
 def add_old_product(apps, schema_editor):
     try:
         old_product_type()
         old_product_category()
         old_product()
-        print(f"Added company {v[1]} - {v[0]}")
     except Exception as e:
         print(f"----- ERROR -----")
         print(f"Message: Error when adding company.")
