@@ -165,6 +165,9 @@ class UserPerm(models.Model):
     class Meta:
         db_table = 'users_user_perm'
 
+    def __str__(self):
+        return f"{self.user} - {self.perm}"
+
 
 # Table/Model middleman of Group and User
 class UserGroupPerm(models.Model):
