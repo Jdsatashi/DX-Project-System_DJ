@@ -33,14 +33,15 @@ class RegistrationCertSerializer(serializers.ModelSerializer):
     def create(self, validated_data):
         unit_data = validated_data.pop('registered_unit', None)
         producer_data = validated_data.pop('producer', None)
-
+        # Add unit data if not None
         if unit_data is not None:
             unit, _ = RegistrationUnit.objects.get_or_create(**unit_data)
             validated_data['registered_unit'] = unit
+        # Add producer data if not None
         if producer_data is not None:
             producer, _ = Producer.objects.get_or_create(**producer_data)
             validated_data['producer'] = producer
-
+        # Process adding Registration Certificate
         registration_cert = RegistrationCert.objects.create(**validated_data)
         return registration_cert
 
@@ -53,19 +54,18 @@ class ProductCateSerializer(BaseRestrictSerializer):
         fields = '__all__'
 
     def create(self, validated_data):
+        # Get data for RegistrationCert
         registration_data = validated_data.pop('registration')
-        # date_activated = validated_data.pop('date_activated')
-        # date_expires = validated_data.pop('date_expired')
-        # registered_unit = validated_data.pop('registered_unit')
-        # producer = validated_data.pop('producer')
-        insert_data, quyen_data = self.split_data(validated_data)
+        # Get insert data for Product Category
+        insert_data, perm_data = self.split_data(validated_data)
+        # Process create RegistrationCert
         registration_cert = RegistrationCertSerializer().create(registration_data)
-        print(insert_data)
+        # Process create ProductCategory
         product_category = ProductCategory.objects.create(registration=registration_cert, **insert_data)
         # Create permissions if get restrict
-        restrict = quyen_data.get('restrict')
+        restrict = perm_data.get('restrict')
         if restrict:
-            self.handle_restrict(quyen_data, product_category.id, self.Meta.model)
+            self.handle_restrict(perm_data, product_category.id, self.Meta.model)
         return product_category
 
 
