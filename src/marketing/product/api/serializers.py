@@ -45,6 +45,22 @@ class RegistrationCertSerializer(serializers.ModelSerializer):
         registration_cert = RegistrationCert.objects.create(**validated_data)
         return registration_cert
 
+    def update(self, instance, validated_data):
+        unit_data = validated_data.pop('registered_unit', None)
+        producer_data = validated_data.pop('producer', None)
+
+        if unit_data:
+            unit_serializer = RegistrationUnitSerializer(instance=instance.registered_unit, data=unit_data)
+            if unit_serializer.is_valid():
+                unit_serializer.save()
+
+        if producer_data:
+            producer_serializer = ProducerSerializer(instance=instance.producer, data=producer_data)
+            if producer_serializer.is_valid():
+                producer_serializer.save()
+
+        return super().update(instance, validated_data)
+
 
 class ProductCateSerializer(BaseRestrictSerializer):
     registration = RegistrationCertSerializer()
@@ -68,8 +84,36 @@ class ProductCateSerializer(BaseRestrictSerializer):
             self.handle_restrict(perm_data, product_category.id, self.Meta.model)
         return product_category
 
+    def update(self, instance, validated_data):
+        registration_data = validated_data.pop('registration', None)
+        if registration_data:
+            reg_serializer = RegistrationCertSerializer(instance=instance.registration, data=registration_data)
+            if reg_serializer.is_valid():
+                reg_serializer.save()
+        # Get insert data for Product Category
+        insert_data, perm_data = self.split_data(validated_data)
+        for attr, value in insert_data.items():
+            setattr(instance, attr, value)
+        restrict = perm_data.get('restrict')
+        if restrict:
+            self.handle_restrict(perm_data, instance.id, self.Meta.model)
+        instance.save()
+
+        return instance
+
+
 
 class ProductSerializer(BaseRestrictSerializer):
     class Meta:
         model = Product
         fields = '__all__'
+
+    def create(self, validated_data):
+        data, perm_data = self.split_data(validated_data)
+        # Restrict check if create request required perm
+        restrict = perm_data.get('restrict')
+        instance = super().create(data)
+        # When required quyen, handle to add perm
+        if restrict:
+            self.handle_restrict(perm_data, instance.id, self.Meta.model)
+        return instance
