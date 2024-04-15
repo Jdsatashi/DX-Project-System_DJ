@@ -19,10 +19,13 @@ class CustomTokenObtainPairSerializer(TokenObtainPairSerializer):
         username = attrs['username'].upper()
         password = attrs['password']
         is_phone, username = phone_validate(username)
+        print(f"Is phone: {is_phone}")
         if not is_phone:
+            print(f"Employee")
             type_emp = UserType.objects.get(user_type=user_type.get('employee'))
             user = User.objects.filter(id=username, user_type=type_emp).first()
         else:
+            print(f"Client")
             type_client = UserType.objects.get(user_type=user_type.get('client'))
             user = User.objects.filter(phone_number=username, user_type=type_client).first()
 
