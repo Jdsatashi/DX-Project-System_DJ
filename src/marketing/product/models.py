@@ -1,6 +1,7 @@
 from django.db import models
 
 from marketing.company.models import Company
+from system.file_upload.models import FileUpload, ContentFile
 
 
 # Create your models here.
@@ -38,8 +39,8 @@ class ProductCategory(models.Model):
     name = models.CharField(max_length=255)
     product_type = models.ForeignKey(ProductType, on_delete=models.CASCADE)
     ingredient = models.CharField(max_length=255)
-    amount = models.CharField(50)
-    poison_group = models.CharField(50)
+    amount = models.CharField(max_length=50)
+    poison_group = models.CharField(max_length=50)
     registration = models.ForeignKey(RegistrationCert, null=True, on_delete=models.SET_NULL)
     company = models.ForeignKey(Company, null=True, on_delete=models.SET_NULL)
     amount_warning = models.IntegerField(default=0)

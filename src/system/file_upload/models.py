@@ -6,29 +6,34 @@ from django.db import models
 from django.utils.timezone import now
 
 
-def upload_location(instance, filename, model):
-    model_name = instance.__class__.__name__.lower()
+def upload_location(filename):
     now_time = now()
     year = str(now_time.year)
     month = '{:02d}'.format(now_time.month)
-    print(f"Expect path: \"uploads/{model_name}/{year}/{month}/{filename}\"")
+    print(f"Expect path: \"uploads/{year}/{month}/{filename}\"")
     # return f"uploads/{model_name}/{now_time.year}/{now_time.month}/{filename}"
-    return os.path.join('uploads', model, year, month, filename)
+    return os.path.join('uploads', year, month, filename)
+
+
+def check_ext(ext):
+    image_extensions = ['.jpg', '.jpeg', '.png']
+    document_extensions = ['.pdf', '.docx', '.xlsx', '.pptx']
+    if ext in image_extensions:
+        return 'image'
+    if ext in document_extensions:
+        return 'document'
 
 
 # Create your models here.
 class FileUpload(models.Model):
-    label = models.CharField(max_length=255)
-    file = models.FileField()
-    file_name = models.CharField(max_length=255, unique=True, null=False, blank=False)
+    file = models.FileField(unique=True)
+    file_name = models.CharField(max_length=255, unique=True, null=False, blank=True)
     file_ext = models.CharField(max_length=12, null=False, blank=True)
+    type = models.CharField(max_length=8, null=True, choices=(('document', 'Document'), ('image', 'Image')))
+    order = models.IntegerField(default=1)
     note = models.CharField(max_length=255, null=True, blank=True)
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
-
-    content_type = models.ForeignKey(ContentType, null=True, on_delete=models.SET_NULL)
-    object_id = models.CharField(max_length=255, null=True)
-    content_object = GenericForeignKey('content_type', 'object_id')
 
     def save(self, *args, **kwargs):
         if self.file:
@@ -46,9 +51,15 @@ class FileUpload(models.Model):
             # Update filename and extension
             self.file_name = new_file_name
             self.file_ext = file_ext
-            # Get model from content type
-            model = self.content_type.model
-            if not self.label:
-                self.label = self.file_name
-            self.file.name = upload_location(self, self.file_name + file_ext, model)
+            self.type = check_ext(self.file_ext)
+            self.file.name = upload_location(self.file_name + file_ext)
         super().save(*args, **kwargs)
+
+
+class ContentFile(models.Model):
+    file = models.ForeignKey(FileUpload, to_field='file', on_delete=models.CASCADE)
+    content_type = models.ForeignKey(ContentType, on_delete=models.CASCADE)
+    object_id = models.CharField(max_length=255)
+    content_object = GenericForeignKey('content_type', 'object_id')
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
