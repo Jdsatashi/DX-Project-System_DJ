@@ -72,10 +72,12 @@ class RegistrationCertSerializer(serializers.ModelSerializer):
 
 class ProductCateSerializer(BaseRestrictSerializer):
     registration = RegistrationCertSerializer()
+    files_upload = serializers.ListField()
 
     class Meta:
         model = ProductCategory
         fields = '__all__'
+        read_only_fields = ('created_at', 'updated_at')
 
     def __init__(self, *args, **kwargs):
         super(ProductCateSerializer, self).__init__(*args, **kwargs)
@@ -83,6 +85,10 @@ class ProductCateSerializer(BaseRestrictSerializer):
             self.fields['id'].required = False
 
     def create(self, validated_data):
+        id = validated_data.get('id', None)
+        files_upload = validated_data.pop('files_upload', [])
+        if id is None:
+            raise serializers.ValidationError({'id': 'This field is required'})
         # Get data for RegistrationCert
         registration_data = validated_data.pop('registration')
         # Get insert data for Product Category
@@ -91,6 +97,9 @@ class ProductCateSerializer(BaseRestrictSerializer):
         registration_cert = RegistrationCertSerializer().create(registration_data)
         # Process create ProductCategory
         product_category = ProductCategory.objects.create(registration=registration_cert, **insert_data)
+        # Process
+        for file in files_upload:
+            print(f"File: {file}")
         # Create permissions if get restrict
         restrict = perm_data.get('restrict')
         if restrict:
