@@ -1,7 +1,8 @@
 from rest_framework import serializers
 
 from account.handlers.restrict_serializer import BaseRestrictSerializer
-from marketing.product.models import ProductCategory, RegistrationUnit, Producer, RegistrationCert, ProductType, Product
+from marketing.product.models import ProductCategory, RegistrationUnit, Producer, RegistrationCert, ProductType, \
+    Product, CategoryDetail
 
 
 class ProductTypeSerializer(serializers.ModelSerializer):
@@ -30,7 +31,14 @@ class RegistrationCertSerializer(serializers.ModelSerializer):
         model = RegistrationCert
         fields = '__all__'
 
+    def __init__(self, *args, **kwargs):
+        super(RegistrationCertSerializer, self).__init__(*args, **kwargs)
+        self.fields['id'].required = False
+
     def create(self, validated_data):
+        id = validated_data.get('id', None)
+        if id is None:
+            raise serializers.ValidationError({'id': 'This field is required'})
         unit_data = validated_data.pop('registered_unit', None)
         producer_data = validated_data.pop('producer', None)
         # Add unit data if not None
@@ -69,6 +77,11 @@ class ProductCateSerializer(BaseRestrictSerializer):
         model = ProductCategory
         fields = '__all__'
 
+    def __init__(self, *args, **kwargs):
+        super(ProductCateSerializer, self).__init__(*args, **kwargs)
+        if self.instance:
+            self.fields['id'].required = False
+
     def create(self, validated_data):
         # Get data for RegistrationCert
         registration_data = validated_data.pop('registration')
@@ -87,7 +100,8 @@ class ProductCateSerializer(BaseRestrictSerializer):
     def update(self, instance, validated_data):
         registration_data = validated_data.pop('registration', None)
         if registration_data:
-            reg_serializer = RegistrationCertSerializer(instance=instance.registration, data=registration_data)
+            reg_serializer = RegistrationCertSerializer(instance=instance.registration, data=registration_data,
+                                                        partial=True)
             if reg_serializer.is_valid():
                 reg_serializer.save()
         # Get insert data for Product Category
@@ -101,6 +115,12 @@ class ProductCateSerializer(BaseRestrictSerializer):
 
         return instance
 
+
+class CategoryDetailSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = CategoryDetail
+        fields = '__all__'
+        read_only_fields = ['id']
 
 
 class ProductSerializer(BaseRestrictSerializer):
