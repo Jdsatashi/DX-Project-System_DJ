@@ -23,7 +23,7 @@ class CustomTokenObtainPairSerializer(TokenObtainPairSerializer):
         if not is_phone:
             print(f"Employee")
             type_emp = UserType.objects.get(user_type=user_type.get('employee'))
-            user = User.objects.filter(id=username, user_type=type_emp).first()
+            user = User.objects.filter(id=username).first()
         else:
             print(f"Client")
             type_client = UserType.objects.get(user_type=user_type.get('client'))
