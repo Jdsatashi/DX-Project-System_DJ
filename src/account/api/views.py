@@ -35,6 +35,8 @@ class ApiAccount(viewsets.GenericViewSet, mixins.ListModelMixin, mixins.CreateMo
 
 
 class RegisterSMS(APIView):
+    authentication_classes = [JWTAuthentication]
+
     def post(self, request):
         serializer = RegisterSerializer(data=request.data)
         if serializer.is_valid():
