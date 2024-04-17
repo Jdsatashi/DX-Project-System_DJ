@@ -1,9 +1,6 @@
 import requests
 from django.contrib.auth.hashers import make_password
-from django.core.exceptions import ValidationError
-from django.core.validators import RegexValidator
 from rest_framework import serializers
-from rest_framework.response import Response
 
 from account.models import User, GroupPerm, Perm, Verify
 from app.settings import SMS_SERVICE
@@ -54,6 +51,7 @@ class RegisterSerializer(serializers.ModelSerializer):
         is_valid, phone = phone_validate(phone_number)
         if not is_valid:
             raise serializers.ValidationError({'phone_number': ['Số điện thoại không hợp lệ.']})
+
         # handle create user
         type_kh, _ = UserType.objects.get_or_create(user_type="khachhang")
         user_type = type_kh
@@ -67,8 +65,6 @@ class RegisterSerializer(serializers.ModelSerializer):
             'id': user.id,
             'phone_number': user.phone_number,
             'user_type': user.user_type.user_type,
-            'verify_code': verify.verify_code,
-            'message': f'[DONG XANH] Mã xác thực của bạn là {verify.verify_code}.'
         }
         response = send_sms(user.phone_number, result['message'])
         print(response)
@@ -80,12 +76,10 @@ def send_sms(phone_number, message):
     params = {
         'loginName': SMS_SERVICE.get('username'),
         'sign': SMS_SERVICE.get('sign'),
-        'serviceTypeId': 530,
+        'serviceTypeId': SMS_SERVICE.get('type'),
         'phoneNumber': phone_number,
         'message': message,
-    'brandName': SMS_SERVICE.get('brand'),
-        'callBack': 'False',
-        'smsGuid': 1
+        'brandName': SMS_SERVICE.get('brand'),
     }
     response = requests.get(url, params=params)
     return response
