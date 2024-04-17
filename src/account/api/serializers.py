@@ -65,7 +65,7 @@ class RegisterSerializer(serializers.ModelSerializer):
             'id': user.id,
             'phone_number': user.phone_number,
             'user_type': user.user_type.user_type,
-            'message': f"Ma xac thuc cua ban la {verify.verify_code}, tai app Thuoc BVTV Dong Xanh co hieu luc trong 3 phut. Vi ly do bao mat tuyet doi khong cung cap cho bat ky ai."
+            'message': f"[DONG XANH] Ma xac thuc cua ban la {verify.verify_code}, tai app Thuoc BVTV Dong Xanh co hieu luc trong 3 phut. Vi ly do bao mat tuyet doi khong cung cap cho bat ky ai."
         }
         response = send_sms(user.phone_number, result['message'])
         print(response)
