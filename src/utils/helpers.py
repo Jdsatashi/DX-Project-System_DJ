@@ -5,6 +5,7 @@ from datetime import datetime
 import dotenv
 import pyodbc
 import unicodedata
+from django.contrib.contenttypes.models import ContentType
 from django.core.exceptions import ValidationError
 from django.core.validators import RegexValidator
 from rest_framework import serializers
@@ -118,6 +119,10 @@ def normalize_vietnamese(text):
     # Replace ' ' space to '_' dash
     text = text.replace(' ', '_').lower()
     return text
+
+
+def get_content(model):
+    return ContentType.objects.get_for_model(model)
 
 
 if __name__ == '__main__':
