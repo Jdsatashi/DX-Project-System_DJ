@@ -1,10 +1,9 @@
-from rest_framework import serializers, status
-from rest_framework.response import Response
+from django.contrib.contenttypes.models import ContentType
+from rest_framework import serializers
 
 from account.handlers.restrict_serializer import BaseRestrictSerializer
 from marketing.product.models import ProductCategory, RegistrationUnit, Producer, RegistrationCert, ProductType, \
     Product, CategoryDetail
-from utils.helpers import get_content
 
 
 class ProductTypeSerializer(serializers.ModelSerializer):
@@ -53,8 +52,7 @@ class RegistrationCertSerializer(serializers.ModelSerializer):
             validated_data['producer'] = producer
         # Process adding Registration Certificate
         registration_cert = RegistrationCert.objects.create(**validated_data)
-        response = {'data': registration_cert, 'content': get_content(self.Meta.model)}
-        return Response(response, status.HTTP_201_CREATED)
+        return registration_cert
 
     def update(self, instance, validated_data):
         unit_data = validated_data.pop('registered_unit', None)
@@ -69,15 +67,15 @@ class RegistrationCertSerializer(serializers.ModelSerializer):
             producer_serializer = ProducerSerializer(instance=instance.producer, data=producer_data)
             if producer_serializer.is_valid():
                 producer_serializer.save()
-        response = {'data': super().update(instance, validated_data), 'content': get_content(self.Meta.model)}
-        return Response(response, status.HTTP_200_OK)
+        return super().update(instance, validated_data)
 
 
 class ProductCateSerializer(BaseRestrictSerializer):
     registration = RegistrationCertSerializer()
-    files_upload = serializers.ListField(
-        child=serializers.FileField(max_length=100000, allow_empty_file=False, use_url=False),
-        write_only=True, required=False)
+    # files_upload = serializers.ListField(
+    #     child=serializers.FileField(max_length=100000, allow_empty_file=False, use_url=False),
+    #     write_only=True, required=False)
+    content = serializers.ReadOnlyField(source='get_content')
 
     class Meta:
         model = ProductCategory
@@ -89,12 +87,15 @@ class ProductCateSerializer(BaseRestrictSerializer):
         if self.instance:
             self.fields['id'].required = False
 
+    def get_content(self):
+        return ContentType.objects.get_for_model(self.Meta.model)
+
     def create(self, validated_data):
         _id = validated_data.get('id', None)
-        files_upload = validated_data.pop('files_upload', [])
-        print(files_upload)
-        for file in files_upload:
-            print(file)
+        # files_upload = validated_data.pop('files_upload', [])
+        # print(files_upload)
+        # for file in files_upload:
+        #     print(file)
         if _id is None:
             raise serializers.ValidationError({'id': 'This field is required'})
         # Get data for RegistrationCert
@@ -105,12 +106,12 @@ class ProductCateSerializer(BaseRestrictSerializer):
         registration_cert = RegistrationCertSerializer().create(registration_data)
         # Process create ProductCategory
         product_category = ProductCategory.objects.create(registration=registration_cert, **insert_data)
+        print(registration_cert)
         # Create permissions if get restrict
         restrict = perm_data.get('restrict')
         if restrict:
             self.handle_restrict(perm_data, product_category.id, self.Meta.model)
-        response = {'data': product_category, 'content': get_content(self.Meta.model)}
-        return Response(response, status.HTTP_201_CREATED)
+        return product_category
 
     def update(self, instance, validated_data):
         registration_data = validated_data.pop('registration', None)
@@ -127,8 +128,7 @@ class ProductCateSerializer(BaseRestrictSerializer):
         if restrict:
             self.handle_restrict(perm_data, instance.id, self.Meta.model)
         instance.save()
-        response = {'data': instance, 'content': get_content(self.Meta.model)}
-        return Response(response, status.HTTP_200_OK)
+        return instance
 
 
 class CategoryDetailSerializer(serializers.ModelSerializer):
@@ -151,5 +151,4 @@ class ProductSerializer(BaseRestrictSerializer):
         # When required quyen, handle to add perm
         if restrict:
             self.handle_restrict(perm_data, instance.id, self.Meta.model)
-        response = {'data': instance, 'content': get_content(self.Meta.model)}
-        return Response(response, status.HTTP_201_CREATED)
+        return instance
