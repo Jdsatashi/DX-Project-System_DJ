@@ -26,7 +26,8 @@ SMS_SERVICE = {
     'host': os.environ.get('SMS_SERVICE'),
     'username': os.environ.get('SMS_USERNAME'),
     'sign': os.environ.get('SMS_SIGN'),
-    'brand': os.environ.get('SMS_BRAND')
+    'brand': os.environ.get('SMS_BRAND'),
+    'type': os.environ.get('SMS_TYPE')
 }
 
 # Application definition
