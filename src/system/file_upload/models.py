@@ -55,11 +55,22 @@ class FileUpload(models.Model):
             self.file.name = upload_location(self.file_name + file_ext)
         super().save(*args, **kwargs)
 
+    def __str__(self):
+        return f"({str(self.id)}) : '{str(self.file)}'"
+
 
 class ContentFile(models.Model):
-    file = models.ForeignKey(FileUpload, to_field='file', on_delete=models.CASCADE)
+    file = models.ForeignKey(FileUpload, on_delete=models.CASCADE)
     content_type = models.ForeignKey(ContentType, on_delete=models.CASCADE)
     object_id = models.CharField(max_length=255)
     content_object = GenericForeignKey('content_type', 'object_id')
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
+
+    def __str__(self):
+        return f"({str(self.content_type)} - {str(self.object_id)}) : '{str(self.file.file)}'"
+
+    def save(self, *args, **kwargs):
+        if ContentFile.objects.filter(file=self.file, content_type=self.content_type, object_id=self.object_id).exists():
+            raise Exception("File already exists in this content")
+        super().save(*args, **kwargs)
