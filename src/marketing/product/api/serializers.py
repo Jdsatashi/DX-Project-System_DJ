@@ -75,7 +75,9 @@ class RegistrationCertSerializer(serializers.ModelSerializer):
 
 class ProductCateSerializer(BaseRestrictSerializer):
     registration = RegistrationCertSerializer()
-    files_upload = serializers.ListField(child=serializers.FileField(), write_only=True, required=False)
+    files_upload = serializers.ListField(
+        child=serializers.FileField(max_length=100000, allow_empty_file=False, use_url=False),
+        write_only=True, required=False)
 
     class Meta:
         model = ProductCategory
