@@ -35,7 +35,7 @@ class ApiAccount(viewsets.GenericViewSet, mixins.ListModelMixin, mixins.CreateMo
 
 
 class RegisterSMS(APIView):
-    permission_classes = [partial(ValidatePermRest, model=User)]
+    authentication_classes = [JWTAuthentication]
 
     def post(self, request):
         serializer = RegisterSerializer(data=request.data)
