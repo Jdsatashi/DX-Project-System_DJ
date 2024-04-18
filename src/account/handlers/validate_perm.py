@@ -69,9 +69,20 @@ class ValidatePermRest(permissions.BasePermission):
                 module_name = module
                 break
         print(f"--- Test Permission ---")
+        print(view)
+        print(request.method)
         object_pk = view.kwargs.get('pk', None)
         # Get action of function
-        action = view.action
+        try:
+            action = view.action
+        except AttributeError:
+            action = {
+                'GET': 'retrieve' if 'pk' in view.kwargs else 'list',
+                'POST': 'create',
+                'PUT': 'update',
+                'PATCH': 'partial_update',
+                'DELETE': 'destroy'
+            }.get(request.method, 'read')
         content_type = ContentType.objects.get_for_model(self.model)
         # Merge string from above data to generated permission name
         required_permission = f'{action}_{module_name}_{content_type.model}'
