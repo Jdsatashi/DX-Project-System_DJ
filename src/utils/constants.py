@@ -25,8 +25,8 @@ acquy = {
 }
 status = ['active', 'deactivate', 'pending', 'draft']
 user_type = {
-    'client': 'khachhang',
-    'employee': 'nhanvien'
+    'client': 'client',
+    'employee': 'employee'
 }
 actions_views = {'get': 'list', 'post': 'create'}
 actions_detail = {'get': 'retrieve', 'put': 'update', 'patch': 'partial_update', 'delete': 'destroy'}
