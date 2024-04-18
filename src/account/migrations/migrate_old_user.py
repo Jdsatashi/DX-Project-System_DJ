@@ -3,7 +3,8 @@ import time
 
 import dotenv
 from django.contrib.auth.hashers import make_password
-from django.db import migrations
+from django.core.exceptions import ValidationError
+from django.db import migrations, IntegrityError
 
 from account.models import User
 from user_system.client_group.models import ClientGroup
@@ -29,8 +30,12 @@ def append_kh(type_kh):
         phone = v[5] if v[5] != '' else None
         pw = v[0].lower() if v[10] == '' or v[10] is None else v[10]
         hash_pw = make_password(pw)
-        obj, created = User.objects.get_or_create(id=v[0], defaults={"phone_number": phone, "user_type": type_kh,
+        try:
+            obj, created = User.objects.get_or_create(id=v[0], defaults={"phone_number": phone, "user_type": type_kh,
                                                                      "password": hash_pw})
+        except IntegrityError:
+            obj, created = User.objects.get_or_create(id=v[0], defaults={"phone_number": None, "user_type": type_kh,
+                                                                         "password": hash_pw})
         if created:
             print(f"User {v[0]} was created successfully.")
         else:
@@ -52,8 +57,15 @@ def append_nv(type_nv):
         phone = v[28] if v[28] != '' else None
         email = v[51] if v[51] != '' else None
         pw_hash = make_password(v[0].lower())
-        obj, created = User.objects.get_or_create(
-            id=v[0], defaults={'phone_number': phone, 'email': email, 'user_type': type_nv, 'password': pw_hash})
+        try:
+            obj, created = User.objects.get_or_create(
+                id=v[0], defaults={'phone_number': phone, 'email': email, 'user_type': type_nv, 'password': pw_hash})
+        except IntegrityError:
+            obj, created = User.objects.get_or_create(
+                id=v[0], defaults={'phone_number': None, 'email': email, 'user_type': type_nv, 'password': pw_hash})
+        except ValidationError:
+            obj, created = User.objects.get_or_create(
+                id=v[0], defaults={'phone_number': None, 'email': email, 'user_type': type_nv, 'password': pw_hash})
         print(obj.id)
         if created:
             print(f"User {v[0]} was created successfully.")
@@ -98,8 +110,8 @@ def create_client_group_id():
 
 def insertDB(apps, schema_editor):
     start_time = time.time()
-    type_nv, _ = UserType.objects.get_or_create(user_type="nhanvien")
-    type_kh, _ = UserType.objects.get_or_create(user_type="khachhang")
+    type_nv, _ = UserType.objects.get_or_create(user_type="employee")
+    type_kh, _ = UserType.objects.get_or_create(user_type="client")
     create_position()
     create_client_group_id()
     append_nv(type_nv)
