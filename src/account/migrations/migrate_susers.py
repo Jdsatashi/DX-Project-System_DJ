@@ -22,7 +22,7 @@ def create_suser(apps, schema_editor):
 
 class Migration(migrations.Migration):
     dependencies = [
-        ('account', 'nhom_draft'),
+        ('account', 'migrate_perm')
     ]
 
     operations = [

@@ -115,7 +115,6 @@ class Migration(migrations.Migration):
         ('client_group', '0001_initial'),
         ('client_profile', '0001_initial'),
         ('employee_profile', '0001_initial'),
-        ('account', 'migrate_perm')
     ]
 
     operations = [

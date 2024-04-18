@@ -22,7 +22,7 @@ def create_initial_permission(apps, schema_editor):
 class Migration(migrations.Migration):
 
     dependencies = [
-        ('account', '0001_initial'),
+        ('account', 'nhom_draft'),
     ]
 
     operations = [
