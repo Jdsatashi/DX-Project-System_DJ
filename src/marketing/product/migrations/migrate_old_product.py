@@ -10,6 +10,7 @@ def old_product_type():
     data = table_data(old_data['tb_loaiThuoc'])
     print(f"--------------- ADDING PRODUCT TYPE --------------")
     for i, k in enumerate(data):
+        print(f"Adding product type: {k[1]}")
         _type, _ = ProductType.objects.get_or_create(id=k[0], name=k[1])
 
 
@@ -41,6 +42,7 @@ def old_product_category():
             'amount_warning': int(v[17]),
             'status': 'active' if v[15] == 1 else 'deactivate'
         }
+        print(f"Adding product category: {v[0]} - {v[1]}")
         product_cate, _ = ProductCategory.objects.get_or_create(id=v[0], defaults=insert_data)
 
 
@@ -56,6 +58,7 @@ def old_product():
             'main_id': v[8],
             'created_by': v[6],
         }
+        print(f"Adding product: {v[0]} - {v[1]}")
         Product.objects.get_or_create(id=v[0], defaults=insert)
 
 
@@ -74,6 +77,7 @@ def old_cate_detail():
             'dosage': v[4],
             'usage': v[5]
         }
+        print(f"Adding category detail: {v[1]}")
         cate_data = CategoryDetail.objects.create(**insert)
 
 
