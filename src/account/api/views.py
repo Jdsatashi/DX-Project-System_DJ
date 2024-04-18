@@ -3,6 +3,7 @@ from functools import partial
 from django.http import HttpResponse
 from django.utils import timezone
 from rest_framework import mixins, viewsets, status
+from rest_framework.authentication import BasicAuthentication
 from rest_framework.decorators import api_view
 from rest_framework.response import Response
 from rest_framework.views import APIView
@@ -35,7 +36,8 @@ class ApiAccount(viewsets.GenericViewSet, mixins.ListModelMixin, mixins.CreateMo
 
 
 class RegisterSMS(APIView):
-    authentication_classes = [JWTAuthentication]
+    authentication_classes = [JWTAuthentication, BasicAuthentication]
+    permission_classes = [partial(ValidatePermRest, model=User)]
 
     def post(self, request):
         serializer = RegisterSerializer(data=request.data)

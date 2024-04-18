@@ -44,7 +44,7 @@ def handle_register_acc(req):
     if form.is_valid() and req.method == 'POST':
         obj = form.save(commit=False)
         # Set default value for user register (type = Nongdan)
-        type_kh, _ = UserType.objects.get_or_create(loaiUser="khachhang")
+        type_kh, _ = UserType.objects.get_or_create(loaiUser="client")
         obj.loaiUser = type_kh
         nhomKH = maNhomND
         user_id = generate_id(nhomKH)

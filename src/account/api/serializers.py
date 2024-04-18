@@ -53,7 +53,7 @@ class RegisterSerializer(serializers.ModelSerializer):
             raise serializers.ValidationError({'phone_number': ['Số điện thoại không hợp lệ.']})
 
         # handle create user
-        type_kh, _ = UserType.objects.get_or_create(user_type="khachhang")
+        type_kh, _ = UserType.objects.get_or_create(user_type="client")
         user_type = type_kh
         _id = generate_id(maNhomND)
         user = User.objects.create(id=_id, phone_number=phone, user_type=user_type, status=status[1], is_active=False)
@@ -67,8 +67,8 @@ class RegisterSerializer(serializers.ModelSerializer):
             'user_type': user.user_type.user_type,
             'message': f"[DONG XANH] Ma xac thuc cua ban la {verify.verify_code}, tai app Thuoc BVTV Dong Xanh co hieu luc trong 3 phut. Vi ly do bao mat tuyet doi khong cung cap cho bat ky ai."
         }
-        response = send_sms(user.phone_number, result['message'])
-        print(response)
+        # response = send_sms(user.phone_number, result['message'])
+        # print(response)
         return result
 
 
