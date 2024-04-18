@@ -1,10 +1,10 @@
 # models.py
 import datetime
 
-from django.contrib.auth.hashers import make_password
 from django.contrib.auth.models import AbstractBaseUser, BaseUserManager, PermissionsMixin
 from django.contrib.contenttypes.fields import GenericForeignKey
 from django.contrib.contenttypes.models import ContentType
+from django.core.exceptions import ValidationError
 from django.db import models
 from django.utils import timezone
 
@@ -28,6 +28,8 @@ class CustomUserManager(BaseUserManager):
         extra_fields.setdefault('is_staff', True)
         extra_fields.setdefault('is_superuser', True)
         username = username if username and username != '' else extra_fields.get('id')
+        type_nv, _ = UserType.objects.get_or_create(user_type="employee")
+        extra_fields['user_type'] = type_nv
         user = self.create_user(username, email, phone_number, password, **extra_fields)
         perms = Perm.objects.all()
         for i, q in enumerate(perms):
@@ -40,7 +42,8 @@ class User(AbstractBaseUser, PermissionsMixin):
     id = models.CharField(primary_key=True, unique=True, null=False)
     username = models.CharField(max_length=255, unique=True, null=True, blank=True, default=None)
     email = models.EmailField(unique=False, null=True, blank=True, default=None)
-    phone_number = models.CharField(max_length=128, unique=False, null=True, blank=True, default=None)
+    phone_number = models.CharField(max_length=128, unique=True, null=True, blank=True, default=None)
+    phone_number2 = models.CharField(max_length=24, unique=True, null=True, blank=True, default=None)
     password = models.CharField(max_length=512, null=False)
     region = models.CharField(max_length=100, null=True, blank=True, default=None)
     status = models.CharField(max_length=40, null=True, default=None)
@@ -70,11 +73,25 @@ class User(AbstractBaseUser, PermissionsMixin):
     def __str__(self):
         return f"{self.id}"
 
+    def clean(self):
+        if self.phone_number and self.phone_number2 and self.phone_number == self.phone_number2:
+            raise ValidationError("Phone number and Phone number2 should not be the same.")
+
+        if self.phone_number2 and User.objects.filter(phone_number=self.phone_number2).exclude(pk=self.pk).exists():
+            raise ValidationError("Phone number2 is already used as Phone number by another user.")
+
+        if self.phone_number and User.objects.filter(phone_number2=self.phone_number).exclude(pk=self.pk).exists():
+            raise ValidationError("Phone number is already used as Phone number2 by another user.")
+
+        super().clean()
+
     def save(self, *args, **kwargs):
         self.id = self.id.upper()
         self.username = self.username if self.username and self.username != '' else self.id
         # if self.password is None or self.password == '':
         #     self.password = make_password(self.id.lower())
+        self.clean()
+        self.phone_number = None if self.phone_number == '' else self.phone_number
         super().save(*args, **kwargs)
 
     def is_perm(self, permission):
