@@ -13,6 +13,7 @@ from account.api.serializers import UserSerializer, RegisterSerializer
 from account.handlers.handle import handle_create_acc
 from account.handlers.validate_perm import ValidatePermRest
 from account.models import User, Verify
+from app.logs import acc_log
 from utils.constants import status as user_status
 from utils.model_filter_paginate import filter_data
 
@@ -37,7 +38,17 @@ class ApiAccount(viewsets.GenericViewSet, mixins.ListModelMixin, mixins.CreateMo
 
 class RegisterSMS(APIView):
     authentication_classes = [JWTAuthentication, BasicAuthentication]
-    permission_classes = [partial(ValidatePermRest, model=User)]
+
+    # permission_classes = [partial(ValidatePermRest, model=User)]
+
+    def get_serializer(self, *args, **kwargs):
+        return RegisterSerializer(*args, **kwargs)
+
+    def get(self, request, *args, **kwargs):
+        serializer = self.get_serializer(data={
+            'phone_number': '',
+        })
+        return Response(serializer.initial_data)
 
     def post(self, request):
         serializer = RegisterSerializer(data=request.data)
@@ -47,8 +58,13 @@ class RegisterSMS(APIView):
         return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
 
 
-@api_view(['POST'])
+@api_view(['POST', 'GET'])
 def register_verify(request, pk):
+    if request.method == 'GET':
+        response = {
+            'otp_code': '123456'
+        }
+        return Response(response, status=status.HTTP_405_METHOD_NOT_ALLOWED)
     try:
         user = User.objects.get(id=pk)
     except User.DoesNotExist:
