@@ -52,8 +52,6 @@ def old_product():
     for i, v in enumerate(data):
         insert = {
             'name': v[1],
-            'price': int(v[3]),
-            'quantity': int(v[4]),
             'category': v[7],
             'main_id': v[8],
             'created_by': v[6],

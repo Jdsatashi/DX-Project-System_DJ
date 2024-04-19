@@ -70,8 +70,6 @@ class CategoryDetail(models.Model):
 class Product(models.Model):
     id = models.CharField(primary_key=True, max_length=12, unique=True)
     name = models.CharField(max_length=255)
-    price = models.BigIntegerField(default=0)
-    quantity = models.IntegerField(default=1)
     category = models.CharField(max_length=24, null=True)
     main_id = models.CharField(max_length=24, null=True)
     created_by = models.CharField(max_length=255, null=True)
