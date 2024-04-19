@@ -43,6 +43,10 @@ class GenericApiRegistrationCert(viewsets.GenericViewSet, mixins.ListModelMixin,
     # authentication_classes = [JWTAuthentication]
     # permission_classes = [partial(ValidatePermRest, model=RegistrationCert)]
 
+    def list(self, request, *args, **kwargs):
+        response_data = filter_data(self, request, ['id', 'registered_unit', 'producer'], *args, **kwargs)
+        return Response(response_data, status=status.HTTP_200_OK)
+
 
 class GenericApiProductCategory(viewsets.GenericViewSet, mixins.ListModelMixin, mixins.CreateModelMixin,
                                 mixins.RetrieveModelMixin, mixins.UpdateModelMixin, mixins.DestroyModelMixin):
