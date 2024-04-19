@@ -84,7 +84,8 @@ def register_verify(request, pk):
                 user.is_active = True
                 user.save()
                 print(f"Valid verify")
-                return Response({'message': 'Successful register account'}, status=status.HTTP_200_OK)
+                serializer = UserSerializer(user)
+                return Response({'message': 'Successful register account', 'user': serializer.data}, status=status.HTTP_200_OK)
             print("OTP code is expired")
             return Response({'message': 'Mã otp đã hết hạn'}, status=status.HTTP_200_OK)
 
