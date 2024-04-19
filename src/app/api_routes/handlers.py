@@ -8,7 +8,7 @@ from rest_framework.views import APIView
 from rest_framework_simplejwt.serializers import TokenObtainPairSerializer
 from rest_framework_simplejwt.views import TokenObtainPairView
 
-from account.models import User
+from account.models import User, Verify
 from user_system.user_type.models import UserType
 from utils.constants import user_type, status
 from utils.helpers import phone_validate
@@ -28,6 +28,7 @@ class CustomTokenObtainPairSerializer(TokenObtainPairSerializer):
             print(f"Client")
             type_client = UserType.objects.get(user_type=user_type.get('client'))
             user = User.objects.filter(phone_number=username, user_type=type_client).first()
+            verify = Verify.objects.filter(user=user)
 
         # Validating login request
         if user is None:
@@ -44,9 +45,6 @@ class CustomTokenObtainPairSerializer(TokenObtainPairSerializer):
             'user_id': user.id,
             'email': user.email,
             'phone_number': user.phone_number,
-            'region': user.region,
-            'status': user.status,
-            'loaiUser': user.user_type.user_type if user.user_type else None,
         }
         token['user_id'] = user.id
         return {
