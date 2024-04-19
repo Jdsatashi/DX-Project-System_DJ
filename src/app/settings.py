@@ -2,6 +2,7 @@ import dotenv
 import os
 from datetime import timedelta
 from pathlib import Path
+from logging.handlers import TimedRotatingFileHandler
 
 dotenv.load_dotenv()
 
@@ -60,20 +61,63 @@ INSTALLED_APPS = [
     'marketing.product'
 ]
 
+# Create log folder
+LOGGING_DIR = os.path.join(PROJECT_DIR, 'logs')
+if not os.path.exists(LOGGING_DIR):
+    os.makedirs(LOGGING_DIR)
+
 LOGGING = {
-    "version": 1,
-    "disable_existing_loggers": False,
-    "handlers": {
-        "console": {
-            "class": "logging.StreamHandler",
+    'version': 1,
+    'disable_existing_loggers': False,
+    'formatters': {
+        'verbose': {
+            'format': '[{asctime}] | [{levelname}] - {module} {message}',
+            'style': '{',
+        },
+        'simple': {
+            'format': '{levelname} {message}',
+            'style': '{',
         },
     },
-    "root": {
-        "handlers": ["console"],
-        "level": "INFO",
+    'handlers': {
+        'app_log_file': {
+            'level': 'DEBUG',
+            'class': 'logging.handlers.TimedRotatingFileHandler',
+            'filename': os.path.join(LOGGING_DIR, 'app.log'),
+            'when': 'midnight',  # Log rotation at midnight
+            'interval': 1,  # Rotate daily
+            'backupCount': 10,  # Keep last 10 log files
+            'formatter': 'verbose',
+        },
+        'system_log_file': {
+            'level': 'DEBUG',
+            'class': 'logging.handlers.TimedRotatingFileHandler',
+            'filename': os.path.join(LOGGING_DIR, 'system.log'),
+
+            'when': 'midnight',  # Log rotation at midnight
+            'interval': 1,  # Rotate daily
+            'backupCount': 10,  # Keep last 10 log files
+            'formatter': 'verbose',
+        },
+        'console': {
+            'level': 'INFO',
+            'class': 'logging.StreamHandler',
+            'formatter': 'simple',
+        },
+    },
+    'loggers': {
+        'django': {
+            'handlers': ['system_log_file', 'console'],
+            'level': 'INFO',
+            'propagate': True,
+        },
+        'my_app': {
+            'handlers': ['app_log_file'],
+            'level': 'DEBUG',
+            'propagate': False,
+        },
     },
 }
-
 SIMPLE_JWT = {
     "ACCESS_TOKEN_LIFETIME": timedelta(days=1),
     "REFRESH_TOKEN_LIFETIME": timedelta(days=1),
