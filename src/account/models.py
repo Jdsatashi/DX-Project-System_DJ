@@ -117,6 +117,7 @@ class User(AbstractBaseUser, PermissionsMixin):
 
 class Verify(models.Model):
     user = models.ForeignKey(User, on_delete=models.CASCADE)
+    phone_verify = models.CharField(max_length=24, null=True)
     is_verify = models.BooleanField(default=False)
     verify_code = models.CharField(max_length=64)
     verify_type = models.CharField(max_length=128, default=None)
