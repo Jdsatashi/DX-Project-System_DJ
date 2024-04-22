@@ -18,6 +18,22 @@ class BaseRestrictSerializer(serializers.ModelSerializer):
     allow_users = serializers.ListField(child=serializers.CharField(), required=False, write_only=True)
     restrict_users = serializers.ListField(child=serializers.CharField(), required=False, write_only=True)
 
+    def create(self, validated_data):
+        data, quyen_data = self.split_data(validated_data)
+        instance = super().create(data)
+        if quyen_data.get('restrict'):
+            self.handle_restrict(quyen_data, instance.id, self.Meta.model)
+        return instance
+
+    def update(self, instance, validated_data):
+        data, quyen_data = self.split_data(validated_data)
+        for attr, value in data.items():
+            setattr(instance, attr, value)
+        instance.save()
+        if quyen_data.get('restrict'):
+            self.handle_restrict(quyen_data, instance.id, self.Meta.model)
+        return instance
+
     @staticmethod
     def split_data(data):
         """ Remove unused fields for Model instances """
