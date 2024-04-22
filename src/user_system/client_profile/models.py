@@ -6,7 +6,7 @@ from user_system.client_group.models import ClientGroup
 
 # Create your models here.
 class ClientProfile(models.Model):
-    client_id = models.ForeignKey(User, to_field='id', on_delete=models.CASCADE)
+    client_id = models.OneToOneField(User, to_field='id', on_delete=models.CASCADE)
     register_name = models.CharField(max_length=255, null=False)
     organization = models.CharField(max_length=255, null=True)
     client_group_id = models.ForeignKey(ClientGroup, on_delete=models.CASCADE)
