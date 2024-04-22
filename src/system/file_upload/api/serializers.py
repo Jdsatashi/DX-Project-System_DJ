@@ -24,8 +24,10 @@ class ContentFileSerialier(serializers.ModelSerializer):
         read_only_fields = ('content_object', 'created_at', 'updated_at')
         write_only_fields = ['file']
 
+    @staticmethod
     def get_content_object(self, obj):
         return str(obj.content_object)
+
 
 class FileUploadSerializer(serializers.ModelSerializer):
     class Meta:
