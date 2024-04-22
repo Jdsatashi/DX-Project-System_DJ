@@ -60,7 +60,8 @@ INSTALLED_APPS = [
     'user_system.user_type',
     # NVTT functions
     'marketing.company',
-    'marketing.product'
+    'marketing.product',
+    'marketing.price_list'
 ]
 
 # Create log folder
