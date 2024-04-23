@@ -13,7 +13,10 @@ from account.api.serializers import UserSerializer, RegisterSerializer
 from account.handlers.handle import handle_create_acc
 from account.handlers.validate_perm import ValidatePermRest
 from account.models import User, Verify
+from app.api_routes.handlers import get_token_for_user
 from app.logs import acc_log
+from user_system.client_profile.models import ClientProfile
+from user_system.employee_profile.models import EmployeeProfile
 from utils.constants import status as user_status
 from utils.model_filter_paginate import filter_data
 
@@ -85,7 +88,16 @@ def register_verify(request, pk):
                 user.save()
                 print(f"Valid verify")
                 serializer = UserSerializer(user)
-                return Response({'message': 'Successful register account', 'user': serializer.data}, status=status.HTTP_200_OK)
+                response = {'message': 'Successful verify phone number', 'user': serializer.data}
+                # employee_profile = EmployeeProfile.objects.filter(employee_id=user.id)
+                # employee = employee_profile.first() if employee_profile.exists() else {}
+                # client_profile = ClientProfile.objects.filter(client_id=user.id)
+                # client = client_profile.first() if employee_profile.exists() else {}
+                # response['client_profile'] = client
+                # response['employee_profile'] = employee
+                token = get_token_for_user(user)
+                response['token'] = token
+                return Response(response, status=status.HTTP_200_OK)
             print("OTP code is expired")
             return Response({'message': 'Mã otp đã hết hạn'}, status=status.HTTP_200_OK)
 
