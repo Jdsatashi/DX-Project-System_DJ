@@ -3,11 +3,12 @@ from django.contrib.contenttypes.models import ContentType
 from rest_framework import serializers
 from rest_framework.exceptions import AuthenticationFailed
 from rest_framework.response import Response
-from rest_framework.serializers import Serializer
 from rest_framework.views import APIView
 from rest_framework_simplejwt.serializers import TokenObtainPairSerializer
+from rest_framework_simplejwt.tokens import RefreshToken
 from rest_framework_simplejwt.views import TokenObtainPairView
 
+from account.api.serializers import UserSerializer
 from account.models import User, Verify
 from user_system.user_type.models import UserType
 from utils.constants import user_type, status
@@ -39,7 +40,7 @@ class CustomTokenObtainPairSerializer(TokenObtainPairSerializer):
             raise AuthenticationFailed('User is not active!')
         # Generate token
         token = super().get_token(user)
-
+        serializer = UserSerializer(serializers)
         # Add custom data to token payload
         token['user'] = {
             'user_id': user.id,
@@ -50,6 +51,7 @@ class CustomTokenObtainPairSerializer(TokenObtainPairSerializer):
         return {
             'refresh': str(token),
             'access': str(token.access_token),
+            'user': serializer.data
         }
 
 
@@ -68,3 +70,11 @@ class ApiContentType(APIView):
         content_list = ContentType.objects.all()
         serializer = ContentTypeSerializer(content_list, many=True)
         return Response(serializer.data)
+
+
+def get_token_for_user(user):
+    refresh = RefreshToken.for_user(user)
+    return {
+        'refresh': str(refresh),
+        'access': str(refresh.access_token)
+    }
