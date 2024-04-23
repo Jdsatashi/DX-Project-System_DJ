@@ -40,7 +40,7 @@ class CustomTokenObtainPairSerializer(TokenObtainPairSerializer):
             raise AuthenticationFailed('User is not active!')
         # Generate token
         token = super().get_token(user)
-        serializer = UserSerializer(serializers)
+        serializer = UserSerializer(user)
         # Add custom data to token payload
         token['user'] = {
             'user_id': user.id,
