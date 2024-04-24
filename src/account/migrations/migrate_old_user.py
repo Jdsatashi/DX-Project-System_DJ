@@ -30,12 +30,14 @@ def append_kh(type_kh):
         phone = v[5] if v[5] != '' else None
         pw = v[0].lower() if v[10] == '' or v[10] is None else v[10]
         hash_pw = make_password(pw)
+        obj, created = User.objects.get_or_create(id=v[0], defaults={"user_type": type_kh,
+                                                                             "password": hash_pw})
         try:
-            obj, created = User.objects.get_or_create(id=v[0], defaults={"phone_number": phone, "user_type": type_kh,
-                                                                     "password": hash_pw})
+            if phone is not None and len(phone) <= 24:
+                obj.phone_numbers.get_or_create(phone_number=phone)
         except IntegrityError:
-            obj, created = User.objects.get_or_create(id=v[0], defaults={"phone_number": None, "user_type": type_kh,
-                                                                         "password": hash_pw})
+            pass
+
         if created:
             print(f"User {v[0]} was created successfully.")
         else:
@@ -57,16 +59,13 @@ def append_nv(type_nv):
         phone = v[28] if v[28] != '' else None
         email = v[51] if v[51] != '' else None
         pw_hash = make_password(v[0].lower())
+        obj, created = User.objects.get_or_create(
+            id=v[0], defaults={'email': email, 'user_type': type_nv, 'password': pw_hash})
         try:
-            obj, created = User.objects.get_or_create(
-                id=v[0], defaults={'phone_number': phone, 'email': email, 'user_type': type_nv, 'password': pw_hash})
+            if phone is not None and len(phone) <= 24:
+                obj.phone_numbers.get_or_create(phone_number=phone)
         except IntegrityError:
-            obj, created = User.objects.get_or_create(
-                id=v[0], defaults={'phone_number': None, 'email': email, 'user_type': type_nv, 'password': pw_hash})
-        except ValidationError:
-            obj, created = User.objects.get_or_create(
-                id=v[0], defaults={'phone_number': None, 'email': email, 'user_type': type_nv, 'password': pw_hash})
-        print(obj.id)
+            pass
         if created:
             print(f"User {v[0]} was created successfully.")
         else:
@@ -114,19 +113,15 @@ def insertDB(apps, schema_editor):
     type_kh, _ = UserType.objects.get_or_create(user_type="client")
     create_position()
     create_client_group_id()
-    append_nv(type_nv)
     append_kh(type_kh)
+    append_nv(type_nv)
     print(f"\n__FINISHED__")
     print(f"Complete time: {time.time() - start_time} seconds")
 
 
 class Migration(migrations.Migration):
     dependencies = [
-        ('user_type', '0001_initial'),
-        ('account', '0001_initial'),
-        ('client_group', '0001_initial'),
-        ('client_profile', '0001_initial'),
-        ('employee_profile', '0001_initial'),
+        ('account', 'migrate_group'),
     ]
 
     operations = [

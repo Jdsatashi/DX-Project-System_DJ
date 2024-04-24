@@ -14,7 +14,6 @@ class CreateUserForm(forms.ModelForm):
     user_id = forms.CharField(required=True, label='User Code', validators=[validate_unique_userid])
     username = forms.CharField(required=False)
     email = forms.EmailField(required=False)
-    phone_number = forms.CharField(required=False)
     khuVuc = forms.CharField(required=False)
     status = forms.ChoiceField(choices=(
         ('active', 'Hoạt động'),
@@ -27,7 +26,7 @@ class CreateUserForm(forms.ModelForm):
 
     class Meta:
         model = User
-        fields = ['id', 'username', 'email', 'phone_number', 'khuVuc', 'status', 'loaiUser']
+        fields = ['id', 'username', 'email', 'khuVuc', 'status', 'loaiUser']
 
     def clean_id(self):
         user_id = self.cleaned_data.get('id')
@@ -39,4 +38,4 @@ class CreateUserForm(forms.ModelForm):
 class RegisterForm(forms.ModelForm):
     class Meta:
         model = User
-        fields = ['phone_number', 'password']
+        fields = ['username', 'password']

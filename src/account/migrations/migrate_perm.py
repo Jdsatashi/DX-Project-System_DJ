@@ -2,6 +2,7 @@ from django.contrib.contenttypes.models import ContentType
 from django.db import migrations
 
 from account.models import Perm
+from app.settings import MY_APPS
 from utils.constants import acquy
 
 
@@ -20,10 +21,13 @@ def create_initial_permission(apps, schema_editor):
 
 
 class Migration(migrations.Migration):
-
-    dependencies = [
-        ('account', 'nhom_draft'),
-    ]
+    depdc = [('account', '0001_initial'), ('admin', '0001_initial')]
+    for i, v in enumerate(MY_APPS):
+        data = v.split('.')
+        v = data[-1]
+        a = (v, '0001_initial')
+        depdc.append(a)
+    dependencies = depdc
 
     operations = [
         migrations.RunPython(create_initial_permission),

@@ -17,11 +17,12 @@ class CustomUserManager(BaseUserManager):
         user = self.model(
             username=username,
             email=self.normalize_email(email),
-            phone_number=phone_number,
             **extra_fields
         )
         user.set_password(password)
         user.save(using=self._db)
+        for number in phone_number:
+            PhoneNumber.objects.create(user=user, phone_number=number)
         return user
 
     def create_superuser(self, username, email, phone_number, password=None, **extra_fields):
@@ -42,8 +43,6 @@ class User(AbstractBaseUser, PermissionsMixin):
     id = models.CharField(primary_key=True, unique=True, null=False)
     username = models.CharField(max_length=255, unique=True, null=True, blank=True, default=None)
     email = models.EmailField(unique=False, null=True, blank=True, default=None)
-    phone_number = models.CharField(max_length=128, unique=True, null=True, blank=True, default=None)
-    phone_number2 = models.CharField(max_length=24, unique=True, null=True, blank=True, default=None)
     password = models.CharField(max_length=512, null=False)
     region = models.CharField(max_length=100, null=True, blank=True, default=None)
     status = models.CharField(max_length=40, null=True, default=None)
@@ -63,7 +62,7 @@ class User(AbstractBaseUser, PermissionsMixin):
 
     # Required fields for create account command
     USERNAME_FIELD = 'username'
-    REQUIRED_FIELDS = ['id', 'email', 'phone_number']
+    REQUIRED_FIELDS = ['id', 'email']
 
     # define table name
     class Meta:
@@ -73,25 +72,12 @@ class User(AbstractBaseUser, PermissionsMixin):
     def __str__(self):
         return f"{self.id}"
 
-    def clean(self):
-        if self.phone_number and self.phone_number2 and self.phone_number == self.phone_number2:
-            raise ValidationError("Phone number and Phone number2 should not be the same.")
-
-        if self.phone_number2 and User.objects.filter(phone_number=self.phone_number2).exclude(pk=self.pk).exists():
-            raise ValidationError("Phone number2 is already used as Phone number by another user.")
-
-        if self.phone_number and User.objects.filter(phone_number2=self.phone_number).exclude(pk=self.pk).exists():
-            raise ValidationError("Phone number is already used as Phone number2 by another user.")
-
-        super().clean()
-
     def save(self, *args, **kwargs):
         self.id = self.id.upper()
         self.username = self.username if self.username and self.username != '' else self.id
         # if self.password is None or self.password == '':
         #     self.password = make_password(self.id.lower())
         self.clean()
-        self.phone_number = None if self.phone_number == '' else self.phone_number
         super().save(*args, **kwargs)
 
     def is_perm(self, permission):
@@ -115,9 +101,15 @@ class User(AbstractBaseUser, PermissionsMixin):
         return valid
 
 
+class PhoneNumber(models.Model):
+    phone_number = models.CharField(max_length=24, primary_key=True)
+    user = models.ForeignKey(User, related_name='phone_numbers', null=True, on_delete=models.CASCADE)
+
+
 class Verify(models.Model):
-    user = models.ForeignKey(User, on_delete=models.CASCADE)
-    phone_verify = models.CharField(max_length=24, null=True)
+    user = models.ForeignKey(User, on_delete=models.CASCADE, related_name='verify')
+    phone_verify = models.ForeignKey(PhoneNumber, max_length=24, null=True, related_name='phone_numbers',
+                                     on_delete=models.CASCADE)
     is_verify = models.BooleanField(default=False)
     verify_code = models.CharField(max_length=64)
     verify_type = models.CharField(max_length=128, default=None)

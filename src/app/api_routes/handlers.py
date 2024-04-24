@@ -20,7 +20,6 @@ class CustomTokenObtainPairSerializer(TokenObtainPairSerializer):
         username = attrs['username'].upper()
         password = attrs['password']
         is_phone, username = phone_validate(username)
-        print(f"Is phone: {is_phone}")
         if not is_phone:
             print(f"Employee")
             type_emp = UserType.objects.get(user_type=user_type.get('employee'))
@@ -28,7 +27,7 @@ class CustomTokenObtainPairSerializer(TokenObtainPairSerializer):
         else:
             print(f"Client")
             type_client = UserType.objects.get(user_type=user_type.get('client'))
-            user = User.objects.filter(phone_number=username, user_type=type_client).first()
+            user = User.objects.filter(phone_numbers__phone_number__exact=username, user_type=type_client).first()
             verify = Verify.objects.filter(user=user)
 
         # Validating login request
@@ -41,18 +40,22 @@ class CustomTokenObtainPairSerializer(TokenObtainPairSerializer):
         # Generate token
         token = super().get_token(user)
         serializer = UserSerializer(user)
+        phone_numbers = user.phone_numbers.all()
         # Add custom data to token payload
         token['user'] = {
             'user_id': user.id,
             'email': user.email,
-            'phone_number': user.phone_number,
+            'phone_number': list(phone_numbers),
         }
         token['user_id'] = user.id
-        return {
+        response = {
             'refresh': str(token),
             'access': str(token.access_token),
             'user': serializer.data
         }
+        if user.user_type == UserType.objects.get(user_type=user_type.get('client')):
+            response['phone_number'] = username
+        return response
 
 
 class CustomTokenObtainPairView(TokenObtainPairView):

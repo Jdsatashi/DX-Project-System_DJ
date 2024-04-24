@@ -2,7 +2,7 @@ import json
 import os
 
 from django.db import migrations
-from account.models import User
+from account.models import User, Perm, GroupPerm
 from app.settings import PROJECT_DIR
 
 
@@ -14,15 +14,15 @@ def create_suser(apps, schema_editor):
             if not User.objects.filter(id=user['id']).exists():
                 manager = User.objects
                 manager.create_superuser(
-                    id=user['id'], username=user['username'],
-                    email=user['email'], phone_number=user['phone_number'],
+                    id=user['id'], username=user['username'], phone_number=[],
+                    email=user['email'],
                     password=user['password']
                 )
 
 
 class Migration(migrations.Migration):
     dependencies = [
-        ('account', 'migrate_perm')
+        ('account', 'migrate_old_user')
     ]
 
     operations = [

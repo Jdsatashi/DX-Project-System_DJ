@@ -12,7 +12,7 @@ from rest_framework_simplejwt.authentication import JWTAuthentication
 from account.api.serializers import UserSerializer, RegisterSerializer
 from account.handlers.handle import handle_create_acc
 from account.handlers.validate_perm import ValidatePermRest
-from account.models import User, Verify
+from account.models import User, Verify, PhoneNumber
 from app.api_routes.handlers import get_token_for_user
 from app.logs import acc_log
 from user_system.client_profile.models import ClientProfile
@@ -35,7 +35,7 @@ class ApiAccount(viewsets.GenericViewSet, mixins.ListModelMixin, mixins.CreateMo
     permission_classes = [partial(ValidatePermRest, model=User)]
 
     def list(self, request, *args, **kwargs):
-        response = filter_data(self, request, ['id', 'username', 'email', 'phone_number'], *args, **kwargs)
+        response = filter_data(self, request, ['id', 'username', 'email', 'phone_numbers__phone_number'], *args, **kwargs)
         return Response(response, status.HTTP_200_OK)
 
 
@@ -62,43 +62,38 @@ class RegisterSMS(APIView):
 
 
 @api_view(['POST', 'GET'])
-def register_verify(request, pk):
+def otp_verify(request, pk):
     if request.method == 'GET':
         response = {
             'otp_code': '123456'
         }
         return Response(response, status=status.HTTP_405_METHOD_NOT_ALLOWED)
     try:
-        user = User.objects.get(id=pk)
-    except User.DoesNotExist:
+        phone = PhoneNumber.objects.get(phone_number=pk)
+    except PhoneNumber.DoesNotExist:
         return HttpResponse(status=status.HTTP_404_NOT_FOUND)
     if request.method == 'POST':
         otp_code = request.data.get('otp_code', None)
         print(f"___ || TEST VERIFY || ____")
         print(f"{otp_code}")
-        verify = Verify.objects.filter(user=user).latest('created_at')
+        verify = Verify.objects.filter(phone_verify=phone).latest('created_at')
 
         if otp_code == verify.verify_code and not verify.is_verify:
             if verify.is_verify_valid():
                 verify.is_verify = True
                 verify.verify_time = timezone.now()
                 verify.save()
-                user.status = user_status[0]
-                user.is_active = True
-                user.save()
+                verify.user.status = user_status[0]
+                verify.user.is_active = True
+                verify.user.save()
                 print(f"Valid verify")
-                serializer = UserSerializer(user)
+                serializer = UserSerializer(verify.user)
                 response = {'message': 'Successful verify phone number', 'user': serializer.data}
-                # employee_profile = EmployeeProfile.objects.filter(employee_id=user.id)
-                # employee = employee_profile.first() if employee_profile.exists() else {}
-                # client_profile = ClientProfile.objects.filter(client_id=user.id)
-                # client = client_profile.first() if employee_profile.exists() else {}
-                # response['client_profile'] = client
-                # response['employee_profile'] = employee
-                token = get_token_for_user(user)
+                token = get_token_for_user(verify.user)
+                response['phone_number'] = pk
                 response['token'] = token
                 return Response(response, status=status.HTTP_200_OK)
-            print("OTP code is expired")
-            return Response({'message': 'Mã otp đã hết hạn'}, status=status.HTTP_200_OK)
+        print("OTP code is expired")
+        return Response({'message': 'Mã otp đã hết hạn'}, status=status.HTTP_200_OK)
 
         return Response(status=status.HTTP_400_BAD_REQUEST)

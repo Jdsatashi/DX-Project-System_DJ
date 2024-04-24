@@ -1,10 +1,8 @@
 from django.contrib import admin
-from django.contrib.auth.forms import UserCreationForm, UserChangeForm, ReadOnlyPasswordHashField
-from django.contrib.auth.hashers import make_password
 from django.contrib.auth.admin import UserAdmin as BaseUserAdmin
-from django import forms
+from django.contrib.auth.hashers import make_password
 
-from account.models import User, UserPerm, UserGroupPerm, Perm, GroupPerm
+from account.models import User, UserPerm, UserGroupPerm, Perm, GroupPerm, PhoneNumber
 
 
 class NhomQuyenUserInline(admin.TabularInline):
@@ -17,16 +15,15 @@ class QuyenUserInline(admin.TabularInline):
 
 class UserAdmin(BaseUserAdmin):
     inlines = [NhomQuyenUserInline, QuyenUserInline]
-    search_fields = ("id", "username", "email", "phone_number")
-    list_display = ('id', 'username', 'email', 'phone_number')
+    search_fields = ("id", "username", "email", "phone_numbers__phone_number")
+    list_display = ('id', 'username', 'email', 'display_phone_numbers')
+
+    def display_phone_numbers(self, obj):
+        return ", ".join([phone_number.phone_number for phone_number in obj.phone_numbers.all()])
+    display_phone_numbers.short_description = 'Phone Numbers'
 
     def get_fieldsets(self, request, obj=None):
         """Override the fieldsets to exclude group and permission fields."""
-        # fieldsets = super().get_fieldsets(request, obj=obj)
-        # # Remove 'groups' and 'user_permissions' from the fieldsets
-        # fieldsets = list(fieldsets)
-        # fieldsets[0] = (None, {'classes': ('wide',), 'fields': (
-        #     'id', 'username', 'email', 'phone_number', 'password1', 'password2', 'region', 'status', 'user_type')})
         if obj is None:  # Adding a new user
             return (
                 (None, {'classes': ('wide',), 'fields': (
@@ -36,7 +33,7 @@ class UserAdmin(BaseUserAdmin):
         else:  # Editing an existing user
             return (
                 (None, {'classes': ('wide',), 'fields': (
-                    'username', 'email', 'phone_number', 'region', 'status', 'user_type', 'is_active', 'is_staff',
+                    'username', 'email', 'region', 'status', 'user_type', 'is_active', 'is_staff',
                     'is_superuser')}),
             )
 
@@ -50,3 +47,4 @@ class UserAdmin(BaseUserAdmin):
 admin.site.register(User, UserAdmin)
 admin.site.register(GroupPerm)
 admin.site.register(Perm)
+admin.site.register(PhoneNumber)

@@ -2,7 +2,7 @@ import requests
 from django.contrib.auth.hashers import make_password
 from rest_framework import serializers
 
-from account.models import User, GroupPerm, Perm, Verify
+from account.models import User, GroupPerm, Perm, Verify, PhoneNumber
 from app.settings import SMS_SERVICE
 from user_system.client_group.models import ClientGroup
 from user_system.client_profile.models import ClientProfile
@@ -11,14 +11,21 @@ from utils.constants import maNhomND, status
 from utils.helpers import value_or_none, phone_validate, generate_id, generate_digits_code
 
 
+class PhoneNumberSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = PhoneNumber
+        fields = ['phone_number']
+
+
 # Create user serializer for rest api form
 class UserSerializer(serializers.ModelSerializer):
+    # phone_number = PhoneNumberSerializer(allow_null=False)
+
     # Field meta
     class Meta:
         model = User
-        fields = ['id', 'username', 'email', 'phone_number', 'region', 'status', 'user_type']
+        fields = ['id', 'username', 'email', 'region', 'status', 'user_type']
         extra_kwargs = {
-            'phone_number': {'required': False},
             'username': {'required': False},
             'email': {'required': False},
             'password': {'write_only': True}
@@ -28,7 +35,7 @@ class UserSerializer(serializers.ModelSerializer):
         # Set fields = None/Null when it's blank
         validated_data['username'] = value_or_none(validated_data['username'], '', None)
         validated_data['email'] = value_or_none(validated_data['email'], '', None)
-        validated_data['phone_number'] = value_or_none(validated_data['phone_number'], '', None)
+        phone_number = validated_data.pop(validated_data['phone_number'], '', None)
         # Get password and encrypting
         pw = validated_data.get('password', validated_data['id'].lower())
         pw_hash = make_password(pw)
@@ -38,13 +45,15 @@ class UserSerializer(serializers.ModelSerializer):
 
 
 class RegisterSerializer(serializers.ModelSerializer):
+    phone_number = serializers.CharField(max_length=24, allow_null=False)
+
     class Meta:
         model = User
-        fields = ['id', 'phone_number', 'status', 'user_type']
+        fields = ['id', 'status', 'user_type', 'phone_number']
         read_only_fields = ['id', 'status', 'user_type']
 
     def create(self, validated_data):
-        phone_number = validated_data['phone_number']
+        phone_number = validated_data.pop('phone_number')
         if phone_number is None or phone_number == '':
             raise serializers.ValidationError({'phone_number': ['Bạn phải nhập số điện thoại.']})
         # handle here
@@ -56,15 +65,17 @@ class RegisterSerializer(serializers.ModelSerializer):
         type_kh, _ = UserType.objects.get_or_create(user_type="client")
         user_type = type_kh
         _id = generate_id(maNhomND)
-        user = User.objects.create(id=_id, phone_number=phone, user_type=user_type, status=status[1], is_active=False)
+        user = User.objects.create(id=_id, user_type=user_type, status=status[1], is_active=False)
+        phone = user.phone_numbers.create(phone_number=phone)
         client_group = ClientGroup.objects.get(id=maNhomND)
         client_profile = ClientProfile.objects.create(client_id=user, client_group_id=client_group)
         verify_code = generate_digits_code()
-        verify = Verify.objects.create(user=user, verify_code=verify_code, verify_type="SMS OTP")
+        verify = Verify.objects.create(user=user, phone_verify=phone, verify_code=verify_code, verify_type="SMS OTP")
         result = {
             'id': user.id,
-            'phone_number': user.phone_number,
+            'phone_number': phone_number,
             'user_type': user.user_type.user_type,
+            'otp': verify.verify_code,
             'message': f"[DONG XANH] Ma xac thuc cua ban la {verify.verify_code}, tai app Thuoc BVTV Dong Xanh co hieu luc trong 3 phut. Vi ly do bao mat tuyet doi khong cung cap cho bat ky ai."
         }
         return result
