@@ -23,14 +23,13 @@ class PriceList(models.Model):
         current_year = datetime.utcnow().year
         two_digit_year = str(current_year)[-2:]
         i = 1
-        print(f"Id number: {i:04d}")
         while PriceList.objects.filter(id=f"{char_id}{two_digit_year}{i:04d}").exists():
             i += 1
         if i > 9999:
             raise ValueError({'id': 'Out of index'})
         _id = f"{char_id}{two_digit_year}{i:04d}"
         self.id = _id
-        return super().save(self, *args, **kwargs)
+        return super().save(*args, **kwargs)
 
 
 class ProductPrice(models.Model):
