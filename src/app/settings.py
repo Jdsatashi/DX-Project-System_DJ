@@ -33,6 +33,21 @@ SMS_SERVICE = {
     'type': os.environ.get('SMS_TYPE')
 }
 
+MY_APPS = [
+    # My app
+    'draft',
+    'account',
+    # User system structure
+    'user_system.client_group',
+    'user_system.client_profile',
+    'user_system.employee_profile',
+    'user_system.user_type',
+    # NVTT functions
+    'marketing.company',
+    'marketing.product',
+    'marketing.price_list'
+]
+
 # Application definition
 INSTALLED_APPS = [
     'django.contrib.admin',
@@ -50,19 +65,7 @@ INSTALLED_APPS = [
     # System applications
     'system.file_upload',
     'system.status_group',
-    # My app
-    'draft',
-    'account',
-    # User system structure
-    'user_system.client_group',
-    'user_system.client_profile',
-    'user_system.employee_profile',
-    'user_system.user_type',
-    # NVTT functions
-    'marketing.company',
-    'marketing.product',
-    'marketing.price_list'
-]
+] + MY_APPS
 
 # Create log folder
 LOGGING_DIR = os.path.join(PROJECT_DIR, 'logs')
