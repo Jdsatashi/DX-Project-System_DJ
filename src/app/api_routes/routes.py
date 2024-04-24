@@ -17,5 +17,6 @@ urlpatterns = [
     path('file-upload/', include('system.file_upload.api.routes', 'api_file_upload')),
     path('status/', include('system.status_group.api.routes', 'api_status')),
 
-    path('products/', include('marketing.product.api.routes', 'api_products'))
+    path('products/', include('marketing.product.api.routes', 'api_products')),
+    path('price-list/', include('marketing.price_list.api.routes', 'api_price_list'))
 ]
