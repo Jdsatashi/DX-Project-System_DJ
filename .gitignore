@@ -13,3 +13,4 @@ venv
 user_adding.json
 staticfiles/
 storage/
+logs/
