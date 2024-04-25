@@ -50,8 +50,8 @@ urlpatterns = [
     path('register/certificate/', register_cert_view),
     path('register/certificate/<pk>/', register_cert_detail),
     # Product category urls
-    path('category/', prod_cate_view),
-    path('category/<pk>/', prod_cate_detail),
+    path('categories/', prod_cate_view),
+    path('categories/<pk>/', prod_cate_detail),
     path('category/detail/', cate_detail_view),
     path('category/detail/<pk>/', cate_detail_detail),
     # Product urls
