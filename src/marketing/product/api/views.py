@@ -69,7 +69,7 @@ class GenericApiCategoryDetail(viewsets.GenericViewSet, mixins.ListModelMixin, m
     # permission_classes = [partial(ValidatePermRest, model=ProductCategory)]
 
     def list(self, request, *args, **kwargs):
-        response_data = filter_data(self, request, ['cate_id', 'use_object', 'use_for'], *args, **kwargs)
+        response_data = filter_data(self, request, ['cate_id__id', 'use_object__name', 'use_for__name'], *args, **kwargs)
         return Response(response_data, status=status.HTTP_200_OK)
 
 
