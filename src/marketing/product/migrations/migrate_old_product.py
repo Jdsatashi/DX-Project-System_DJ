@@ -76,6 +76,7 @@ def old_cate_detail():
             'usage': v[5]
         }
         print(f"Adding category detail: {v[1]}")
+        # print(insert)
         cate_data = CategoryDetail.objects.create(**insert)
 
 
@@ -84,6 +85,7 @@ def add_old_product(apps, schema_editor):
         old_product_type()
         old_product_category()
         old_product()
+        old_cate_detail()
     except Exception as e:
         print(f"----- ERROR -----")
         print(f"Message: Error when adding company.")
