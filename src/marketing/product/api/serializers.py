@@ -3,7 +3,7 @@ from rest_framework import serializers
 
 from account.handlers.restrict_serializer import BaseRestrictSerializer
 from marketing.product.models import ProductCategory, RegistrationUnit, Producer, RegistrationCert, ProductType, \
-    Product, CategoryDetail
+    Product, CategoryDetail, UseObject, UseFor
 
 
 class ProductTypeSerializer(serializers.ModelSerializer):
@@ -129,6 +129,20 @@ class ProductCateSerializer(BaseRestrictSerializer):
             self.handle_restrict(perm_data, instance.id, self.Meta.model)
         instance.save()
         return instance
+
+
+class UseObjectSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = UseObject
+        fields = '__all__'
+        read_only_fields = ['id']
+
+
+class UseForSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = UseFor
+        fields = '__all__'
+        read_only_fields = ['id']
 
 
 class CategoryDetailSerializer(serializers.ModelSerializer):
