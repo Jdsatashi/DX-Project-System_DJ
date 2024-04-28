@@ -45,7 +45,8 @@ MY_APPS = [
     # NVTT functions
     'marketing.company',
     'marketing.product',
-    'marketing.price_list'
+    'marketing.price_list',
+    'marketing.order',
 ]
 
 # Application definition
