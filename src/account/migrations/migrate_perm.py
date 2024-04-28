@@ -1,12 +1,12 @@
-from django.contrib.contenttypes.models import ContentType
 from django.db import migrations
 
-from account.models import Perm
 from app.settings import MY_APPS
 from utils.constants import acquy
 
 
 def create_initial_permission(apps, schema_editor):
+    ContentType = apps.get_model('contenttypes', 'ContentType')
+    Perm = apps.get_model('account', 'Perm')
     content_types = ContentType.objects.all()
 
     for i, content_type in enumerate(content_types):
