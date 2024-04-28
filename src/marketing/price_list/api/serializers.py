@@ -30,7 +30,7 @@ class ProductPriceReadSerializer(serializers.ModelSerializer):
 
     class Meta:
         model = ProductPrice
-        fields = ['product_id', 'product_name', 'price', 'amount', 'point']
+        fields = ['product_id', 'product_name', 'price', 'quantity_in_box', 'point']
 
 
 class PriceListSerializer(BaseRestrictSerializer):
