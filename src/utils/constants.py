@@ -8,6 +8,8 @@ old_data = {
     "tb_thuoc": "tbl_QLTT_DanhMucThuoc",
     "tb_thuocChitiet": "tbl_QLTT_DanhMucThuoc_ChiTiet",
     "tb_sanpham": "tbl_QLTT_DanhMucSanPham",
+    "tb_bangGia": "tbl_QLTT_SanPhamTheoNam",
+    "tb_bangGiaSanPham": "tbl_QLTT_SanPhamTheoNam_SanPham"
 }
 maNhomND = 'DMNKH000005'
 tenNhomND = 'Khách hàng Nông dân'
