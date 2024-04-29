@@ -23,7 +23,7 @@ class OrderSerializer(BaseRestrictSerializer):
     def create(self, validated_data):
         # Split insert data
         data, perm_data = self.split_data(validated_data)
-        order_details_data = data.pop('order_details', [])
+        order_details_data = data.pop('order_detail', [])
         # Create new Order
         order = Order.objects.create(**data)
         # Add product to OrderDetail
