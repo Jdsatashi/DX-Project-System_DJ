@@ -18,5 +18,6 @@ urlpatterns = [
     path('status/', include('system.status_group.api.routes', 'api_status')),
 
     path('products/', include('marketing.product.api.routes', 'api_products')),
-    path('price-list/', include('marketing.price_list.api.routes', 'api_price_list'))
+    path('price-list/', include('marketing.price_list.api.routes', 'api_price_list')),
+    path('order/', include('marketing.order.api.routes', 'api_order'))
 ]
