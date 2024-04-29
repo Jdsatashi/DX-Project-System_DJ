@@ -54,13 +54,13 @@ class PriceListSerializer(BaseRestrictSerializer):
         for product_data in products_data:
             product_id = product_data.pop('product_id')
             price = product_data.pop('price')
-            amount = product_data.pop('amount')
+            quantity_in_box = product_data.pop('quantity_in_box')
             point = product_data.pop('point')
             try:
                 product = Product.objects.get(id=str(product_id))
                 ProductPrice.objects.create(price_list=price_list, product=product,
                                             price=price,
-                                            amount=amount,
+                                            quantity_in_box=quantity_in_box,
                                             point=point)
             except Product.DoesNotExist:
                 raise serializers.ValidationError({'product_id': f'Product with ID {product_id} does not exist.'})
@@ -81,17 +81,9 @@ class PriceListSerializer(BaseRestrictSerializer):
         # Update products within the price list
         current_product_ids = {product.product.id for product in instance.productprice_set.all()}
         new_product_ids = {item['product_id'] for item in products_data}
-        current_product_price = instance.products.all()
-        print(f"Before update ProductPrice: ")
-        for prod in list(current_product_price):
-            print(prod)
+
         # Delete products that are not in the new data
         instance.productprice_set.filter(product_id__in=list(current_product_ids - new_product_ids)).delete()
-        print(instance)
-        current_product_price = instance.products.all()
-        print(f"After remove ProductPrice: ")
-        for prod in list(current_product_price):
-            print(prod)
 
         # Update existing products and create new ones
         for product_data in products_data:
@@ -102,13 +94,10 @@ class PriceListSerializer(BaseRestrictSerializer):
                 product=product,
                 defaults={
                     'price': product_data.get('price'),
-                    'amount': product_data.get('amount'),
+                    'quantity_in_box': product_data.get('quantity_in_box'),
                     'point': product_data.get('point'),
                 }
             )
-        print(f"After Update ProductPrice: ")
-        for prod in list(current_product_price):
-            print(prod)
         # Handle permissions if needed
         restrict = perm_data.get('restrict')
         if restrict:
