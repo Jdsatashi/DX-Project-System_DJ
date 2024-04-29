@@ -7,7 +7,7 @@ from utils.constants import actions_views, actions_detail
 app_name = 'api_price_list'
 
 router = DefaultRouter()
-router.register('genericview', GenericApiPriceList, basename='api_account')
+router.register('genericview', GenericApiPriceList, basename='api_price_list')
 
 price_list_views = GenericApiPriceList.as_view(actions_views)
 price_list_details = GenericApiPriceList.as_view(actions_detail)
