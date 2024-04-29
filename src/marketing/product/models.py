@@ -2,6 +2,7 @@ from django.db import models
 
 from marketing.company.models import Company
 from system.file_upload.models import FileUpload, ContentFile
+from utils.helpers import normalize_vietnamese
 
 
 # Create your models here.
@@ -53,10 +54,24 @@ class UseObject(models.Model):
     id = models.CharField(primary_key=True, max_length=64, unique=True)
     name = models.CharField(max_length=255)
 
+    def save(self, *args, **kwargs):
+        if not self.pk:
+            if self.name == '' or self.name is None:
+                raise ValueError({'name': 'Name is required'})
+            self.id = normalize_vietnamese(self.name)
+        super().save(*args, **kwargs)
+
 
 class UseFor(models.Model):
     id = models.CharField(primary_key=True, max_length=64, unique=True)
     name = models.CharField(max_length=255)
+
+    def save(self, *args, **kwargs):
+        if not self.pk:
+            if self.name == '' or self.name is None:
+                raise ValueError({'name': 'Name is required'})
+            self.id = normalize_vietnamese(self.name)
+        super().save(*args, **kwargs)
 
 
 class CategoryDetail(models.Model):

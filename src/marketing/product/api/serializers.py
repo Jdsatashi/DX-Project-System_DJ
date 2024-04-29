@@ -4,6 +4,7 @@ from rest_framework import serializers
 from account.handlers.restrict_serializer import BaseRestrictSerializer
 from marketing.product.models import ProductCategory, RegistrationUnit, Producer, RegistrationCert, ProductType, \
     Product, CategoryDetail, UseObject, UseFor
+from utils.helpers import normalize_vietnamese as norm_vn
 
 
 class ProductTypeSerializer(serializers.ModelSerializer):
@@ -146,23 +147,45 @@ class UseForSerializer(serializers.ModelSerializer):
 
 
 class CategoryDetailSerializer(serializers.ModelSerializer):
+    use_object = UseObjectSerializer()
+    use_for = UseForSerializer()
+
     class Meta:
         model = CategoryDetail
         fields = '__all__'
         read_only_fields = ['id']
+
+    def create(self, validated_data):
+        # Get data for UseObject
+        use_object_data = validated_data.pop('use_object')
+        # Get data for UseFor
+        use_for_data = validated_data.pop('use_for')
+        # Create CategoryDetail
+        cate_detail = CategoryDetail.objects.create(**validated_data)
+        using_for, _ = UseFor.objects.get_or_create(id=norm_vn(use_for_data.get('name')), defaults=use_for_data)
+        using_object, _ = UseObject.objects.get_or_create(id=norm_vn(use_object_data.get('name')), defaults=use_for_data)
+        cate_detail.use_for = using_for
+        cate_detail.use_object = using_object
+        cate_detail.save()
+        return cate_detail
+
+    def update(self, instance, validated_data):
+        # Get data for UseObject
+        use_object_data = validated_data.pop('use_object')
+        # Get data for UseFor
+        use_for_data = validated_data.pop('use_for')
+        for attr, value in validated_data.items():
+            setattr(instance, attr, value)
+        instance.save()
+        using_for, _ = UseFor.objects.get_or_create(id=norm_vn(use_for_data.get('name')), defaults=use_for_data)
+        using_object, _ = UseObject.objects.get_or_create(id=norm_vn(use_object_data.get('name')), defaults=use_for_data)
+        instance.use_for = using_for
+        instance.use_object = using_object
+        instance.save()
+        return instance
 
 
 class ProductSerializer(BaseRestrictSerializer):
     class Meta:
         model = Product
         fields = '__all__'
-
-    def create(self, validated_data):
-        data, perm_data = self.split_data(validated_data)
-        # Restrict check if create request required perm
-        restrict = perm_data.get('restrict')
-        instance = super().create(data)
-        # When required quyen, handle to add perm
-        if restrict:
-            self.handle_restrict(perm_data, instance.id, self.Meta.model)
-        return instance
