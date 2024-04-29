@@ -15,6 +15,8 @@ class Order(models.Model):
     client_id = models.ForeignKey(User, null=True, on_delete=models.SET_NULL)
     date_delay = models.IntegerField(default=0)
     list_type = models.CharField(max_length=24, null=True)
+    price_list_id = models.ForeignKey(PriceList, null=True, on_delete=models.CASCADE,
+                                      related_name="order_price_list")
 
     # SO mean Special Offer
     is_so = models.BooleanField(null=True, default=False)
@@ -28,7 +30,7 @@ class Order(models.Model):
     updated_at = models.DateTimeField(auto_now=True)
 
     def save(self, *args, **kwargs):
-        if self.pk is None:
+        if not self.pk:
             start_char = 'MT'
             current_year = datetime.utcnow().year
             two_digit_year = str(current_year)[-2:]
@@ -39,14 +41,19 @@ class Order(models.Model):
                 i += 1
             if i > 99999:
                 raise ValueError({'id': 'Out of index'})
+            print(i)
             _id = f"{start_char}{two_digit_year}{two_digit_month}{i:05d}"
+            print(_id)
             self.id = _id
-        super().save(*args, **kwargs)
+            print(self.id)
+        return super().save(*args, **kwargs)
+
+    def __str__(self):
+        return f"{self.id} - {self.client_id}"
 
 
 class OrderDetail(models.Model):
     order_id = models.ForeignKey(Order, on_delete=models.CASCADE, related_name="order_detail")
-    product_id = models.ForeignKey(ProductPrice, on_delete=models.CASCADE, related_name="order_product")
-    price_list_id = models.ForeignKey(PriceList, on_delete=models.CASCADE, related_name="order_price_list")
+    product_id = models.ForeignKey(Product, on_delete=models.CASCADE, related_name="order_product")
     order_quantity = models.IntegerField(null=False, default=1)
     order_box = models.DecimalField(max_digits=8, decimal_places=2, null=False, default=0)
