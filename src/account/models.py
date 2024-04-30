@@ -110,6 +110,7 @@ class Verify(models.Model):
     user = models.ForeignKey(User, on_delete=models.CASCADE, related_name='verify')
     phone_verify = models.ForeignKey(PhoneNumber, max_length=24, null=True, related_name='phone_numbers',
                                      on_delete=models.CASCADE)
+    refresh_token = models.CharField(max_length=255, null=True)
     is_verify = models.BooleanField(default=False)
     verify_code = models.CharField(max_length=64)
     verify_type = models.CharField(max_length=128, default=None)
