@@ -181,7 +181,7 @@ def old_product_category():
 def old_product():
     data = table_data(old_data['tb_sanpham'])
     print(f"---------- ADDING PRODUCT ----------")
-    try:  # TODO: Fix this
+    try:
         for i, v in enumerate(data):
             insert = {
                 'name': v[1],
