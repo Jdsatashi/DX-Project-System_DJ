@@ -1,11 +1,250 @@
+from django.contrib.auth.hashers import make_password
+from django.db import IntegrityError
 from django.utils.timezone import make_aware
 
+from account.models import User
+from marketing.company.models import Company
 from marketing.price_list.models import PriceList, ProductPrice
-from marketing.product.models import Product
-from utils.constants import old_data
-from utils.helpers import table_data
+from marketing.product.models import Product, UseObject, UseFor, ProductCategory, CategoryDetail, RegistrationCert, \
+    Producer, RegistrationUnit, ProductType
+from user_system.client_group.models import ClientGroup
+from user_system.client_profile.models import ClientProfile
+from user_system.employee_profile.models import EmployeeProfile, Position
+from user_system.user_type.models import UserType
+from utils.helpers import table_data, normalize_vietnamese
+from utils.constants import (old_data, maNhomND as farmerID, tenNhomND as farmerGroupName)
 
 
+def append_kh():
+    type_kh, _ = UserType.objects.get_or_create(user_type="client")
+    ctx = {'users': [], 'profiles': []}
+    data = table_data(old_data['tb_kh'])
+    for k, v in enumerate(data):
+        if k == 1:
+            print(v)
+        client_group_id = ClientGroup.objects.filter(id=v[3]).first()
+        code_client_lv1 = v[11] if v[11] != '' else None
+        data_profile = {"register_name": v[1], "organization": v[2], "client_group_id": client_group_id,
+                        "nvtt_id": v[4], "address": v[7], "client_lv1_id": code_client_lv1, "created_by": v[8]}
+        created_time = make_aware(v[8])
+        phone = v[5] if v[5] != '' else None
+        pw = v[0].lower() if v[10] == '' or v[10] is None else v[10]
+        hash_pw = make_password(pw)
+        obj, created = User.objects.get_or_create(id=v[0], defaults={"user_type": type_kh,
+                                                                     "password": hash_pw})
+        obj.created_at = created_time
+        obj.save()
+        try:
+            if phone is not None and len(phone) <= 24:
+                obj.phone_numbers.get_or_create(phone_number=phone)
+        except IntegrityError:
+            pass
+
+        if created:
+            print(f"User {v[0]} was created successfully.")
+        else:
+            print(f"User {v[0]} was existed, skipping...")
+        obj, created = ClientProfile.objects.get_or_create(client_id=obj, defaults=data_profile)
+        if created:
+            print(f"User profile {v[0]} was created successfully.")
+            obj.created_at = created_time
+            obj.save()
+        else:
+            print(f"User profile {v[0]} was existed, skipping...")
+    return ctx
+
+
+def append_nv():
+    type_nv, _ = UserType.objects.get_or_create(user_type="employee")
+    ctx = {'users': [], 'profiles': []}
+    data = table_data(old_data['tb_nhanvien'])
+    for k, v in enumerate(data):
+        created_time = make_aware(v[65])
+        print(created_time)
+        if k == 1:
+            print(v)
+        phone = v[28] if v[28] != '' else None
+        email = v[51] if v[51] != '' else None
+        pw_hash = make_password(v[0].lower())
+        obj, created = User.objects.get_or_create(
+            id=v[0], defaults={'email': email, 'user_type': type_nv, 'password': pw_hash})
+        obj.created_at = created_time
+        obj.save()
+        try:
+            if phone is not None and len(phone) <= 24:
+                obj.phone_numbers.get_or_create(phone_number=phone)
+        except IntegrityError:
+            pass
+        if created:
+            print(f"User {v[0]} was created successfully.")
+        else:
+            print(f"User {v[0]} was existed, skipping...")
+
+        obj, created = EmployeeProfile.objects.get_or_create(employee_id=obj,
+                                                             defaults={'fullname': f"{v[2]} {v[3]}", 'gender': v[5]})
+        obj.created_at = created_time
+        obj.save()
+        if created:
+            print(f"User profile {v[0]} was created successfully.")
+        else:
+            print(f"User profile {v[0]} was existed, skipping...")
+    return ctx
+
+
+def create_position():
+    data = table_data(old_data['tb_chucdanh'])
+    for k, v in enumerate(data):
+        obj, created = Position.objects.get_or_create(id=v[0], defaults={'name': v[1], 'note': v[2]})
+        if created:
+            print(f"Created new Position: {v[1]}")
+        else:
+            print(f"Position {v[1]} already existed, passing...")
+
+
+def create_client_group_id():
+    data = table_data(old_data['tb_nhomKH'])
+    for k, v in enumerate(data):
+        parentGroup = ClientGroup.objects.filter(id=v[1]).first()
+
+        obj, created = ClientGroup.objects.get_or_create(id=v[0], defaults={'parent_id': parentGroup, 'name': v[2]})
+        obj.created_at = make_aware(v[4])
+        if created:
+            print(f"Created new Group id: {v[2]}")
+        else:
+            print(f"Group id {v[2]} already existed, passing...")
+    obj, created = ClientGroup.objects.get_or_create(id=farmerID, defaults={'name': farmerGroupName})
+    if created:
+        print(f"Created new Group id: {farmerID}")
+    else:
+        print(f"Group id {farmerID} already existed, passing...")
+
+
+# Get old company
+def add_old_company(apps, schema_editor):
+    data = table_data(old_data['tb_congty'])
+    for k, v in enumerate(data):
+        try:
+            company = Company.objects.create(id=v[0], name=v[1], note=v[2], color_code=v[5])
+            print(f"Added company {v[1]} - {v[0]}")
+            company.created_at = make_aware(v[3])
+            company.save()
+        except Exception as e:
+            print(f"----- ERROR -----")
+            print(f"Message: Error when adding company.")
+            print(e)
+            raise Exception(e)
+
+
+# Adding old Product
+def old_product_type():
+    data = table_data(old_data['tb_loaiThuoc'])
+    print(f"--------------- ADDING PRODUCT TYPE --------------")
+    for i, k in enumerate(data):
+        print(f"Adding product type: {k[1]}")
+        _type, _ = ProductType.objects.get_or_create(id=k[0], name=k[1])
+
+
+def old_product_category():
+    data = table_data(old_data['tb_thuoc'])
+    print(f"---------- ADDING PRODUCT CATEGORY ----------")
+    for i, v in enumerate(data):
+        v = [item.strip() if isinstance(item, str) else item for item in v]
+        product_type = ProductType.objects.get(id=v[2])
+
+        unit, _ = RegistrationUnit.objects.get_or_create(unit=v[11], address=v[12])
+        producer, _ = Producer.objects.get_or_create(name=v[13], address=v[14])
+        registration = {
+            'date_activated': v[6],
+            'date_expired': v[7],
+            'registered_unit': unit,
+            'producer': producer
+        }
+        register_cert, _ = RegistrationCert.objects.get_or_create(id=v[5], defaults=registration)
+        company = Company.objects.get(id=v[16])
+        insert_data = {
+            'name': v[1],
+            'product_type': product_type,
+            'ingredient': v[8],
+            'amount': v[9],
+            'poison_group': v[10],
+            'registration': register_cert,
+            'company': company,
+            'amount_warning': int(v[17]),
+            'status': 'active' if v[15] == 1 else 'deactivate'
+        }
+        print(f"Adding product category: {v[0]} - {v[1]}")
+        product_cate, _ = ProductCategory.objects.get_or_create(id=v[0], defaults=insert_data)
+        product_cate.created_at = make_aware(v[3])
+        product_cate.save()
+
+
+def old_product():
+    data = table_data(old_data['tb_sanpham'])
+    print(f"---------- ADDING PRODUCT ----------")
+    try:  # TODO: Fix this
+        for i, v in enumerate(data):
+            insert = {
+                'name': v[1],
+                'main_id': v[8],
+                'created_by': v[6],
+            }
+            category, note = check_filter(v[7])
+            if category is not None:
+                insert['category'] = category
+                insert['product_type'] = category.product_type
+                if note:
+                    insert['note'] = "Not valid Category, borrow another category."
+            print(f"Adding product: {v[0]} - {v[1]}")
+            product, _ = Product.objects.get_or_create(id=v[0], defaults=insert)
+            product.created_at = make_aware(v[5])
+            product.save()
+    except Exception as e:
+        print(f"----- ERROR -----")
+        print(f"Message: Error when adding data to product.")
+        print(e)
+        raise e
+
+
+def old_cate_detail():
+    data = table_data(old_data['tb_thuocChitiet'])
+    norm_vn = normalize_vietnamese
+    print(f"--------------- ADDING CATEGORY DETAIL --------------")
+    for i, v in enumerate(data):
+        use_on, _ = UseObject.objects.get_or_create(id=norm_vn(v[2]), defaults={'name': v[2]})
+        use_for, _ = UseFor.objects.get_or_create(id=norm_vn(v[3]), defaults={'name': v[3]})
+        base_id = v[1]
+        category = ProductCategory.objects.filter(id=base_id).first()
+        insert = {
+            'use_object': use_on,
+            'use_for': use_for,
+            'dosage': v[4],
+            'usage': v[5]
+        }
+        if category is not None:
+            insert['cate_id'] = category
+        print(f"Adding category detail: {v[1]}")
+        # print(insert)
+        cate_data = CategoryDetail.objects.get_or_create(**insert)
+
+
+def check_filter(data, i=0):
+    i += 1
+    note = False
+    if i == 0:
+        category = ProductCategory.objects.filter(id=data)
+    else:
+        category = ProductCategory.objects.filter(id__icontains=data)
+        note = True
+    print(f"Data: {data}")
+    if len(data) <= 1:
+        return None, note
+    elif not category.exists():
+        base_id = data[:-1]
+        return check_filter(base_id, i)
+    return category.first(), note
+
+
+# Migrate old Data of Price List
 def price_list():
     data = table_data(old_data['tb_bangGia'])
     for k, v in enumerate(data):
@@ -21,7 +260,7 @@ def price_list():
             }
             print(insert)
         prl = PriceList.objects.create(id=v[0], name=v[1], date_start=v[2],
-                                       date_end=v[3], created_by=v[8], created_at=v[7])
+                                       date_end=v[3], created_by=v[8])
         prl.created_at = make_aware(v[7])
         prl.save()
 
