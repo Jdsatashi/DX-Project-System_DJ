@@ -6,10 +6,10 @@ from rest_framework.response import Response
 from rest_framework.views import APIView
 from rest_framework_simplejwt.serializers import TokenObtainPairSerializer
 from rest_framework_simplejwt.tokens import RefreshToken
-from rest_framework_simplejwt.views import TokenObtainPairView
+from rest_framework_simplejwt.views import TokenObtainPairView, TokenBlacklistView
 
-from account.api.serializers import UserSerializer
-from account.models import User, Verify
+from account.api.serializers import UserSerializer, PhoneNumberSerializer
+from account.models import User, Verify, PhoneNumber
 from user_system.user_type.models import UserType
 from utils.constants import user_type, status
 from utils.helpers import phone_validate
@@ -20,15 +20,14 @@ class CustomTokenObtainPairSerializer(TokenObtainPairSerializer):
         username = attrs['username'].upper()
         password = attrs['password']
         is_phone, username = phone_validate(username)
+        type_client = UserType.objects.get(user_type=user_type.get('client'))
         if not is_phone:
             print(f"Employee")
             type_emp = UserType.objects.get(user_type=user_type.get('employee'))
             user = User.objects.filter(id=username).first()
         else:
             print(f"Client")
-            type_client = UserType.objects.get(user_type=user_type.get('client'))
             user = User.objects.filter(phone_numbers__phone_number__exact=username, user_type=type_client).first()
-            verify = Verify.objects.filter(user=user)
 
         # Validating login request
         if user is None:
@@ -37,15 +36,24 @@ class CustomTokenObtainPairSerializer(TokenObtainPairSerializer):
             raise AuthenticationFailed('Wrong password!')
         if user.status == status[1]:
             raise AuthenticationFailed('User is not active!')
+
         # Generate token
         token = super().get_token(user)
+        if is_phone:
+            verify = Verify.objects.filter(user=user, phone_verify=username).first()
+            if not verify.is_verify and user.type == type_client:
+                raise AuthenticationFailed('User is not verified!')
+            verify.refresh_token = str(token)
+            verify.save()
+
         serializer = UserSerializer(user)
         phone_numbers = user.phone_numbers.all()
+        phone_number_serializer = PhoneNumberSerializer(phone_numbers, many=True)
         # Add custom data to token payload
         token['user'] = {
             'user_id': user.id,
             'email': user.email,
-            'phone_number': list(phone_numbers),
+            'phone_number': phone_number_serializer.data,
         }
         token['user_id'] = user.id
         response = {
@@ -54,7 +62,9 @@ class CustomTokenObtainPairSerializer(TokenObtainPairSerializer):
             'user': serializer.data
         }
         if user.user_type == UserType.objects.get(user_type=user_type.get('client')):
-            response['phone_number'] = username
+            print(username)
+            phone = PhoneNumber.objects.get(phone_number=username)
+            response['phone_number'] = PhoneNumberSerializer(phone).data
         return response
 
 
@@ -81,3 +91,11 @@ def get_token_for_user(user):
         'refresh': str(refresh),
         'access': str(refresh.access_token)
     }
+
+
+class CustomTokenBlacklistView(TokenBlacklistView):
+    def post(self, request, *args, **kwargs):
+        response = super().post(request, *args, **kwargs)
+
+        print("Token has been blacklisted")
+        return response
