@@ -14,9 +14,9 @@ account_detail = ApiAccount.as_view(
     {'get': 'retrieve', 'put': 'update', 'patch': 'partial_update', 'delete': 'destroy'})
 
 urlpatterns = [
-    path('register', RegisterSMS.as_view(), name='api_register'),
-    path('register/verify/<pk>', otp_verify, name='api_verify'),
+    path('register/', RegisterSMS.as_view(), name='api_register'),
+    path('register/verify/<pk>/', otp_verify, name='api_verify'),
     path('', account_view),
-    path('<int:pk>', account_detail),
-    path('login', phone_login)
+    path('<int:pk>/', account_detail),
+    path('login/', phone_login)
 ]
