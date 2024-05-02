@@ -5,11 +5,11 @@ from rest_framework.exceptions import AuthenticationFailed
 from rest_framework.response import Response
 from rest_framework.views import APIView
 from rest_framework_simplejwt.serializers import TokenObtainPairSerializer
-from rest_framework_simplejwt.tokens import RefreshToken
+from rest_framework_simplejwt.tokens import RefreshToken as RestRefreshToken
 from rest_framework_simplejwt.views import TokenObtainPairView, TokenBlacklistView
-
+from rest_framework_simplejwt.token_blacklist.models import BlacklistedToken
 from account.api.serializers import UserSerializer, PhoneNumberSerializer
-from account.models import User, Verify, PhoneNumber
+from account.models import User, Verify, PhoneNumber, RefreshToken
 from user_system.user_type.models import UserType
 from utils.constants import user_type, status
 from utils.helpers import phone_validate
@@ -39,12 +39,19 @@ class CustomTokenObtainPairSerializer(TokenObtainPairSerializer):
 
         # Generate token
         token = super().get_token(user)
+        # Handle with phone_number
         if is_phone:
-            verify = Verify.objects.filter(user=user, phone_verify=username).first()
+            phone = PhoneNumber.objects.get(phone_number=username)
+            verify = Verify.objects.filter(user=user, phone_verify=phone).first()
             if not verify.is_verify and user.type == type_client:
                 raise AuthenticationFailed('User is not verified!')
-            verify.refresh_token = str(token)
-            verify.save()
+            old_token = RefreshToken.objects.filter(user=user, phone_number=phone, status="active")
+            if old_token.exists():
+                deactive_token = old_token.first()
+                deactivate_token = RestRefreshToken(deactive_token.refresh_token)
+                deactivate_token.blacklist()
+
+            token_save = RefreshToken.objects.create(user=user, phone_number=phone, refresh_token=str(token), status="active")
 
         serializer = UserSerializer(user)
         phone_numbers = user.phone_numbers.all()
@@ -86,7 +93,7 @@ class ApiContentType(APIView):
 
 
 def get_token_for_user(user):
-    refresh = RefreshToken.for_user(user)
+    refresh = RestRefreshToken.for_user(user)
     return {
         'refresh': str(refresh),
         'access': str(refresh.access_token)
@@ -99,3 +106,7 @@ class CustomTokenBlacklistView(TokenBlacklistView):
 
         print("Token has been blacklisted")
         return response
+
+
+def remove_token_blacklist(token: str):
+    BlacklistedToken.objects.filter(token=token).delete()
