@@ -7,7 +7,7 @@ from rest_framework.views import APIView
 from rest_framework_simplejwt.serializers import TokenObtainPairSerializer
 from rest_framework_simplejwt.tokens import RefreshToken as RestRefreshToken
 from rest_framework_simplejwt.views import TokenObtainPairView, TokenBlacklistView
-from rest_framework_simplejwt.token_blacklist.models import BlacklistedToken
+from rest_framework_simplejwt.token_blacklist.models import BlacklistedToken, OutstandingToken
 from account.api.serializers import UserSerializer, PhoneNumberSerializer
 from account.models import User, Verify, PhoneNumber, RefreshToken
 from user_system.user_type.models import UserType
@@ -109,4 +109,5 @@ class CustomTokenBlacklistView(TokenBlacklistView):
 
 
 def remove_token_blacklist(token: str):
-    BlacklistedToken.objects.filter(token=token).delete()
+    _token = OutstandingToken.objects.filter(token=token).first()
+    BlacklistedToken.objects.filter(token=_token).delete()

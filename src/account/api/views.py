@@ -144,7 +144,11 @@ def phone_login(request):
             if ref_token.exists():
                 print("test 1")
                 if ref_token.first().status == "deactivate":
+                    print("Here test 3")
                     remove_token_blacklist(refresh_token)
+                    current_token = ref_token.first()
+                    current_token.status = "active"
+                    current_token.save()
                 new_token = get_token_from_refresh(refresh_token)
                 return Response({'refresh': refresh_token, 'access': new_token}, status.HTTP_200_OK)
             return Response({'message': 'Token không tồn tại'}, status.HTTP_400_BAD_REQUEST)
