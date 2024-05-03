@@ -86,17 +86,16 @@ def otp_verify(request, pk):
         if otp_code != verify.verify_code:
             return Response({'message': 'Mã OTP không chính xác.'}, status=status.HTTP_400_BAD_REQUEST)
         if verify.is_verify_valid():
-            serializer = UserSerializer(verify.user)
-            response = {'message': 'Successful verify phone number', 'user': serializer.data}
-            token = get_token_for_user(verify.user)
             # Update verify
             verify.is_verify = True
             verify.verify_time = timezone.now()
-            verify.save()
             # Activate user
             verify.user.status = user_status[0]
             verify.user.is_active = True
             verify.user.save()
+            verify.save()
+            # Generate new token
+            token = get_token_for_user(verify.user)
             # Add data for refresh token
             active_token = RefreshToken.objects.filter(user=verify.user, status="active")
             if active_token.exists():
@@ -110,8 +109,9 @@ def otp_verify(request, pk):
             verify.refresh_token = ref_token
             verify.save()
             # Add response data
-            response['phone_number'] = pk
-            response['token'] = token
+            serializer = UserSerializer(verify.user)
+            response = {'message': 'Successful verify phone number', 'user': serializer.data, 'phone_number': pk,
+                        'token': token}
             return Response(response, status=status.HTTP_200_OK)
         print("OTP code is expired")
         return Response({'message': 'Mã otp đã hết hạn'}, status=status.HTTP_200_OK)
