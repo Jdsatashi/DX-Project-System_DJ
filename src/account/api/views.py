@@ -111,7 +111,10 @@ def otp_verify(request, pk):
             # Add response data
             serializer = UserSerializer(verify.user)
             response = {'message': 'Successful verify phone number', 'user': serializer.data, 'phone_number': pk,
-                        'token': token}
+                        'token': {
+                            'refresh': str(token['refresh']),
+                            'access': str(token['access'])
+                        }}
             return Response(response, status=status.HTTP_200_OK)
         print("OTP code is expired")
         return Response({'message': 'Mã otp đã hết hạn'}, status=status.HTTP_200_OK)
