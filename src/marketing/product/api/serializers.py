@@ -11,6 +11,13 @@ class ProductTypeSerializer(serializers.ModelSerializer):
     class Meta:
         model = ProductType
         fields = '__all__'
+        read_only_fields = ['created_at', 'updated_at']
+
+
+class ViewProductTypeSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = ProductType
+        fields = ['id', 'name']
 
 
 class RegistrationUnitSerializer(serializers.ModelSerializer):
@@ -73,9 +80,7 @@ class RegistrationCertSerializer(serializers.ModelSerializer):
 
 class ProductCateSerializer(BaseRestrictSerializer):
     registration = RegistrationCertSerializer()
-    # files_upload = serializers.ListField(
-    #     child=serializers.FileField(max_length=100000, allow_empty_file=False, use_url=False),
-    #     write_only=True, required=False)
+    product_type = ViewProductTypeSerializer()
     content = serializers.ReadOnlyField(source='get_content')
 
     class Meta:
@@ -93,10 +98,6 @@ class ProductCateSerializer(BaseRestrictSerializer):
 
     def create(self, validated_data):
         _id = validated_data.get('id', None)
-        # files_upload = validated_data.pop('files_upload', [])
-        # print(files_upload)
-        # for file in files_upload:
-        #     print(file)
         if _id is None:
             raise serializers.ValidationError({'id': 'This field is required'})
         # Get data for RegistrationCert
@@ -186,6 +187,24 @@ class CategoryDetailSerializer(serializers.ModelSerializer):
 
 
 class ProductSerializer(BaseRestrictSerializer):
+    category_details = ProductCateSerializer(source='category', read_only=True)
+
+    product_type = ViewProductTypeSerializer(read_only=True)
+
     class Meta:
         model = Product
         fields = '__all__'
+
+    def to_representation(self, instance):
+        # Gọi phương thức to_representation gốc để lấy dữ liệu ban đầu
+        ret = super().to_representation(instance)
+        # Kiểm tra context để xác định xem đây có phải là request detail không
+        request = self.context.get('request')
+        if request and hasattr(request.resolver_match, 'url_name'):
+            # Nếu là chi tiết, trả về tất cả thông tin
+            if 'detail' in request.resolver_match.url_name:
+                ret['category_details'] = ProductCateSerializer(instance.category, context=self.context).data
+            else:
+                # Nếu là danh sách, chỉ trả về ID
+                ret['category_details'] = {'id': instance.category.id}
+        return ret
