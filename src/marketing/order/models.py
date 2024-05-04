@@ -23,7 +23,7 @@ class Order(models.Model):
     id_so = models.CharField(null=True, max_length=64, default=None)
     id_offer_consider = models.CharField(null=True, max_length=64, default=None)
 
-    created_by = models.CharField(max_length=64)
+    created_by = models.CharField(max_length=64, null=True)
     note = models.CharField(max_length=255, null=True)
     status = models.CharField(max_length=24, null=True)
     created_at = models.DateTimeField(auto_now_add=True)
@@ -57,3 +57,5 @@ class OrderDetail(models.Model):
     product_id = models.ForeignKey(Product, on_delete=models.CASCADE, related_name="order_product")
     order_quantity = models.IntegerField(null=False, default=1)
     order_box = models.DecimalField(max_digits=8, decimal_places=2, null=False, default=0)
+    point_per_box = models.DecimalField(max_digits=8, decimal_places=2, null=True)
+    price_list_so = models.DecimalField(max_digits=10, decimal_places=0, null=True)
