@@ -9,7 +9,9 @@ old_data = {
     "tb_thuocChitiet": "tbl_QLTT_DanhMucThuoc_ChiTiet",
     "tb_sanpham": "tbl_QLTT_DanhMucSanPham",
     "tb_bangGia": "tbl_QLTT_SanPhamTheoNam",
-    "tb_bangGiaSanPham": "tbl_QLTT_SanPhamTheoNam_SanPham"
+    "tb_bangGiaSanPham": "tbl_QLTT_SanPhamTheoNam_SanPham",
+    "tb_toa": "tbl_QLTT_DanhSachToa",
+    "tb_toaDetail": "tbl_QLTT_DanhSachToa_ChiTiet"
 }
 maNhomND = 'DMNKH000005'
 tenNhomND = 'Khách hàng Nông dân'
