@@ -4,6 +4,7 @@ from django.utils.timezone import make_aware
 
 from account.models import User
 from marketing.company.models import Company
+from marketing.order.models import Order
 from marketing.price_list.models import PriceList, ProductPrice
 from marketing.product.models import Product, UseObject, UseFor, ProductCategory, CategoryDetail, RegistrationCert, \
     Producer, RegistrationUnit, ProductType
@@ -283,3 +284,61 @@ def price_list_product():
         prod = Product.objects.get(id=v[2])
         print(f"{pl} - {v[2]}")
         ProductPrice.objects.create(price_list=pl, product=prod, price=v[5], quantity_in_box=v[6], point=v[7])
+
+
+"""
+tb_toa
+tb_toaDetail
+"""
+
+
+def insert_order():
+    data = table_data(old_data['tb_toa'])
+    for k, v in enumerate(reversed(data)):
+        if k < 10:
+            print(v)
+        client = User.objects.get(id=v[3])
+        insert = {
+            "date_get": v[1],
+            "date_company_get": v[2],
+            "client_id": client,
+            "date_delay": v[5],
+            "list_type": v[12],
+            "is_so": v[14],
+            "id_so": v[15],
+            "id_offer_consider": v[16],
+            "created_by": v[7],
+            "note": v[6],
+            "status": v[9],
+        }
+        create_at = make_aware(v[8])
+        order, _ = Order.objects.get_or_create(id=v[0], defaults=insert)
+        print(f"Inserting order: {order}")
+        order.created_at = create_at
+        order.save()
+        check_date = make_aware(v[8]).date()
+        price_lists = PriceList.objects.filter(date_start__lte=check_date, date_end__gte=check_date)
+        if price_lists.exists():
+            order.price_list_id = price_lists.first()
+            order.save()
+            print(price_lists.first())
+
+
+def insert_order_detail():
+    data = table_data(old_data['tb_toaDetail'])
+    for k, v in enumerate(reversed(data)):
+        if k < 10:
+            print("---")
+            print(v)
+            insert = {
+                "order_id": v[1],
+                "product_id": v[2],
+                "order_quantity": v[3],
+                "order_box": v[4],
+                "point_per_box": v[7],
+                "price_list_so": v[8],
+            }
+            print("")
+            print(insert)
+            if k == 10:
+                break
