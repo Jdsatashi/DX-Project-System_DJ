@@ -7,7 +7,6 @@ from utils.constants import acquy
 
 
 def create_initial_permission(apps, schema_editor):
-    Perms = apps.get_model('account', 'Perm')
     content_types = ContentType.objects.all()
 
     for i, content_type in enumerate(content_types):
@@ -18,7 +17,7 @@ def create_initial_permission(apps, schema_editor):
             for task in tasks:
                 perm_name_ = f'{task}_{perm_name}'
                 print(f"Adding permission: {perm_name}")
-                Perms.objects.create(name=perm_name_, note=f'{task.capitalize()} {content_type.model}')
+                Perm.objects.create(name=perm_name_, note=f'{task.capitalize()} {content_type.model}')
 
 
 class Migration(migrations.Migration):
@@ -29,7 +28,7 @@ class Migration(migrations.Migration):
         a = (v, '0001_initial')
         depdc.append(a)
     dependencies = depdc
-    print(depdc)
+
     operations = [
         migrations.RunPython(create_initial_permission),
     ]
