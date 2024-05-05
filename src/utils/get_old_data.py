@@ -297,10 +297,15 @@ def insert_order():
     for k, v in enumerate(reversed(data)):
         if k < 10:
             print(v)
-        client = User.objects.get(id=v[3])
+        print(f"Client_id: {v[3]}")
+        try:
+            client = User.objects.get(id=v[3])
+        except User.DoesNotExist:
+            client = None
+        notes = v[6] if client is not None else v[6] + f" | User not found: {v[3]}"
         insert = {
             "date_get": v[1],
-            "date_company_get": v[2],
+            "date_company_get": make_aware(v[2]),
             "client_id": client,
             "date_delay": v[5],
             "list_type": v[12],
@@ -308,7 +313,7 @@ def insert_order():
             "id_so": v[15],
             "id_offer_consider": v[16],
             "created_by": v[7],
-            "note": v[6],
+            "note": notes,
             "status": v[9],
         }
         create_at = make_aware(v[8])

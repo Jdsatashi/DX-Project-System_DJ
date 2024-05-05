@@ -20,8 +20,8 @@ class Order(models.Model):
 
     # SO mean Special Offer
     is_so = models.BooleanField(null=True, default=False)
-    id_so = models.CharField(null=True, max_length=64, default=None)
-    id_offer_consider = models.CharField(null=True, max_length=64, default=None)
+    id_so = models.CharField(null=True, max_length=255, default=None)
+    id_offer_consider = models.CharField(null=True, max_length=255, default=None)
 
     created_by = models.CharField(max_length=64, null=True)
     note = models.CharField(max_length=255, null=True)

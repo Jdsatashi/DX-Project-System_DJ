@@ -21,7 +21,7 @@ def value_or_none(value, condition, _return):
 
 
 # Connect to MS SQL Server and get data of specific table
-def table_data(table_name: str):
+def table_data(table_name: str, amount='*'):
     # Get env values
     server = os.environ.get('MSSQL_HOST')
     db_name = os.environ.get('MSSQL_DATABASE')
@@ -37,7 +37,7 @@ def table_data(table_name: str):
             print(f"Connection string: {connection_string}")
             con = pyodbc.connect(connection_string)
             cursor = con.cursor()
-            query = f"SELECT * FROM {table_name}"
+            query = f"SELECT {amount} FROM {table_name}"
             cursor.execute(query)
             rows = cursor.fetchall()
             con.close()
