@@ -56,29 +56,47 @@ class RegisterSerializer(serializers.ModelSerializer):
         phone_number = validated_data.pop('phone_number')
         if phone_number is None or phone_number == '':
             raise serializers.ValidationError({'phone_number': ['Bạn phải nhập số điện thoại.']})
-        # handle here
+        # Handle here
         is_valid, phone = phone_validate(phone_number)
         if not is_valid:
             raise serializers.ValidationError({'phone_number': ['Số điện thoại không hợp lệ.']})
-
-        # handle create user
-        type_kh, _ = UserType.objects.get_or_create(user_type="client")
-        user_type = type_kh
-        _id = generate_id(maNhomND)
-        user = User.objects.create(id=_id, user_type=user_type, status=status[1], is_active=False)
-        phone = user.phone_numbers.create(phone_number=phone)
-        client_group = ClientGroup.objects.get(id=maNhomND)
-        client_profile = ClientProfile.objects.create(client_id=user, client_group_id=client_group)
+        phone = PhoneNumber.objects.filter(phone_number=phone)
+        print("Here -------------")
         verify_code = generate_digits_code()
-        verify = Verify.objects.create(user=user, phone_verify=phone, verify_code=verify_code, verify_type="SMS OTP")
-        result = {
-            'id': user.id,
-            'phone_number': phone_number,
-            'user_type': user.user_type.user_type,
-            'otp': verify.verify_code,
-            'message': f"[DONG XANH] Ma xac thuc cua ban la {verify.verify_code}, tai app Thuoc BVTV Dong Xanh co hieu luc trong 3 phut. Vi ly do bao mat tuyet doi khong cung cap cho bat ky ai."
-        }
-        return result
+        # When phone Existed but not verify
+        if phone.exists():
+            phone_num = phone.first()
+            user = phone_num.user
+            verify = Verify.objects.filter(phone_verify=phone_num, is_verify=False)
+            # If verified, raise error
+            if not verify.exists():
+                raise serializers.ValidationError({'phone_number': ['Số điện thoại đã xác thực.']})
+            verify = verify.first()
+            verify.get_new_code(verify_code)
+        else:
+            # Handle create user
+            type_kh, _ = UserType.objects.get_or_create(user_type="client")
+            user_type = type_kh
+            _id = generate_id(maNhomND)
+            user = User.objects.create(id=_id, user_type=user_type, status=status[1], is_active=False)
+            phone = PhoneNumber.objects.create(phone_number=phone_number, user=user)
+            client_group = ClientGroup.objects.get(id=maNhomND)
+            client_profile = ClientProfile.objects.create(client_id=user, client_group_id=client_group)
+            verify = Verify.objects.create(user=user, phone_verify=phone, verify_code=verify_code,
+                                           verify_type="SMS OTP")
+        print(verify)
+        return create_verify_code(verify)
+
+
+def create_verify_code(verify_obj):
+    return {
+        'id': verify_obj.user.id,
+        'phone_number': verify_obj.phone_verify.phone_number,
+        'user_type': verify_obj.user.user_type.user_type,
+        'otp': verify_obj.verify_code,
+        'message': f"[DONG XANH] Ma xac thuc cua ban la {verify_obj.verify_code}, tai app Thuoc BVTV Dong Xanh co "
+                   f"hieu luc trong 3 phut. Vi ly do bao mat tuyet doi khong cung cap cho bat ky ai."
+    }
 
 
 def send_sms(phone_number, message):

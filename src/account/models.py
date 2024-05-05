@@ -4,10 +4,8 @@ import datetime
 from django.contrib.auth.models import AbstractBaseUser, BaseUserManager, PermissionsMixin
 from django.contrib.contenttypes.fields import GenericForeignKey
 from django.contrib.contenttypes.models import ContentType
-from django.core.exceptions import ValidationError
 from django.db import models
 from django.utils import timezone
-
 from user_system.user_type.models import UserType
 
 
@@ -106,10 +104,38 @@ class PhoneNumber(models.Model):
     user = models.ForeignKey(User, related_name='phone_numbers', null=True, on_delete=models.CASCADE)
 
 
+# Table for save Token
+class RefreshToken(models.Model):
+    user = models.ForeignKey(User, null=True, on_delete=models.CASCADE)
+    phone_number = models.ForeignKey(PhoneNumber, null=True, on_delete=models.CASCADE)
+    refresh_token = models.TextField(null=True)
+    status = models.CharField(max_length=128, default=None)
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    def save(self, *args, **kwargs):
+        if self.status == "active":
+            RefreshToken.objects.filter(
+                phone_number=self.phone_number,
+                status="active"
+            ).exclude(
+                id=self.id
+            ).update(status="expired")
+            RefreshToken.objects.filter(
+                user=self.user,
+                status="active"
+            ).exclude(
+                id=self.id
+            ).update(status="deactivate")
+
+        super().save(*args, **kwargs)
+
+
 class Verify(models.Model):
     user = models.ForeignKey(User, on_delete=models.CASCADE, related_name='verify')
     phone_verify = models.ForeignKey(PhoneNumber, max_length=24, null=True, related_name='phone_numbers',
                                      on_delete=models.CASCADE)
+    refresh_token = models.ForeignKey(RefreshToken, null=True, on_delete=models.CASCADE)
     is_verify = models.BooleanField(default=False)
     verify_code = models.CharField(max_length=64)
     verify_type = models.CharField(max_length=128, default=None)
@@ -122,11 +148,17 @@ class Verify(models.Model):
 
     class Meta:
         db_table = 'users_verify'
+        get_latest_by = 'created_at'
 
     def save(self, *args, **kwargs):
         if not self.id:
             self.expired_at = timezone.now() + datetime.timedelta(seconds=1800)
         super(Verify, self).save(*args, **kwargs)
+
+    def get_new_code(self, otp_code, *args, **kwargs):
+        self.verify_code = otp_code
+        self.expired_at = timezone.now() + datetime.timedelta(seconds=1800)
+        self.save()
 
     def is_verify_valid(self):
         now = timezone.now()

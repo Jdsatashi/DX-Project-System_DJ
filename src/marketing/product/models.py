@@ -2,6 +2,7 @@ from django.db import models
 
 from marketing.company.models import Company
 from system.file_upload.models import FileUpload, ContentFile
+from utils.helpers import normalize_vietnamese
 
 
 # Create your models here.
@@ -53,10 +54,24 @@ class UseObject(models.Model):
     id = models.CharField(primary_key=True, max_length=64, unique=True)
     name = models.CharField(max_length=255)
 
+    def save(self, *args, **kwargs):
+        if not self.pk:
+            if self.name == '' or self.name is None:
+                raise ValueError({'name': 'Name is required'})
+            self.id = normalize_vietnamese(self.name)
+        super().save(*args, **kwargs)
+
 
 class UseFor(models.Model):
     id = models.CharField(primary_key=True, max_length=64, unique=True)
     name = models.CharField(max_length=255)
+
+    def save(self, *args, **kwargs):
+        if not self.pk:
+            if self.name == '' or self.name is None:
+                raise ValueError({'name': 'Name is required'})
+            self.id = normalize_vietnamese(self.name)
+        super().save(*args, **kwargs)
 
 
 class CategoryDetail(models.Model):
@@ -70,8 +85,10 @@ class CategoryDetail(models.Model):
 class Product(models.Model):
     id = models.CharField(primary_key=True, max_length=12, unique=True)
     name = models.CharField(max_length=255)
-    category = models.CharField(max_length=24, null=True)
+    category = models.ForeignKey(ProductCategory, null=True, on_delete=models.SET_NULL, default=None)
     main_id = models.CharField(max_length=24, null=True)
+    product_type = models.ForeignKey(ProductType, null=True, on_delete=models.SET_NULL)
+    note = models.CharField(max_length=255, null=True)
     created_by = models.CharField(max_length=255, null=True)
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)

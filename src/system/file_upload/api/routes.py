@@ -20,7 +20,7 @@ file_content_detail = GenericApiFileContent.as_view(actions_detail)
 
 urlpatterns = [
     path('', fileupload_view),
-    path('<pk>', fileupload_detail),
+    path('<pk>/', fileupload_detail),
     path('content/', file_content_view),
-    path('content/<pk>', file_content_detail)
+    path('content/<pk>/', file_content_detail)
 ]

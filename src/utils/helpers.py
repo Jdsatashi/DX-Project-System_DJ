@@ -84,7 +84,7 @@ def phone_validate(phone):
 
     phone_regex = RegexValidator(
         regex=r'^\d{9,}$',
-        message="Số điện thoại phải được nhập ở định dạng: '+999999999'. Tối đa 15 chữ số."
+        message="Số điện thoại phải được nhập ở định dạng: '999999999'. Tối đa 15 chữ số."
     )
     try:
         phone_regex(phone)
