@@ -4,7 +4,7 @@ from django.utils.timezone import make_aware
 
 from account.models import User
 from marketing.company.models import Company
-from marketing.order.models import Order
+from marketing.order.models import Order, OrderDetail
 from marketing.price_list.models import PriceList, ProductPrice
 from marketing.product.models import Product, UseObject, UseFor, ProductCategory, CategoryDetail, RegistrationCert, \
     Producer, RegistrationUnit, ProductType
@@ -339,6 +339,7 @@ def insert_order_detail():
                 "price_list_so": v[8],
             }
             print("")
-            print(insert)
+            order_detail, _ = OrderDetail.objects.get_or_create(defaults=insert)
+            print(order_detail)
             if k == 10:
                 break
