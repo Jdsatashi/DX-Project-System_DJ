@@ -293,9 +293,20 @@ tb_toaDetail
 
 
 def insert_order():
-    data = table_data(old_data['tb_toa'])
-    for k, v in enumerate(reversed(data)):
-        if k < 10:
+    i = 1
+    y = 5000
+    for idx in range(3, 25):
+        i = 1 + (5000 * idx)
+        y = 5000 * idx
+        data = table_data(old_data['tb_toa'], '*', {'start': i, 'end': y})
+        process_order(data)
+        print(f"Get data from: {i} - {y}")
+
+
+
+def process_order(data):
+    for k, v in enumerate(data):
+        if k == 1:
             print(v)
         print(f"Client_id: {v[3]}")
         try:
@@ -303,9 +314,10 @@ def insert_order():
         except User.DoesNotExist:
             client = None
         notes = v[6] if client is not None else v[6] + f" | User not found: {v[3]}"
+        date_company_get = make_aware(v[2]) if v[2] is not None else None
         insert = {
             "date_get": v[1],
-            "date_company_get": make_aware(v[2]),
+            "date_company_get": date_company_get,
             "client_id": client,
             "date_delay": v[5],
             "list_type": v[12],
