@@ -350,7 +350,7 @@ def insert_order_detail():
     start_time = time.time()
     i = 1
     y = 5000
-    for i in range(1, 30):
+    for i in range(2, 30):
         i = 1 + (5000 * i)
         y = 5000 * i
         data = table_data(old_data['tb_toaDetail'], '*', {'start': i, 'end': y})
@@ -365,8 +365,19 @@ def process_order_detail(data):
         if k == 1:
             print("---")
             print(v)
-        order = Order.objects.get(id=v[1])
-        product = Product.objects.get(id=v[2])
+        note = ""
+        try:
+            order = Order.objects.get(id=v[1])
+        except Order.DoesNotExist:
+            order = None
+            note += f"order_id: {v[1]} not found"
+        try:
+            product = Product.objects.get(id=v[2])
+        except Product.DoesNotExist:
+            product = None
+            note = "" if note == "" else note + ", "
+            note += f"product_id: {v[2]} not found"
+
         insert = {
             "order_id": order,
             "product_id": product,
@@ -374,6 +385,7 @@ def process_order_detail(data):
             "order_box": v[4],
             "point_per_box": v[7],
             "price_list_so": v[8],
+            "note": note
         }
         print("")
         print(f"Inserting: {order} - {product}")

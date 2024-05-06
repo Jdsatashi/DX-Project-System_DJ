@@ -61,12 +61,13 @@ class Order(models.Model):
 
 
 class OrderDetail(models.Model):
-    order_id = models.ForeignKey(Order, on_delete=models.CASCADE, related_name="order_detail")
-    product_id = models.ForeignKey(Product, on_delete=models.CASCADE, related_name="order_product")
+    order_id = models.ForeignKey(Order, null=True, on_delete=models.CASCADE, related_name="order_detail")
+    product_id = models.ForeignKey(Product, null=True, on_delete=models.CASCADE, related_name="order_product")
     order_quantity = models.IntegerField(null=False, default=1)
     order_box = models.DecimalField(max_digits=8, decimal_places=2, null=False, default=0)
     point_per_box = models.DecimalField(max_digits=8, decimal_places=2, null=True)
     price_list_so = models.DecimalField(max_digits=10, decimal_places=0, null=True)
+    note = models.CharField(max_length=255, null=True)
 
     def clean(self):
         if self.order_id and self.product_id:
