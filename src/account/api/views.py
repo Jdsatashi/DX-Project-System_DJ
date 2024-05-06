@@ -10,6 +10,7 @@ from rest_framework.decorators import api_view
 from rest_framework.response import Response
 from rest_framework.views import APIView
 from rest_framework_simplejwt.authentication import JWTAuthentication
+from rest_framework_simplejwt.exceptions import TokenError
 from rest_framework_simplejwt.tokens import RefreshToken as RestRefreshToken
 
 from account.api.serializers import UserSerializer, RegisterSerializer, create_verify_code
@@ -124,12 +125,6 @@ def otp_verify(request, pk):
 
 @api_view(['POST', 'GET'])
 def phone_login(request):
-    if request.method == 'GET':
-        response = {
-            'phone_number': '0123456789',
-            'refresh_token': 'token...'
-        }
-        return Response(response, status=status.HTTP_405_METHOD_NOT_ALLOWED)
     if request.method == 'POST':
         phone_number = request.data.get('phone_number', None)
         refresh_token = request.data.get('refresh_token', None)
@@ -152,7 +147,10 @@ def phone_login(request):
                     current_token = ref_token.first()
                     current_token.status = "active"
                     current_token.save()
-                new_token = get_token_from_refresh(refresh_token)
+                try:
+                    new_token = get_token_from_refresh(refresh_token)
+                except TokenError:
+                    return Response({'message': 'Phiên đăng nhập đã hết hạn, vui lòng đăng nhập lại'}, status.HTTP_400_BAD_REQUEST)
                 return Response({'refresh': refresh_token, 'access': new_token}, status.HTTP_200_OK)
             return Response({'message': 'Token không tồn tại'}, status.HTTP_400_BAD_REQUEST)
         else:
@@ -162,6 +160,12 @@ def phone_login(request):
                                                verify_type="SMS OTP")
             response = create_verify_code(new_verify)
             return Response(response, status.HTTP_200_OK)
+    else:
+        response = {
+            'phone_number': '0123456789',
+            'refresh_token': 'token...'
+        }
+        return Response(response, status=status.HTTP_405_METHOD_NOT_ALLOWED)
 
 
 def call_api_register(phone_number):
@@ -182,3 +186,25 @@ def call_api_register(phone_number):
 def get_token_from_refresh(refresh_token):
     token = RestRefreshToken(refresh_token)
     return str(token.access_token)
+
+
+@api_view(['POST', 'GET'])
+def logout(request):
+    if request.method == 'POST':
+        refresh_token = request.data.get('refresh_token', None)
+        if refresh_token:
+            ref_token = RefreshToken.objects.filter(refresh_token=refresh_token)
+            if ref_token.exists():
+                current_token = ref_token.first()
+                current_token.status = "expired"
+                current_token.save()
+                token = RestRefreshToken(current_token.refresh_token)
+                token.blacklist()
+                return Response({'message': 'Logout successful'}, status.HTTP_200_OK)
+            return Response({'message': 'Token không tồn tại'}, status.HTTP_400_BAD_REQUEST)
+        return Response({'message': 'Bạn cần nhập refresh token'}, status.HTTP_400_BAD_REQUEST)
+    else:
+        response = {
+            'refresh_token': 'token...'
+        }
+        return Response(response, status=status.HTTP_405_METHOD_NOT_ALLOWED)
