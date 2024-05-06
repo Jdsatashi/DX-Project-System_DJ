@@ -1,5 +1,6 @@
 from datetime import datetime
 
+from django.core.exceptions import ValidationError
 from django.db import models
 
 from account.models import User
@@ -10,8 +11,8 @@ from marketing.product.models import Product
 # Create your models here.
 class Order(models.Model):
     id = models.CharField(max_length=24, primary_key=True)
-    date_get = models.DateField()
-    date_company_get = models.DateTimeField()
+    date_get = models.DateField(null=True)
+    date_company_get = models.DateTimeField(null=True)
     client_id = models.ForeignKey(User, null=True, on_delete=models.SET_NULL)
     date_delay = models.IntegerField(default=0)
     list_type = models.CharField(max_length=24, null=True)
@@ -28,6 +29,12 @@ class Order(models.Model):
     status = models.CharField(max_length=24, null=True)
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
+
+    def clean(self):
+        if self.price_list_id:
+            if not (self.price_list_id.date_start <= self.created_at.date() <= self.price_list_id.date_end):
+                raise ValidationError(
+                    f"Order date {self.created_at.date()} must be within the PriceList's date range from {self.price_list_id.date_start} to {self.price_list_id.date_end}.")
 
     def save(self, *args, **kwargs):
         if not self.pk:
@@ -46,6 +53,7 @@ class Order(models.Model):
             print(_id)
             self.id = _id
             print(self.id)
+        self.clean()
         return super().save(*args, **kwargs)
 
     def __str__(self):
@@ -59,3 +67,13 @@ class OrderDetail(models.Model):
     order_box = models.DecimalField(max_digits=8, decimal_places=2, null=False, default=0)
     point_per_box = models.DecimalField(max_digits=8, decimal_places=2, null=True)
     price_list_so = models.DecimalField(max_digits=10, decimal_places=0, null=True)
+
+    def clean(self):
+        if self.order_id and self.product_id:
+            product_list = self.order_id.price_list_id.products.all()
+            if self.product_id not in product_list:
+                raise ValidationError("The product must be part of the PriceList associated with the Order.")
+
+    def save(self, *args, **kwargs):
+        self.clean()
+        super().save(*args, **kwargs)
