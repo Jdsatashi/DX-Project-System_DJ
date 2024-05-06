@@ -12,5 +12,4 @@ urlpatterns = [
     path('', CustomTokenObtainPairView.as_view(), name='token_obtain_pair'),
     path('refresh/', TokenRefreshView.as_view(), name='token_refresh'),
     path('blacklist/', TokenBlacklistView.as_view(), name='token_blacklist')
-
 ]
