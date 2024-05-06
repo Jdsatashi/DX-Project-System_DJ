@@ -194,17 +194,3 @@ class ProductSerializer(BaseRestrictSerializer):
     class Meta:
         model = Product
         fields = '__all__'
-
-    def to_representation(self, instance):
-        # Gọi phương thức to_representation gốc để lấy dữ liệu ban đầu
-        ret = super().to_representation(instance)
-        # Kiểm tra context để xác định xem đây có phải là request detail không
-        request = self.context.get('request')
-        if request and hasattr(request.resolver_match, 'url_name'):
-            # Nếu là chi tiết, trả về tất cả thông tin
-            if 'detail' in request.resolver_match.url_name:
-                ret['category_details'] = ProductCateSerializer(instance.category, context=self.context).data
-            else:
-                # Nếu là danh sách, chỉ trả về ID
-                ret['category_details'] = {'id': instance.category.id}
-        return ret
