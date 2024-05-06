@@ -1,19 +1,16 @@
-import os
 import random
-from datetime import datetime
-
-import dotenv
 import pyodbc
 import unicodedata
+from datetime import datetime
+
 from django.contrib.contenttypes.models import ContentType
 from django.core.exceptions import ValidationError
 from django.core.validators import RegexValidator
 from rest_framework import serializers
 
 from account.models import User
+from utils.env import OLD_SQL_HOST, OLD_SQL_DB, OLD_SQL_USER, OLD_SQL_PW
 from .constants import *
-
-dotenv.load_dotenv()
 
 
 def value_or_none(value, condition, _return):
@@ -21,12 +18,14 @@ def value_or_none(value, condition, _return):
 
 
 # Connect to MS SQL Server and get data of specific table
-def table_data(table_name: str, amount='*'):
+def table_data(table_name: str, amount='*', options=None):
     # Get env values
-    server = os.environ.get('MSSQL_HOST')
-    db_name = os.environ.get('MSSQL_DATABASE')
-    user = os.environ.get('MSSQL_USER')
-    password = os.environ.get('MSSQL_PASSWORD')
+    if options is None:
+        options = {'start_row': 0, 'end_row': 0}
+    server = OLD_SQL_HOST
+    db_name = OLD_SQL_DB
+    user = OLD_SQL_USER
+    password = OLD_SQL_PW
     drivers = ["SQL Server", "ODBC Driver 18 for SQL Server", "ODBC Driver 17 for SQL Server"]
     for i, driver in enumerate(drivers):
         try:
@@ -37,7 +36,18 @@ def table_data(table_name: str, amount='*'):
             print(f"Connection string: {connection_string}")
             con = pyodbc.connect(connection_string)
             cursor = con.cursor()
-            query = f"SELECT {amount} FROM {table_name}"
+            if options is None:
+                query = f"SELECT {amount} FROM {table_name}"
+            else:
+                print(f"Query options")
+                query = f"""
+                SELECT *
+                FROM {table_name}
+                ORDER BY [ngayLap]
+                OFFSET {options['start']} ROWS
+                FETCH NEXT {options['end']} ROWS ONLY;
+                """
+
             cursor.execute(query)
             rows = cursor.fetchall()
             con.close()

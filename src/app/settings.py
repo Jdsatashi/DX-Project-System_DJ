@@ -1,20 +1,19 @@
-import dotenv
 import os
 from datetime import timedelta
 from pathlib import Path
 from logging.handlers import TimedRotatingFileHandler
 
-dotenv.load_dotenv()
+from utils.env import *
 
 # Build paths inside the project like this: BASE_DIR / 'subdir'.
 BASE_DIR = Path(__file__).resolve().parent.parent
 PROJECT_DIR = BASE_DIR.parent
 
 # SECURITY WARNING: keep the secret key used in production secret!
-SECRET_KEY = os.environ.get('SECRET_KEY')
+SECRET_KEY = APP_SECRET
 
 # SECURITY WARNING: don't run with debug turned on in production!
-DEBUG = os.environ.get('DEBUG', True)
+DEBUG = APP_DEBUG
 
 ALLOWED_HOSTS = ['0.0.0.0', 'localhost', '127.0.0.1', '192.168.1.17', 'jdserver.ddnsfree.com', 'sukiendongxanh.online',
                  'christian.ns.cloudflare.com', 'sara.ns.cloudflare.com'
@@ -26,11 +25,11 @@ AUTH_USER_MODEL = 'account.User'
 DJANGO_ALLOW_ASYNC_UNSAFE = True
 
 SMS_SERVICE = {
-    'host': os.environ.get('SMS_SERVICE'),
-    'username': os.environ.get('SMS_USERNAME'),
-    'sign': os.environ.get('SMS_SIGN'),
-    'brand': os.environ.get('SMS_BRAND'),
-    'type': os.environ.get('SMS_TYPE')
+    'host': SMS_SERVICE,
+    'username': SMS_USERNAME,
+    'sign': SMS_SIGN,
+    'brand': SMS_BRAND,
+    'type': SMS_TYPE
 }
 
 MY_APPS = [
@@ -128,8 +127,8 @@ LOGGING = {
     },
 }
 SIMPLE_JWT = {
-    "ACCESS_TOKEN_LIFETIME": timedelta(days=1),
-    "REFRESH_TOKEN_LIFETIME": timedelta(days=1),
+    "ACCESS_TOKEN_LIFETIME": timedelta(hours=int(TOKEN_LT)),
+    "REFRESH_TOKEN_LIFETIME": timedelta(days=int(REF_TOKEN_LT)),
     "ROTATE_REFRESH_TOKENS": False,
     "BLACKLIST_AFTER_ROTATION": True,
     "UPDATE_LAST_LOGIN": True,
@@ -219,11 +218,11 @@ WSGI_APPLICATION = 'app.wsgi.application'
 
 MSSQL = {
     'ENGINE': 'mssql',
-    'NAME': os.environ['DB_NAME'],
-    'HOST': os.environ['DB_HOST'],
-    'PORT': os.environ['DB_PORT'],
-    'USER': os.environ['DB_USER'],
-    'PASSWORD': os.environ['DB_PASSWORD'],
+    'NAME': MSSQL_DB,
+    'HOST': MSSQL_HOST,
+    'PORT': MSSQL_PORT,
+    'USER': MSSQL_USER,
+    'PASSWORD': MSSQL_PW,
     'OPTIONS': {'driver': 'ODBC Driver 17 for SQL Server'}
 }
 
@@ -234,14 +233,13 @@ SQLITE = {
 
 POSTGRESQL = {
     'ENGINE': 'django.db.backends.postgresql',
-    'NAME': os.environ['PGS_DB'],
-    'HOST': os.environ['PGS_HOST'],
-    'PORT': os.environ['PGS_PORT'],
-    'USER': os.environ['PGS_USER'],
-    'PASSWORD': os.environ['PGS_PASSWORD'],
+    'NAME': PGS_DB,
+    'HOST': PGS_HOST,
+    'PORT': PGS_PORT,
+    'USER': PGS_USER,
+    'PASSWORD': PGS_PASSWORD,
     'OPTIONS': {
-        'sslmode': os.environ['PGS_SSL'],
-        # 'options': f'?options=endpoint%3D{os.environ["PGS_ENDPOINT_ID"]}',
+        'sslmode': PGS_SSL,
     },
 }
 
