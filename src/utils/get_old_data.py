@@ -347,21 +347,35 @@ def process_order(data):
 
 
 def insert_order_detail():
-    data = table_data(old_data['tb_toaDetail'])
-    for k, v in enumerate(reversed(data)):
-        if k < 10:
+    start_time = time.time()
+    i = 1
+    y = 5000
+    for i in range(1, 30):
+        i = 1 + (5000 * i)
+        y = 5000 * i
+        data = table_data(old_data['tb_toaDetail'], '*', {'start': i, 'end': y})
+        print(f"--\nGet data from: {i} - {y}\n--\n")
+        process_order_detail(data)
+    print(f"---------------------- FINISH ------------------------")
+    print(f"Complete time: {time.time() - start_time} seconds")
+
+
+def process_order_detail(data):
+    for k, v in enumerate(data):
+        if k == 1:
             print("---")
             print(v)
-            insert = {
-                "order_id": v[1],
-                "product_id": v[2],
-                "order_quantity": v[3],
-                "order_box": v[4],
-                "point_per_box": v[7],
-                "price_list_so": v[8],
-            }
-            print("")
-            order_detail, _ = OrderDetail.objects.get_or_create(defaults=insert)
-            print(order_detail)
-            if k == 10:
-                break
+        order = Order.objects.get(id=v[1])
+        product = Product.objects.get(id=v[2])
+        insert = {
+            "order_id": order,
+            "product_id": product,
+            "order_quantity": v[3],
+            "order_box": v[4],
+            "point_per_box": v[7],
+            "price_list_so": v[8],
+        }
+        print("")
+        print(f"Inserting: {order} - {product}")
+        order_detail, _ = OrderDetail.objects.get_or_create(defaults=insert)
+        print(order_detail)

@@ -75,5 +75,5 @@ class OrderDetail(models.Model):
                 raise ValidationError("The product must be part of the PriceList associated with the Order.")
 
     def save(self, *args, **kwargs):
-        self.clean()
+        # self.clean()
         super().save(*args, **kwargs)

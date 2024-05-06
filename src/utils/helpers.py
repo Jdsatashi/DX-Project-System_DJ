@@ -36,6 +36,7 @@ def table_data(table_name: str, amount='*', options=None):
             print(f"Connection string: {connection_string}")
             con = pyodbc.connect(connection_string)
             cursor = con.cursor()
+            print(f"\nOptions = {options}")
             if options is None:
                 query = f"SELECT {amount} FROM {table_name}"
             else:
@@ -43,9 +44,9 @@ def table_data(table_name: str, amount='*', options=None):
                 query = f"""
                 SELECT *
                 FROM {table_name}
-                ORDER BY [ngayLap]
-                OFFSET {options['start']} ROWS
-                FETCH NEXT {options['end']} ROWS ONLY;
+                ORDER BY [idChiTiet]
+                OFFSET {options.get('start')} ROWS
+                FETCH NEXT {options.get('end')} ROWS ONLY;
                 """
 
             cursor.execute(query)
