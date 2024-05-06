@@ -1,3 +1,5 @@
+import time
+
 from django.contrib.auth.hashers import make_password
 from django.db import IntegrityError
 from django.utils.timezone import make_aware
@@ -295,12 +297,15 @@ tb_toaDetail
 def insert_order():
     i = 1
     y = 5000
-    for idx in range(3, 25):
+    start_time = time.time()
+    for idx in range(7, 25):
         i = 1 + (5000 * idx)
         y = 5000 * idx
         data = table_data(old_data['tb_toa'], '*', {'start': i, 'end': y})
         process_order(data)
         print(f"Get data from: {i} - {y}")
+    print(f"---------------------- FINISH ------------------------")
+    print(f"Complete time: {time.time() - start_time} seconds")
 
 
 
