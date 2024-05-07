@@ -33,8 +33,6 @@ def filter_data(self, request, query_fields, *args, **kwargs):
     valid_fields = [f.name for f in self.serializer_class.Meta.model._meta.get_fields()]
     if order_by in valid_fields or order_by.lstrip('-') in valid_fields:
         products = products.order_by(order_by)
-    print(f"TEST -------------------------")
-    print(products)
     if limit == 0:
         serializer = self.serializer_class(products, many=True)
         response_data = {
