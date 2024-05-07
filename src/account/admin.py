@@ -27,7 +27,7 @@ class UserAdmin(BaseUserAdmin):
         if obj is None:  # Adding a new user
             return (
                 (None, {'classes': ('wide',), 'fields': (
-                    'id', 'username', 'email', 'phone_number', 'password1', 'password2', 'region', 'status',
+                    'id', 'username', 'email', 'password1', 'password2', 'region', 'status',
                     'user_type')}),
             )
         else:  # Editing an existing user
