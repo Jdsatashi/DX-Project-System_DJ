@@ -4,6 +4,7 @@ from rest_framework import serializers
 from rest_framework.exceptions import AuthenticationFailed
 from rest_framework.response import Response
 from rest_framework.views import APIView
+from rest_framework_simplejwt.exceptions import TokenError
 from rest_framework_simplejwt.serializers import TokenObtainPairSerializer
 from rest_framework_simplejwt.tokens import RefreshToken as RestRefreshToken
 from rest_framework_simplejwt.views import TokenObtainPairView, TokenBlacklistView
@@ -47,10 +48,12 @@ class CustomTokenObtainPairSerializer(TokenObtainPairSerializer):
                 raise AuthenticationFailed('User is not verified!')
             old_token = RefreshToken.objects.filter(user=user, phone_number=phone, status="active")
             if old_token.exists():
-                deactive_token = old_token.first()
-                deactivate_token = RestRefreshToken(deactive_token.refresh_token)
-                deactivate_token.blacklist()
-
+                try:
+                    deactive_token = old_token.first()
+                    deactivate_token = RestRefreshToken(deactive_token.refresh_token)
+                    deactivate_token.blacklist()
+                except TokenError:
+                    print("Ok here")
             token_save = RefreshToken.objects.create(user=user, phone_number=phone, refresh_token=str(token), status="active")
 
         serializer = UserSerializer(user)
