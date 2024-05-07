@@ -43,6 +43,18 @@ class PriceListSerializer(BaseRestrictSerializer):
         fields = '__all__'
         read_only_fields = ('id', 'created_by', 'created_at', 'updated_at')
 
+    def to_representation(self, instance):
+        """Modify the output representation based on the context."""
+        ret = super().to_representation(instance)
+        # When is Detail
+        if 'request' in self.context and self.context['request'].method in ['GET']:
+            if 'detail' in self.context and self.context['detail']:
+                ret['products_list'] = self.fields['products_list'].to_representation(instance.productprice_set.all())
+        # When is List
+        else:
+            ret.pop('products_list', None)
+        return ret
+
     def create(self, validated_data):
         # Split data for permission
         data, perm_data = self.split_data(validated_data)
