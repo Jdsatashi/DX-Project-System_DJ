@@ -46,13 +46,18 @@ class PriceListSerializer(BaseRestrictSerializer):
     def to_representation(self, instance):
         """Modify the output representation based on the context."""
         ret = super().to_representation(instance)
-        # When is Detail
-        if 'request' in self.context and self.context['request'].method in ['GET']:
-            if 'detail' in self.context and self.context['detail']:
-                ret['products_list'] = self.fields['products_list'].to_representation(instance.productprice_set.all())
-        # When is List
+        print("TEST repressented")
+        print(f"{self.context}")
+        print(f"{'request' in self.context}")
+        is_detail = self.context.get('detail', False)
+
+        if is_detail:
+            # This means we are in detail view
+            ret['products_list'] = self.fields['products_list'].to_representation(instance.productprice_set.all())
         else:
+            # We are in list view, do not include products_list
             ret.pop('products_list', None)
+
         return ret
 
     def create(self, validated_data):

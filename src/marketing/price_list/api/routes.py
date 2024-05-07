@@ -15,4 +15,5 @@ price_list_details = GenericApiPriceList.as_view(actions_detail)
 urlpatterns = [
     path('', price_list_views, name='api_price_list_view'),
     path('<pk>/', price_list_details, name='api_price_list_detail'),
+    path('get/now/', GenericApiPriceList.as_view({'get': 'now'}), name='api_price_list_now')
 ]

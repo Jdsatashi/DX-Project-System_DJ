@@ -1,8 +1,9 @@
 from functools import partial
 
 from django.contrib.contenttypes.models import ContentType
+from django.utils import timezone
 from rest_framework import viewsets, mixins, status
-from rest_framework.decorators import api_view
+from rest_framework.decorators import api_view, action
 from rest_framework.response import Response
 from rest_framework_simplejwt.authentication import JWTAuthentication
 
@@ -43,3 +44,14 @@ class GenericApiPriceList(viewsets.GenericViewSet, mixins.ListModelMixin, mixins
         response = filter_data(self, request, ['id', 'name', 'date_start', 'date_end'], *args,
                                **kwargs)
         return Response(response, status.HTTP_200_OK)
+
+    @action(methods=['get'], detail=False, url_path='now', url_name='now')
+    def now(self, request):
+        today = timezone.localdate()
+        queryset = self.get_queryset().filter(date_start__lte=today, date_end__gte=today)
+        page = self.paginate_queryset(queryset)
+        if page is not None:
+            serializer = self.get_serializer(page, many=True)
+            return self.get_paginated_response(serializer.data)
+        serializer = self.get_serializer(queryset, many=True)
+        return Response(serializer.data)
