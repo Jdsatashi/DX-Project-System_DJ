@@ -32,6 +32,9 @@ class PriceList(models.Model):
             self.id = _id
         return super().save(*args, **kwargs)
 
+    def __str__(self):
+        return f"{self.id} - {self.name}"
+
 
 class ProductPrice(models.Model):
     price_list = models.ForeignKey(PriceList, null=True, on_delete=models.SET_NULL)
