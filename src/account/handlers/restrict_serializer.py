@@ -5,8 +5,9 @@ from django.db import models
 from django.db.models import Model, Q
 from rest_framework import serializers
 
-from account.models import User, GroupPerm, Perm, UserPerm, UserGroupPerm
+from account.models import User, GroupPerm, Perm, UserPerm, UserGroupPerm, PhoneNumber
 from utils.constants import acquy
+from utils.helpers import phone_validate
 
 
 class BaseRestrictSerializer(serializers.ModelSerializer):
@@ -120,12 +121,21 @@ class BaseRestrictSerializer(serializers.ModelSerializer):
 
 def update_user_perm(item_data, perms, items, allow, exited):
     # Try to get User
-    try:
-        user = User.objects.get(id=item_data.upper())
-    # Return errors with fields error
-    except models.ObjectDoesNotExist:
-        field = 'allow' if allow else 'restrict'
-        raise serializers.ValidationError({'error': f'Field error at "{field}_{items["type"]}"'})
+    is_phone, phone_number = phone_validate(item_data)
+    if is_phone:
+        try:
+            phone = PhoneNumber.objects.get(phone_number=phone_number)
+            user = phone.user
+        except models.ObjectDoesNotExist:
+            field = 'allow' if allow else 'restrict'
+            raise serializers.ValidationError({'error': f'Field error at "{field}_{items["type"]}"'})
+    else:
+        try:
+            user = User.objects.get(id=item_data.upper())
+        # Return errors with fields error
+        except models.ObjectDoesNotExist:
+            field = 'allow' if allow else 'restrict'
+            raise serializers.ValidationError({'error': f'Field error at "{field}_{items["type"]}"'})
     # Looping handle with permissions
     for perm in perms:
         is_perm = user.is_perm(perm)
