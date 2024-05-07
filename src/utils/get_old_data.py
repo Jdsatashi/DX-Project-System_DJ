@@ -348,10 +348,8 @@ def process_order(data):
 
 def insert_order_detail():
     start_time = time.time()
-    i = 1
-    y = 5000
-    for i in range(2, 30):
-        i = 1 + (5000 * i)
+    for a in range(1, 2):
+        i = 1 + (5000 * a)
         y = 5000 * i
         data = table_data(old_data['tb_toaDetail'], '*', {'start': i, 'end': y})
         print(f"--\nGet data from: {i} - {y}\n--\n")
@@ -365,29 +363,28 @@ def process_order_detail(data):
         if k == 1:
             print("---")
             print(v)
-        note = ""
-        try:
-            order = Order.objects.get(id=v[1])
-        except Order.DoesNotExist:
-            order = None
-            note += f"order_id: {v[1]} not found"
-        try:
-            product = Product.objects.get(id=v[2])
-        except Product.DoesNotExist:
-            product = None
-            note = "" if note == "" else note + ", "
-            note += f"product_id: {v[2]} not found"
+        if k < 2:
+            note = ""
+            try:
+                order = Order.objects.get(id=v[1])
+            except Order.DoesNotExist:
+                order = None
+                note += f"order_id: {v[1]} not found"
+            try:
+                product = Product.objects.get(id=v[2])
+            except Product.DoesNotExist:
+                product = None
+                note = "" if note == "" else note + ", "
+                note += f"product_id: {v[2]} not found"
 
-        insert = {
-            "order_id": order,
-            "product_id": product,
-            "order_quantity": v[3],
-            "order_box": v[4],
-            "point_per_box": v[7],
-            "price_list_so": v[8],
-            "note": note
-        }
-        print("")
-        print(f"Inserting: {order} - {product}")
-        order_detail, _ = OrderDetail.objects.get_or_create(defaults=insert)
-        print(order_detail)
+            insert = {
+                "order_quantity": v[3],
+                "order_box": v[4],
+                "point_per_box": v[7],
+                "price_list_so": v[8],
+                "note": note
+            }
+            print("")
+            print(f"Inserting: {order} - {product}")
+            order_detail, _ = OrderDetail.objects.get_or_create(product_id=product, order_id=order, defaults=insert)
+            print(order_detail)
