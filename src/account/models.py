@@ -98,6 +98,15 @@ class User(AbstractBaseUser, PermissionsMixin):
                 break
         return valid
 
+    def get_all_perms(self):
+        user_perms = set(self.perm_user.all().values_list('name', flat=True))
+
+        group_perms = set()
+        for group in self.group_user.all():
+            group_perms.update(group.perm.all().values_list('name', flat=True))
+
+        return user_perms.union(group_perms)
+
 
 class PhoneNumber(models.Model):
     phone_number = models.CharField(max_length=24, primary_key=True)
