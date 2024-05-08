@@ -1,7 +1,6 @@
 from django.db import models
 
 from marketing.company.models import Company
-from system.file_upload.models import FileUpload, ContentFile
 from utils.helpers import normalize_vietnamese
 
 
@@ -92,3 +91,6 @@ class Product(models.Model):
     created_by = models.CharField(max_length=255, null=True)
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
+
+    def __str__(self):
+        return f"{self.id} - {self.name}"
