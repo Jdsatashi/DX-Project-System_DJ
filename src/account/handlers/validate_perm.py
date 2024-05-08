@@ -69,8 +69,6 @@ class ValidatePermRest(permissions.BasePermission):
                 module_name = module
                 break
         print(f"--- Test Permission ---")
-        print(view)
-        print(request.method)
         object_pk = view.kwargs.get('pk', None)
         # Get action of function
         try:
@@ -114,30 +112,6 @@ class ValidatePermRest(permissions.BasePermission):
             return True
         # If user or nhom user has perm, return True
         return user_nhom_perm or user_perm
-
-    def has_object_permission(self, request, view, obj):
-        # Superusers have full access
-        if request.user.is_superuser:
-            return True
-
-        # Determine the action
-        if hasattr(view, 'action'):
-            action = view.action
-        else:
-            action = {
-                'GET': 'retrieve' if 'pk' in view.kwargs else 'list',
-                'POST': 'create',
-                'PUT': 'update',
-                'PATCH': 'partial_update',
-                'DELETE': 'destroy'
-            }.get(request.method, '')
-
-        # Build the permission string
-        content_type = ContentType.objects.get_for_model(obj)
-        required_permission = f"{action}_{content_type.app_label}_{content_type.model}_{obj.id}"
-
-        # Check if user has the permission
-        return request.user.is_perm(required_permission)
 
 
 # Check if permission exist
