@@ -8,7 +8,7 @@ from rest_framework.response import Response
 from rest_framework_simplejwt.authentication import JWTAuthentication
 
 from account.handlers.validate_perm import ValidatePermRest
-from account.models import User
+from account.models import User, UserPerm, Perm
 from marketing.price_list.api.serializers import PriceListSerializer
 from marketing.price_list.models import PriceList
 from utils.constants import acquy
@@ -28,17 +28,24 @@ class GenericApiPriceList(viewsets.GenericViewSet, mixins.ListModelMixin, mixins
         if user.is_superuser:
             return model_class.objects.all()
 
-        all_permissions = user.get_all_perms()
+        all_permissions = user.get_all_allow_perms()
         price_list_ids = []
 
         content = ContentType.objects.get_for_model(model_class)
-        action = acquy.get('list')
+        action_perm = acquy.get('list')
         perm_name = f'{content.app_label}_{content.model}'
+
+        # Get all price list ids which required permissions
+        perms_content = Perm.objects.filter(name__icontains=perm_name)
+        prl_perm_ids = {v.object_id for v in perms_content if v.object_id}
+
+        # Get all price list ids which user has permissions
         for perm in all_permissions:
-            if perm.startswith(action + '_' + perm_name):
+            if perm.startswith(action_perm + '_' + perm_name):
                 _, object_id = perm.rsplit('_', 1)
                 price_list_ids.append(object_id)
-        return model_class.objects.filter(id__in=price_list_ids)
+        price_list_ids = list(prl_perm_ids - set(price_list_ids))
+        return model_class.objects.exclude(id__in=price_list_ids)
 
     def list(self, request, *args, **kwargs):
         response = filter_data(self, request, ['id', 'name', 'date_start', 'date_end'], *args,
