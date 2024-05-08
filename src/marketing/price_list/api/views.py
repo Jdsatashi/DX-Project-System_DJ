@@ -46,12 +46,9 @@ class GenericApiPriceList(viewsets.GenericViewSet, mixins.ListModelMixin, mixins
         return Response(response, status.HTTP_200_OK)
 
     @action(methods=['get'], detail=False, url_path='now', url_name='now')
-    def now(self, request):
+    def now(self, request, *args, **kwargs):
         today = timezone.localdate()
         queryset = self.get_queryset().filter(date_start__lte=today, date_end__gte=today)
-        page = self.paginate_queryset(queryset)
-        if page is not None:
-            serializer = self.get_serializer(page, many=True)
-            return self.get_paginated_response(serializer.data)
-        serializer = self.get_serializer(queryset, many=True)
-        return Response(serializer.data)
+        response = filter_data(self, request, ['id', 'name', 'date_start', 'date_end'], queryset=queryset,
+                               **kwargs)
+        return Response(response)
