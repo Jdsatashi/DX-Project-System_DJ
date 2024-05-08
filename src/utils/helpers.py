@@ -20,8 +20,6 @@ def value_or_none(value, condition, _return):
 # Connect to MS SQL Server and get data of specific table
 def table_data(table_name: str, amount='*', options=None):
     # Get env values
-    if options is None:
-        options = {'start_row': 0, 'end_row': 0}
     server = OLD_SQL_HOST
     db_name = OLD_SQL_DB
     user = OLD_SQL_USER
