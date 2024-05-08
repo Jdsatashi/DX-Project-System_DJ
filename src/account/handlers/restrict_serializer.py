@@ -71,7 +71,8 @@ class BaseRestrictSerializer(serializers.ModelSerializer):
                 Perm.objects.get_or_create(
                     name=_perm_name,
                     note=f"{action.capitalize()} {content.model} - {_id}",
-                    object_id=str(_id)
+                    object_id=str(_id),
+                    content_type=content
                 )
                 # Add perm to list_perm for register user/nhom
                 if action in acquy.get(user_actions[0]):
