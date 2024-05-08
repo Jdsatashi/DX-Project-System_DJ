@@ -1,17 +1,20 @@
+import datetime
 from functools import partial
 
+import pytz
 import requests
-from django.db.models import Q
+from django.contrib.auth import get_user_model
 from django.http import HttpResponse
 from django.utils import timezone
 from rest_framework import mixins, viewsets, status
 from rest_framework.authentication import BasicAuthentication
 from rest_framework.decorators import api_view, permission_classes
+from rest_framework.permissions import AllowAny
 from rest_framework.response import Response
 from rest_framework.views import APIView
 from rest_framework_simplejwt.authentication import JWTAuthentication
 from rest_framework_simplejwt.exceptions import TokenError
-from rest_framework_simplejwt.tokens import RefreshToken as RestRefreshToken
+from rest_framework_simplejwt.tokens import RefreshToken as RestRefreshToken, AccessToken
 
 from account.api.serializers import UserSerializer, RegisterSerializer, create_verify_code
 from account.handlers.handle import handle_create_acc
@@ -210,8 +213,30 @@ def logout(request):
         return Response(response, status=status.HTTP_405_METHOD_NOT_ALLOWED)
 
 
-@api_view(['GET'])
-@permission_classes([partial(ValidatePermRest, model=User)])
+@api_view(['GET', 'POST'])
+@permission_classes([AllowAny])
 def check_token(request):
-    access_token = request.data.get('access_token', None)
-    response = {}
+    if request.method == 'POST':
+        access_token = request.data.get('access_token', None)
+
+        if not access_token:
+            return Response({'error': 'No token provided'}, status=status.HTTP_400_BAD_REQUEST)
+
+        try:
+            token = AccessToken(access_token)
+            print(f"Decode token: {token['user_id']}")
+            user = get_user_model().objects.get(id=token['user_id'])
+            print(f"Test exp: {token.check_exp()}")
+            current_time = timezone.now()
+            expiration_time = datetime.datetime.fromtimestamp(token['exp'], pytz.UTC)
+            if current_time < expiration_time:
+                return Response({'user': UserSerializer(user).data}, status=status.HTTP_200_OK)
+            else:
+                return Response({'error': 'Token expired'}, status=status.HTTP_401_UNAUTHORIZED)
+
+        except Exception as e:
+            return Response({'error': 'Invalid token', 'details': str(e)}, status=status.HTTP_401_UNAUTHORIZED)
+    response = {
+        'access_token': 'token...'
+    }
+    return Response(response, status=status.HTTP_405_METHOD_NOT_ALLOWED)

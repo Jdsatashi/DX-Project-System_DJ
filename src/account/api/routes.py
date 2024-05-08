@@ -1,7 +1,7 @@
 from django.urls import path
 from rest_framework.routers import DefaultRouter
 
-from account.api.views import api_create_user, ApiAccount, otp_verify, RegisterSMS, phone_login, logout
+from account.api.views import api_create_user, ApiAccount, otp_verify, RegisterSMS, phone_login, logout, check_token
 
 app_name = 'api_account'
 
@@ -17,7 +17,8 @@ urlpatterns = [
     path('register/', RegisterSMS.as_view(), name='api_register'),
     path('register/verify/<pk>/', otp_verify, name='api_verify'),
     path('', account_view),
-    path('<int:pk>/', account_detail),
+    path('<pk>', account_detail),
     path('login/', phone_login),
-    path('logout/', logout)
+    path('logout/', logout),
+    path('check-token/', check_token)
 ]
