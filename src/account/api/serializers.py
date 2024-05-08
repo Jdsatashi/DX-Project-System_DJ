@@ -19,8 +19,6 @@ class PhoneNumberSerializer(serializers.ModelSerializer):
 
 # Create user serializer for rest api form
 class UserSerializer(serializers.ModelSerializer):
-    # phone_number = PhoneNumberSerializer(allow_null=False)
-
     # Field meta
     class Meta:
         model = User
