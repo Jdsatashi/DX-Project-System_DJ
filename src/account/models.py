@@ -98,12 +98,12 @@ class User(AbstractBaseUser, PermissionsMixin):
                 break
         return valid
 
-    def get_all_perms(self):
-        user_perms = set(self.perm_user.all().values_list('name', flat=True))
+    def get_all_allow_perms(self):
+        user_perms = set(self.perm_user.filter(userperm__allow=True).values_list('name', flat=True))
 
         group_perms = set()
         for group in self.group_user.all():
-            group_perms.update(group.perm.all().values_list('name', flat=True))
+            group_perms.update(group.perm.filter(groupperm__allow=True, groupperm__usergroupperm__allow=True).values_list('name', flat=True))
 
         return user_perms.union(group_perms)
 
@@ -187,6 +187,9 @@ class Perm(models.Model):
 
     class Meta:
         db_table = 'users_perm'
+
+    def __str__(self):
+        return f"{self.name}"
 
 
 # GroupPerm as a Permissions Group or Roles User
