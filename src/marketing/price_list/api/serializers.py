@@ -2,6 +2,7 @@ from account.handlers.restrict_serializer import BaseRestrictSerializer
 from marketing.price_list.models import PriceList, ProductPrice
 from rest_framework import serializers
 
+from marketing.product.api.serializers import ViewProductTypeSerializer
 from marketing.product.models import Product
 
 
@@ -27,10 +28,11 @@ class ProductPriceSerializer(serializers.ModelSerializer):
 class ProductPriceReadSerializer(serializers.ModelSerializer):
     product_name = serializers.CharField(source='product.name', read_only=True)
     product_id = serializers.CharField(source='product.id', read_only=True)
+    product_type = ViewProductTypeSerializer(source='product.product_type', read_only=True)
 
     class Meta:
         model = ProductPrice
-        fields = ['product_id', 'product_name', 'price', 'quantity_in_box', 'point']
+        fields = ['product_id', 'product_name', 'price', 'quantity_in_box', 'point', 'product_type']
 
 
 class PriceListSerializer(BaseRestrictSerializer):
