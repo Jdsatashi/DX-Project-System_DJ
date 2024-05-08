@@ -6,7 +6,7 @@ from django.http import HttpResponse
 from django.utils import timezone
 from rest_framework import mixins, viewsets, status
 from rest_framework.authentication import BasicAuthentication
-from rest_framework.decorators import api_view
+from rest_framework.decorators import api_view, permission_classes
 from rest_framework.response import Response
 from rest_framework.views import APIView
 from rest_framework_simplejwt.authentication import JWTAuthentication
@@ -208,3 +208,10 @@ def logout(request):
             'refresh_token': 'token...'
         }
         return Response(response, status=status.HTTP_405_METHOD_NOT_ALLOWED)
+
+
+@api_view(['GET'])
+@permission_classes([partial(ValidatePermRest, model=User)])
+def check_token(request):
+    access_token = request.data.get('access_token', None)
+    response = {}
