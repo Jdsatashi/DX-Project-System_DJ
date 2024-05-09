@@ -70,7 +70,7 @@ class ProductCateFile(models.Model):
     updated_at = models.DateTimeField(auto_now=True)
 
     def save(self, *args, **kwargs):
-        product_cate_file = ProductCateFile.objects.filter(product=self.product_cate)
+        product_cate_file = ProductCateFile.objects.filter(product_cate=self.product_cate)
         if product_cate_file.exists() and self.id not in product_cate_file.values_list('id', flat=True):
             prio_list = [p.priority for p in product_cate_file]
             if self.priority in prio_list:
@@ -112,7 +112,7 @@ class RegistrationCertFile(models.Model):
         return f"({str(self.register_cert)}) : '{str(self.file.file)}'"
 
     def save(self, *args, **kwargs):
-        register_file = RegistrationCertFile.objects.filter(product=self.register_cert)
+        register_file = RegistrationCertFile.objects.filter(register_cert=self.register_cert)
         if register_file.exists() and self.id not in register_file.values_list('id', flat=True):
             prio_list = [p.priority for p in register_file]
             if self.priority in prio_list:
