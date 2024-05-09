@@ -14,5 +14,5 @@ client_group_detail_view = GenericApiClientGroup.as_view({'get': 'retrieve', 'pu
 
 urlpatterns = [
     path('', client_group_view),
-    path('<pk>/', client_group_detail_view),
+    path('<pk>', client_group_detail_view),
 ]

@@ -15,5 +15,5 @@ order_details = GenericApiOrder.as_view(actions_detail)
 
 urlpatterns = [
     path('', order_views, name='api_order_view'),
-    path('<pk>/', order_details, name='api_order_detail'),
+    path('<pk>', order_details, name='api_order_detail'),
 ]

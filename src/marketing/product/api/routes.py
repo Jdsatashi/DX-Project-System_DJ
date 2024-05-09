@@ -41,20 +41,20 @@ prod_detail = GenericApiProduct.as_view(actions_detail)
 urlpatterns = [
     # Product Type urls
     path('type/', prod_type_view),
-    path('type/<pk>/', prod_type_detail),
+    path('type/<pk>', prod_type_detail),
     # Product register groups urls
     path('register/unit/', register_unit_view),
-    path('register/unit/<pk>/', register_unit_detail),
+    path('register/unit/<pk>', register_unit_detail),
     path('register/producer/', producer_view),
-    path('register/producer/<pk>/', producer_detail),
+    path('register/producer/<pk>', producer_detail),
     path('register/certificate/', register_cert_view),
-    path('register/certificate/<pk>/', register_cert_detail),
+    path('register/certificate/<pk>', register_cert_detail),
     # Product category urls
     path('categories/', prod_cate_view),
-    path('categories/<pk>/', prod_cate_detail),
+    path('categories/<pk>', prod_cate_detail),
     path('category/detail/', cate_detail_view),
-    path('category/detail/<pk>/', cate_detail_detail),
+    path('category/detail/<pk>', cate_detail_detail),
     # Product urls
     path('', prod_view),
-    path('<pk>/', prod_detail)
+    path('<pk>', prod_detail)
 ]

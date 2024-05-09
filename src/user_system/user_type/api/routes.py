@@ -15,5 +15,5 @@ type_detail_view = GenericApiUserType.as_view({'get': 'retrieve', 'put': 'update
 
 urlpatterns = [
     path('', types_view),
-    path('<pk>/', type_detail_view),
+    path('<pk>', type_detail_view),
 ]
