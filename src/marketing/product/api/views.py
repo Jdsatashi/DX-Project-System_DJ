@@ -44,7 +44,7 @@ class GenericApiRegistrationCert(viewsets.GenericViewSet, mixins.ListModelMixin,
     # permission_classes = [partial(ValidatePermRest, model=RegistrationCert)]
 
     def list(self, request, *args, **kwargs):
-        response_data = filter_data(self, request, ['id', 'registered_unit', 'producer'], *args, **kwargs)
+        response_data = filter_data(self, request, ['id', 'registered_unit', 'producer'], **kwargs)
         return Response(response_data, status=status.HTTP_200_OK)
 
 
@@ -57,7 +57,7 @@ class GenericApiProductCategory(viewsets.GenericViewSet, mixins.ListModelMixin, 
     # permission_classes = [partial(ValidatePermRest, model=ProductCategory)]
 
     def list(self, request, *args, **kwargs):
-        response_data = filter_data(self, request, ['id', 'name', 'product_type'], *args, **kwargs)
+        response_data = filter_data(self, request, ['id', 'name', 'product_type__name', 'product_type__id'], **kwargs)
         return Response(response_data, status=status.HTTP_200_OK)
 
 
@@ -69,7 +69,7 @@ class GenericApiCategoryDetail(viewsets.GenericViewSet, mixins.ListModelMixin, m
     # permission_classes = [partial(ValidatePermRest, model=ProductCategory)]
 
     def list(self, request, *args, **kwargs):
-        response_data = filter_data(self, request, ['cate_id__id', 'use_object__name', 'use_for__name'], *args, **kwargs)
+        response_data = filter_data(self, request, ['cate_id__id', 'use_object__name', 'use_for__name'], **kwargs)
         return Response(response_data, status=status.HTTP_200_OK)
 
 
@@ -81,5 +81,5 @@ class GenericApiProduct(viewsets.GenericViewSet, mixins.ListModelMixin, mixins.C
     # permission_classes = [partial(ValidatePermRest, model=Product)]
 
     def list(self, request, *args, **kwargs):
-        response_data = filter_data(self, request, ['id', 'name', 'category'], *args, **kwargs)
+        response_data = filter_data(self, request, ['id', 'name', 'category'], **kwargs)
         return Response(response_data, status=status.HTTP_200_OK)
