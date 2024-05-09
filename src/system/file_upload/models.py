@@ -5,7 +5,7 @@ from django.contrib.contenttypes.models import ContentType
 from django.db import models
 from django.utils.timezone import now
 
-from marketing.product.models import ProductCategory, Product
+from marketing.product.models import ProductCategory, Product, RegistrationCert
 
 
 def upload_location(filename):
@@ -94,6 +94,27 @@ class ProductFile(models.Model):
         product_file = ProductFile.objects.filter(product=self.product)
         if product_file.exists() and self.id not in product_file.values_list('id', flat=True):
             prio_list = [p.priority for p in product_file]
+            if self.priority in prio_list:
+                self.priority = max(prio_list) + 1
+        super().save(*args, **kwargs)
+
+
+class RegistrationCertFile(models.Model):
+    file = models.ForeignKey(FileUpload, on_delete=models.CASCADE)
+    register_cert = models.ForeignKey(RegistrationCert, null=True, on_delete=models.SET_NULL)
+    priority = models.IntegerField(default=1)
+    note = models.CharField(max_length=255, null=True, blank=True)
+    created_by = models.CharField(max_length=255, null=True, blank=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    def __str__(self):
+        return f"({str(self.register_cert)}) : '{str(self.file.file)}'"
+
+    def save(self, *args, **kwargs):
+        register_file = RegistrationCertFile.objects.filter(product=self.register_cert)
+        if register_file.exists() and self.id not in register_file.values_list('id', flat=True):
+            prio_list = [p.priority for p in register_file]
             if self.priority in prio_list:
                 self.priority = max(prio_list) + 1
         super().save(*args, **kwargs)
