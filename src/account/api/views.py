@@ -16,7 +16,7 @@ from rest_framework_simplejwt.authentication import JWTAuthentication
 from rest_framework_simplejwt.exceptions import TokenError
 from rest_framework_simplejwt.tokens import RefreshToken as RestRefreshToken, AccessToken
 
-from account.api.serializers import UserSerializer, RegisterSerializer, create_verify_code
+from account.api.serializers import UserSerializer, RegisterSerializer, response_verify_code
 from account.handlers.handle import handle_create_acc
 from account.handlers.validate_perm import ValidatePermRest
 from account.models import User, Verify, PhoneNumber, RefreshToken
@@ -44,6 +44,10 @@ class ApiAccount(viewsets.GenericViewSet, mixins.ListModelMixin, mixins.CreateMo
         response = filter_data(self, request, ['id', 'username', 'email', 'phone_numbers__phone_number'], *args,
                                **kwargs)
         return Response(response, status.HTTP_200_OK)
+
+
+def api_update_profile(request):
+    pass
 
 
 class RegisterSMS(APIView):
@@ -161,7 +165,7 @@ def phone_login(request):
             verify_code = generate_digits_code()
             new_verify = Verify.objects.create(user=user, phone_verify=phone, verify_code=verify_code,
                                                verify_type="SMS OTP")
-            response = create_verify_code(new_verify)
+            response = response_verify_code(new_verify)
             return Response(response, status.HTTP_200_OK)
     else:
         response = {
