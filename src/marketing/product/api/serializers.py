@@ -4,6 +4,7 @@ from rest_framework import serializers
 from account.handlers.restrict_serializer import BaseRestrictSerializer
 from marketing.product.models import ProductCategory, RegistrationUnit, Producer, RegistrationCert, ProductType, \
     Product, CategoryDetail, UseObject, UseFor
+from system.file_upload.api.serializers import FileProductCateSerializer, FileProductCateViewSerializer
 from utils.helpers import normalize_vietnamese as norm_vn
 
 
@@ -93,6 +94,12 @@ class ProductCateSerializer(BaseRestrictSerializer):
         if self.instance:
             self.fields['id'].required = False
 
+    def to_representation(self, instance):
+        representation = super().to_representation(instance)
+        request = self.context.get('request')
+        files_fields_details(request, instance, representation)
+        return representation
+
     def get_content(self):
         return ContentType.objects.get_for_model(self.Meta.model)
 
@@ -164,7 +171,8 @@ class CategoryDetailSerializer(serializers.ModelSerializer):
         # Create CategoryDetail
         cate_detail = CategoryDetail.objects.create(**validated_data)
         using_for, _ = UseFor.objects.get_or_create(id=norm_vn(use_for_data.get('name')), defaults=use_for_data)
-        using_object, _ = UseObject.objects.get_or_create(id=norm_vn(use_object_data.get('name')), defaults=use_for_data)
+        using_object, _ = UseObject.objects.get_or_create(id=norm_vn(use_object_data.get('name')),
+                                                          defaults=use_for_data)
         cate_detail.use_for = using_for
         cate_detail.use_object = using_object
         cate_detail.save()
@@ -179,7 +187,8 @@ class CategoryDetailSerializer(serializers.ModelSerializer):
             setattr(instance, attr, value)
         instance.save()
         using_for, _ = UseFor.objects.get_or_create(id=norm_vn(use_for_data.get('name')), defaults=use_for_data)
-        using_object, _ = UseObject.objects.get_or_create(id=norm_vn(use_object_data.get('name')), defaults=use_for_data)
+        using_object, _ = UseObject.objects.get_or_create(id=norm_vn(use_object_data.get('name')),
+                                                          defaults=use_for_data)
         instance.use_for = using_for
         instance.use_object = using_object
         instance.save()
@@ -194,3 +203,32 @@ class ProductSerializer(BaseRestrictSerializer):
     class Meta:
         model = Product
         fields = '__all__'
+
+    def to_representation(self, instance):
+        representation = super().to_representation(instance)
+        request = self.context.get('request')
+        files_fields_details(request, instance, representation)
+        return representation
+
+
+def files_fields_details(request, instance, representation):
+    # When retrieve PK
+    if request and request.method == 'GET' and hasattr(request, 'resolver_match') and request.resolver_match.kwargs.get('pk'):
+        # Get all files of Product Category
+        files = instance.product_cate_files.all()
+        # Get file add to serializer
+        file_serializer = FileProductCateViewSerializer(files, many=True, context={'request': request})
+        # Split files to document and image
+        documents = []
+        images = []
+        for file_data in file_serializer.data:
+            if file_data['document'] is not None:
+                file_data['document'].update({'priority': file_data['priority']})
+                documents.append(file_data['document'])
+            if file_data['image'] is not None:
+                file_data['image'].update({'priority': file_data['priority']})
+                images.append(file_data['image'])
+        representation['files'] = {
+            'documents': documents,
+            'images': images
+        }
