@@ -215,7 +215,10 @@ def files_fields_details(request, instance, representation):
     # When retrieve PK
     if request and request.method == 'GET' and hasattr(request, 'resolver_match') and request.resolver_match.kwargs.get('pk'):
         # Get all files of Product Category
-        files = instance.product_cate_files.all()
+        try:
+            files = instance.product_cate_files.all()
+        except AttributeError:
+            files = instance.product_files.all()
         # Get file add to serializer
         file_serializer = FileProductCateViewSerializer(files, many=True, context={'request': request})
         # Split files to document and image
