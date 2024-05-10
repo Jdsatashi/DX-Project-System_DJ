@@ -37,6 +37,9 @@ class EmployeeProfile(models.Model):
     position_id = models.ForeignKey(Position, to_field='id', null=True, blank=False, on_delete=models.SET_NULL)
     fullname = models.CharField(max_length=255)
     gender = models.CharField(max_length=1)
+    dob = models.DateField(null=True)
+    address = models.CharField(max_length=255, null=True)
+    created_by = models.TextField(null=True)
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
 
