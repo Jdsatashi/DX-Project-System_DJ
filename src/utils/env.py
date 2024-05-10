@@ -18,7 +18,7 @@ SMS_TYPE = os.environ.get('SMS_TYPE')
 
 # MSSQL connection
 MSSQL_DB = os.environ.get('DB_NAME')
-MSSQL_HOST= os.environ.get('DB_HOST')
+MSSQL_HOST = os.environ.get('DB_HOST')
 MSSQL_PORT = os.environ.get('DB_PORT')
 MSSQL_USER = os.environ.get('DB_USER')
 MSSQL_PW = os.environ.get('DB_PASSWORD')
