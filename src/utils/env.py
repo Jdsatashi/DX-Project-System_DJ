@@ -17,19 +17,19 @@ SMS_BRAND = os.environ.get('SMS_BRAND')
 SMS_TYPE = os.environ.get('SMS_TYPE')
 
 # MSSQL connection
-MSSQL_DB = os.environ['DB_NAME']
-MSSQL_HOST= os.environ['DB_HOST']
-MSSQL_PORT = os.environ['DB_PORT']
-MSSQL_USER = os.environ['DB_USER']
-MSSQL_PW = os.environ['DB_PASSWORD']
+MSSQL_DB = os.environ.get('DB_NAME')
+MSSQL_HOST= os.environ.get('DB_HOST')
+MSSQL_PORT = os.environ.get('DB_PORT')
+MSSQL_USER = os.environ.get('DB_USER')
+MSSQL_PW = os.environ.get('DB_PASSWORD')
 
 # PostgreSql connection
-PGS_DB = os.environ['PGS_DB']
-PGS_HOST = os.environ['PGS_HOST']
-PGS_PORT = os.environ['PGS_PORT']
-PGS_USER = os.environ['PGS_USER']
-PGS_PASSWORD = os.environ['PGS_PASSWORD']
-PGS_SSL = os.environ['PGS_SSL']
+PGS_DB = os.environ.get('PGS_DB')
+PGS_HOST = os.environ.get('PGS_HOST')
+PGS_PORT = os.environ.get('PGS_PORT')
+PGS_USER = os.environ.get('PGS_USER')
+PGS_PASSWORD = os.environ.get('PGS_PASSWORD')
+PGS_SSL = os.environ.get('PGS_SSL')
 
 # Old MSSQL Server
 OLD_SQL_HOST = os.environ.get('MSSQL_HOST')
