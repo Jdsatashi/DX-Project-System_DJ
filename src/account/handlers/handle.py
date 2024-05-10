@@ -7,7 +7,6 @@ from account.forms import CreateUserForm, RegisterForm
 from account.models import User
 from user_system.client_group.models import ClientGroup
 from user_system.client_profile.models import ClientProfile
-from user_system.user_type.models import UserType
 from utils.constants import maNhomND
 from utils.helpers import generate_id
 
@@ -15,7 +14,6 @@ from utils.helpers import generate_id
 # Create new account
 def handle_create_acc(req):
     ctx = {}
-    u_type = UserType.objects.all()
     form = CreateUserForm(req.POST or None)
     if form.is_valid():
         obj = form.save(commit=False)
@@ -25,7 +23,6 @@ def handle_create_acc(req):
         obj.save()
         form.clean()
     ctx['form'] = form
-    ctx['user_type'] = u_type
     return ctx
 
 
@@ -44,7 +41,7 @@ def handle_register_acc(req):
     if form.is_valid() and req.method == 'POST':
         obj = form.save(commit=False)
         # Set default value for user register (type = Nongdan)
-        type_kh, _ = UserType.objects.get_or_create(loaiUser="client")
+        type_kh = "client"
         obj.loaiUser = type_kh
         nhomKH = maNhomND
         user_id = generate_id(nhomKH)

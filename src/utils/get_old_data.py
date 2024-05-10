@@ -13,13 +13,12 @@ from marketing.product.models import Product, UseObject, UseFor, ProductCategory
 from user_system.client_group.models import ClientGroup
 from user_system.client_profile.models import ClientProfile
 from user_system.employee_profile.models import EmployeeProfile, Position
-from user_system.user_type.models import UserType
 from utils.helpers import table_data, normalize_vietnamese
 from utils.constants import (old_data, maNhomND as farmerID, tenNhomND as farmerGroupName)
 
 
 def append_kh():
-    type_kh, _ = UserType.objects.get_or_create(user_type="client")
+    type_kh = "client"
     ctx = {'users': [], 'profiles': []}
     data = table_data(old_data['tb_kh'])
     for k, v in enumerate(data):
@@ -58,7 +57,7 @@ def append_kh():
 
 
 def append_nv():
-    type_nv, _ = UserType.objects.get_or_create(user_type="employee")
+    type_nv="employee"
     ctx = {'users': [], 'profiles': []}
     data = table_data(old_data['tb_nhanvien'])
     for k, v in enumerate(data):

@@ -6,7 +6,6 @@ from django.contrib.contenttypes.fields import GenericForeignKey
 from django.contrib.contenttypes.models import ContentType
 from django.db import models
 from django.utils import timezone
-from user_system.user_type.models import UserType
 
 
 # Custom command create_user or create_super user
@@ -27,7 +26,7 @@ class CustomUserManager(BaseUserManager):
         extra_fields.setdefault('is_staff', True)
         extra_fields.setdefault('is_superuser', True)
         username = username if username and username != '' else extra_fields.get('id')
-        type_nv, _ = UserType.objects.get_or_create(user_type="employee")
+        type_nv = "employee"
         extra_fields['user_type'] = type_nv
         user = self.create_user(username, email, phone_number, password, **extra_fields)
         perms = Perm.objects.all()
@@ -44,7 +43,8 @@ class User(AbstractBaseUser, PermissionsMixin):
     password = models.CharField(max_length=512, null=False)
     region = models.CharField(max_length=100, null=True, blank=True, default=None)
     status = models.CharField(max_length=40, null=True, default=None)
-    user_type = models.ForeignKey(UserType, to_field='user_type', null=True, blank=False, on_delete=models.SET_NULL)
+    user_type = models.CharField(max_length=24, default='client', choices=(
+        ('employee', 'employee'), ('client', 'client')))
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
     group_user = models.ManyToManyField('GroupPerm', through='UserGroupPerm', blank=True, related_name='users_rela')
@@ -103,7 +103,9 @@ class User(AbstractBaseUser, PermissionsMixin):
 
         group_perms = set()
         for group in self.group_user.all():
-            group_perms.update(group.perm.filter(groupperm__allow=True, groupperm__usergroupperm__allow=True).values_list('name', flat=True))
+            group_perms.update(
+                group.perm.filter(groupperm__allow=True, groupperm__usergroupperm__allow=True).values_list('name',
+                                                                                                           flat=True))
 
         return user_perms.union(group_perms)
 

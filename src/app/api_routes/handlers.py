@@ -11,7 +11,6 @@ from rest_framework_simplejwt.views import TokenObtainPairView, TokenBlacklistVi
 from rest_framework_simplejwt.token_blacklist.models import BlacklistedToken, OutstandingToken
 from account.api.serializers import UserSerializer, PhoneNumberSerializer
 from account.models import User, Verify, PhoneNumber, RefreshToken
-from user_system.user_type.models import UserType
 from utils.constants import user_type, status
 from utils.helpers import phone_validate
 
@@ -21,10 +20,10 @@ class CustomTokenObtainPairSerializer(TokenObtainPairSerializer):
         username = attrs['username'].upper()
         password = attrs['password']
         is_phone, username = phone_validate(username)
-        type_client = UserType.objects.get(user_type=user_type.get('client'))
+        type_client = 'client'
         if not is_phone:
             print(f"Employee")
-            type_emp = UserType.objects.get(user_type=user_type.get('employee'))
+            type_emp = 'employee'
             user = User.objects.filter(id=username).first()
         else:
             print(f"Client")
@@ -71,7 +70,7 @@ class CustomTokenObtainPairSerializer(TokenObtainPairSerializer):
             'access': str(token.access_token),
             'user': serializer.data
         }
-        if user.user_type == UserType.objects.get(user_type=user_type.get('client')):
+        if user.user_type == 'client':
             print(username)
             phone = PhoneNumber.objects.get(phone_number=username)
             response['phone_number'] = PhoneNumberSerializer(phone).data

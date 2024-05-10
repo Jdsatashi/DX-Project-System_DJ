@@ -2,7 +2,6 @@ from django import forms
 from django.core.exceptions import ValidationError
 
 from account.models import User
-from user_system.user_type.models import UserType
 
 
 def validate_unique_userid(value):
@@ -22,11 +21,10 @@ class CreateUserForm(forms.ModelForm):
         ('inactive', 'Không hoạt động'),
         ('decline', 'Huỷ bỏ')
     ))
-    loaiUser = forms.ModelChoiceField(queryset=UserType.objects.all(), empty_label=None)
 
     class Meta:
         model = User
-        fields = ['id', 'username', 'email', 'khuVuc', 'status', 'loaiUser']
+        fields = ['id', 'username', 'email', 'khuVuc', 'status']
 
     def clean_id(self):
         user_id = self.cleaned_data.get('id')
