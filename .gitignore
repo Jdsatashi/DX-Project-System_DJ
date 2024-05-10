@@ -14,3 +14,4 @@ user_adding.json
 staticfiles/
 storage/
 logs/
+product_image/
