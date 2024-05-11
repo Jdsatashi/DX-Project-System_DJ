@@ -3,8 +3,8 @@ import os
 from django.core.files import File
 
 from app.settings import PROJECT_DIR
-from marketing.product.models import Product
-from system.file_upload.models import FileUpload, ProductFile
+from marketing.product.models import Product, ProductCategory
+from system.file_upload.models import FileUpload, ProductFile, ProductCateFile
 
 
 def import_images():
@@ -41,3 +41,30 @@ def import_images():
             file_names.append(image_name)
 
     return file_names
+
+
+def add_images_to_categories():
+    image_files = FileUpload.objects.filter(id__gt=124)
+    not_founds = []
+    for image_file in image_files:
+        file_name = image_file.file_name
+        file_names = file_name.split('_')
+        space_name = " ".join(file_name.split('_'))
+        print(space_name)
+        attempt = len(file_names)
+        while attempt > 0:
+            full_file_name = " ".join(file_names[:attempt])
+            product_cate = ProductCategory.objects.filter(name__icontains=full_file_name).first()
+            if product_cate:
+                add_files = ProductCateFile.objects.create(product_cate=product_cate, file=image_file)
+                print(f"Product found: {add_files}")
+                break
+            else:
+                print(f"No product found with name: {full_file_name}")
+                attempt -= 1
+            if attempt == 0:
+                not_founds.append((image_file.id, space_name))
+                print("No matching product found after all attempts.")
+                image_file.note = f"Not found product category with file name: {file_name}"
+                image_file.save()
+    print(f"Not found name: \n - {not_founds}")
