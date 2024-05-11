@@ -204,34 +204,22 @@ class ProductSerializer(BaseRestrictSerializer):
         model = Product
         fields = '__all__'
 
-    def to_representation(self, instance):
-        representation = super().to_representation(instance)
-        request = self.context.get('request')
-        files_fields_details(request, instance, representation)
-        return representation
-
 
 def files_fields_details(request, instance, representation):
-    # When retrieve PK
-    if request and request.method == 'GET' and hasattr(request, 'resolver_match') and request.resolver_match.kwargs.get('pk'):
-        # Get all files of Product Category
-        try:
-            files = instance.product_cate_files.all()
-        except AttributeError:
-            files = instance.product_files.all()
-        # Get file add to serializer
-        file_serializer = FileProductCateViewSerializer(files, many=True, context={'request': request})
-        # Split files to document and image
-        documents = []
-        images = []
-        for file_data in file_serializer.data:
-            if file_data['document'] is not None:
-                file_data['document'].update({'priority': file_data['priority']})
-                documents.append(file_data['document'])
-            if file_data['image'] is not None:
-                file_data['image'].update({'priority': file_data['priority']})
-                images.append(file_data['image'])
-        representation['files'] = {
-            'documents': documents,
-            'images': images
-        }
+    files = instance.product_cate_files.all()
+    # Get file add to serializer
+    file_serializer = FileProductCateViewSerializer(files, many=True, context={'request': request})
+    # Split files to document and image
+    documents = []
+    images = []
+    for file_data in file_serializer.data:
+        if file_data['document'] is not None:
+            file_data['document'].update({'priority': file_data['priority']})
+            documents.append(file_data['document'])
+        if file_data['image'] is not None:
+            file_data['image'].update({'priority': file_data['priority']})
+            images.append(file_data['image'])
+    representation['files'] = {
+        'documents': documents,
+        'images': images
+    }
