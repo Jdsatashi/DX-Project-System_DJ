@@ -77,12 +77,15 @@ class ValidatePermRest(permissions.BasePermission):
 
         # Check if user
         has_obj_perm = user.perm_user.filter(name__icontains=required_permission).exists()
-
-        obj_group = user.group_user.filter(perm__name__icontains=required_permission).first()
-        has_obj_group = obj_group.perm.filter(name__icontains=required_permission).exists()
-        print(obj_group.perm.filter(name__icontains=required_permission).first())
         if has_obj_perm:
             return has_obj_perm
+        # Get group object permission
+        obj_group = user.group_user.filter(perm__name__icontains=required_permission).first()
+        has_obj_group = False
+        if obj_group is not None:
+            has_obj_group = obj_group.perm.filter(name__icontains=required_permission).exists()
+            print(obj_group.perm.filter(name__icontains=required_permission).first())
+
         # Check if object has PK
 
         # If user or nhom user has perm, return True
