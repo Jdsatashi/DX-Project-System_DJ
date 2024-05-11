@@ -2,7 +2,7 @@ from django.urls import path
 from rest_framework.routers import DefaultRouter
 
 from marketing.product.api.views import GenericApiProductType, GenericApiProductCategory, GenericApiRegistrationUnit, \
-    GenericApiProducer, GenericApiRegistrationCert, GenericApiProduct, GenericApiCategoryDetail
+    GenericApiProducer, GenericApiRegistrationCert, GenericApiProduct, GenericApiCategoryDetail, ApiProductId
 from utils.constants import actions_views, actions_detail
 
 app_name = 'api_account'
@@ -15,6 +15,7 @@ router.register('genericview', GenericApiRegistrationCert, basename='api_registe
 router.register('genericview', GenericApiProductCategory, basename='api_category')
 router.register('genericview', GenericApiCategoryDetail, basename='api_category_detail')
 router.register('genericview', GenericApiProduct, basename='api_product')
+router.register('genericview', ApiProductId, basename='api_product_id')
 
 # Product Type view
 prod_type_view = GenericApiProductType.as_view(actions_views)
@@ -56,5 +57,7 @@ urlpatterns = [
     path('category/detail/<pk>', cate_detail_detail),
     # Product urls
     path('', prod_view),
-    path('<pk>', prod_detail)
+    path('<pk>', prod_detail),
+
+    path('get-id/', ApiProductId.as_view({'get': 'list'}))
 ]

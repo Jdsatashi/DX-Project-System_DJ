@@ -6,7 +6,7 @@ from rest_framework_simplejwt.authentication import JWTAuthentication
 
 from account.handlers.validate_perm import ValidatePermRest
 from marketing.product.api.serializers import ProductTypeSerializer, ProductCateSerializer, RegistrationCertSerializer, \
-    ProducerSerializer, RegistrationUnitSerializer, ProductSerializer, CategoryDetailSerializer
+    ProducerSerializer, RegistrationUnitSerializer, ProductSerializer, CategoryDetailSerializer, ProductIdSerializer
 from marketing.product.models import ProductType, ProductCategory, RegistrationCert, Producer, RegistrationUnit, \
     Product, CategoryDetail
 from utils.model_filter_paginate import filter_data
@@ -83,3 +83,8 @@ class GenericApiProduct(viewsets.GenericViewSet, mixins.ListModelMixin, mixins.C
     def list(self, request, *args, **kwargs):
         response_data = filter_data(self, request, ['id', 'name', 'category'], **kwargs)
         return Response(response_data, status=status.HTTP_200_OK)
+
+
+class ApiProductId(viewsets.GenericViewSet, mixins.ListModelMixin):
+    serializer_class = ProductIdSerializer
+    queryset = Product.objects.all()

@@ -82,7 +82,6 @@ class RegistrationCertSerializer(serializers.ModelSerializer):
 class ProductCateSerializer(BaseRestrictSerializer):
     registration = RegistrationCertSerializer()
     product_type = ViewProductTypeSerializer()
-    content = serializers.ReadOnlyField(source='get_content')
 
     class Meta:
         model = ProductCategory
@@ -99,9 +98,6 @@ class ProductCateSerializer(BaseRestrictSerializer):
         request = self.context.get('request')
         files_fields_details(request, instance, representation)
         return representation
-
-    def get_content(self):
-        return ContentType.objects.get_for_model(self.Meta.model)
 
     def create(self, validated_data):
         _id = validated_data.get('id', None)
@@ -154,6 +150,7 @@ class UseForSerializer(serializers.ModelSerializer):
         read_only_fields = ['id']
 
 
+# Product Category Detail serializers for Api CRUD Views
 class CategoryDetailSerializer(serializers.ModelSerializer):
     use_object = UseObjectSerializer()
     use_for = UseForSerializer()
@@ -195,6 +192,7 @@ class CategoryDetailSerializer(serializers.ModelSerializer):
         return instance
 
 
+# Product serializers for Api CRUD Views
 class ProductSerializer(BaseRestrictSerializer):
     category_details = ProductCateSerializer(source='category', read_only=True)
 
@@ -205,6 +203,25 @@ class ProductSerializer(BaseRestrictSerializer):
         fields = '__all__'
 
 
+class ProductIdSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = Product
+        fields = ['id', 'category']
+
+
+class ProductCateViewSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = ProductCategory
+        fields = ['id']
+
+    def to_representation(self, instance):
+        representation = super().to_representation(instance)
+        request = self.context.get('request')
+        files_fields_details(request, instance, representation)
+        return representation
+
+
+# Support functions
 def files_fields_details(request, instance, representation):
     files = instance.product_cate_files.all()
     # Get file add to serializer
@@ -215,6 +232,7 @@ def files_fields_details(request, instance, representation):
     for file_data in file_serializer.data:
         if file_data['document'] is not None:
             file_data['document'].update({'priority': file_data['priority']})
+
             documents.append(file_data['document'])
         if file_data['image'] is not None:
             file_data['image'].update({'priority': file_data['priority']})
