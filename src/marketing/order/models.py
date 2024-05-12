@@ -32,6 +32,8 @@ class Order(models.Model):
 
     def clean(self):
         if self.price_list_id:
+            if self.created_at is None:
+                self.created_at = datetime.utcnow()
             if not (self.price_list_id.date_start <= self.created_at.date() <= self.price_list_id.date_end):
                 raise ValidationError(
                     f"Order date {self.created_at.date()} must be within the PriceList's date range from {self.price_list_id.date_start} to {self.price_list_id.date_end}.")
@@ -53,6 +55,7 @@ class Order(models.Model):
             print(_id)
             self.id = _id
             print(self.id)
+
         self.clean()
         return super().save(*args, **kwargs)
 

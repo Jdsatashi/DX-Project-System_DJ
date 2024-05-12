@@ -14,6 +14,9 @@ class OrderDetailSerializer(BaseRestrictSerializer):
 
 class OrderSerializer(BaseRestrictSerializer):
     order_detail = OrderDetailSerializer(many=True)
+    list_type = serializers.CharField(required=False, allow_blank=True)
+    note = serializers.CharField(required=False, allow_blank=True)
+    status = serializers.CharField(required=False, allow_blank=True)
 
     class Meta:
         model = Order
