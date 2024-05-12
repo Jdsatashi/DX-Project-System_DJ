@@ -15,6 +15,9 @@ class ProductType(models.Model):
     class Meta:
         db_table = 'products_type'
 
+    def __str__(self):
+        return self.name
+
 
 class RegistrationUnit(models.Model):
     unit = models.CharField(max_length=255)
