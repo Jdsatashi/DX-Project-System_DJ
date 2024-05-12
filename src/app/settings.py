@@ -92,7 +92,7 @@ LOGGING = {
             'filename': os.path.join(LOGGING_DIR, 'app.log'),
             'when': 'midnight',  # Log rotation at midnight
             'interval': 1,  # Rotate daily
-            'backupCount': 10,  # Keep last 10 log files
+            'backupCount': 30,  # Keep last 10 log files
             'formatter': 'verbose',
             'delay': True,
         },
@@ -103,7 +103,7 @@ LOGGING = {
 
             'when': 'midnight',  # Log rotation at midnight
             'interval': 1,  # Rotate daily
-            'backupCount': 10,  # Keep last 10 log files
+            'backupCount': 30,  # Keep last 10 log files
             'formatter': 'verbose',
             'delay': True,
         },
@@ -116,7 +116,7 @@ LOGGING = {
     'loggers': {
         'django': {
             'handlers': ['system_log_file', 'console'],
-            'level': 'INFO',
+            'level': 'DEBUG',
             'propagate': True,
         },
         'my_app': {
