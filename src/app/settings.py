@@ -50,22 +50,22 @@ MY_APPS = [
 
 # Application definition
 INSTALLED_APPS = [
-    'django.contrib.admin',
-    'django.contrib.auth',
-    'django.contrib.contenttypes',
-    'django.contrib.sessions',
-    'django.contrib.messages',
-    'django.contrib.staticfiles',
+                     'django.contrib.admin',
+                     'django.contrib.auth',
+                     'django.contrib.contenttypes',
+                     'django.contrib.sessions',
+                     'django.contrib.messages',
+                     'django.contrib.staticfiles',
 
-    # Django Rest Framework
-    'rest_framework',
-    'rest_framework_simplejwt.token_blacklist',
-    # Cors header
-    'corsheaders',
-    # System applications
-    'system.file_upload',
-    'system.status_group',
-] + MY_APPS
+                     # Django Rest Framework
+                     'rest_framework',
+                     'rest_framework_simplejwt.token_blacklist',
+                     # Cors header
+                     'corsheaders',
+                     # System applications
+                     'system.file_upload',
+                     'system.status_group',
+                 ] + MY_APPS
 
 # Create log folder
 LOGGING_DIR = os.path.join(PROJECT_DIR, 'logs')
@@ -94,6 +94,7 @@ LOGGING = {
             'interval': 1,  # Rotate daily
             'backupCount': 30,  # Keep last 10 log files
             'formatter': 'verbose',
+            'encoding': 'utf-8',
             'delay': True,
         },
         'system_log_file': {
@@ -105,6 +106,7 @@ LOGGING = {
             'interval': 1,  # Rotate daily
             'backupCount': 30,  # Keep last 10 log files
             'formatter': 'verbose',
+            'encoding': 'utf-8',
             'delay': True,
         },
         'console': {
@@ -297,7 +299,6 @@ MEDIA_ROOT = BASE_DIR / 'storage'
 
 if not os.path.exists(MEDIA_ROOT):
     os.makedirs(MEDIA_ROOT)
-
 
 # Default primary key field type
 # https://docs.djangoproject.com/en/5.0/ref/settings/#default-auto-field
