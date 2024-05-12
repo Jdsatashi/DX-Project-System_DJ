@@ -3,7 +3,7 @@ from marketing.price_list.models import PriceList, ProductPrice
 from rest_framework import serializers
 
 from marketing.product.api.serializers import ViewProductTypeSerializer
-from marketing.product.models import Product
+from marketing.product.models import Product, ProductType
 
 
 class ProductPriceSerializer(serializers.ModelSerializer):
@@ -25,14 +25,29 @@ class ProductPriceSerializer(serializers.ModelSerializer):
         return super().to_internal_value(data)
 
 
+class ProductReadSerializer(serializers.ModelSerializer):
+    product_type = serializers.SerializerMethodField()
+
+    class Meta:
+        model = Product
+        fields = ['id', 'name', 'product_type', 'category']
+
+    def get_product_type(self, obj):
+        return obj.product_type.name
+
+
 class ProductPriceReadSerializer(serializers.ModelSerializer):
-    product_name = serializers.CharField(source='product.name', read_only=True)
-    product_id = serializers.CharField(source='product.id', read_only=True)
-    product_type = ViewProductTypeSerializer(source='product.product_type', read_only=True)
+    product = ProductReadSerializer(read_only=True)
 
     class Meta:
         model = ProductPrice
-        fields = ['product_id', 'product_name', 'price', 'quantity_in_box', 'point', 'product_type']
+        fields = ['product', 'price', 'quantity_in_box', 'point']
+
+
+class ProductViewSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = Product
+        fields = ['id', 'category']
 
 
 class PriceListSerializer(BaseRestrictSerializer):
