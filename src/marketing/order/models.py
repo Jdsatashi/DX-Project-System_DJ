@@ -6,6 +6,8 @@ from django.db import models
 from account.models import User
 from marketing.price_list.models import ProductPrice, PriceList
 from marketing.product.models import Product
+from utils.perms.check import user_has_perm
+from utils.perms.get_perms import GetPerm
 
 
 # Create your models here.
@@ -32,6 +34,15 @@ class Order(models.Model):
 
     def clean(self):
         if self.price_list_id:
+            pl_perm = GetPerm(PriceList)
+            pl_perm_id = pl_perm.perm_pk(self.price_list_id.id)
+            # if perm_exist
+            # Check permission user with price list
+            user = self.client_id
+            if user_has_perm(user, pl_perm_id):
+                print(f"User has perm {pl_perm_id}")
+            else:
+                print(f"User not have any of this permission")
             if self.created_at is None:
                 self.created_at = datetime.utcnow()
             if not (self.price_list_id.date_start <= self.created_at.date() <= self.price_list_id.date_end):
@@ -50,11 +61,8 @@ class Order(models.Model):
                 i += 1
             if i > 99999:
                 raise ValueError({'id': 'Out of index'})
-            print(i)
             _id = f"{start_char}{two_digit_year}{two_digit_month}{i:05d}"
-            print(_id)
             self.id = _id
-            print(self.id)
 
         self.clean()
         return super().save(*args, **kwargs)
