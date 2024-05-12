@@ -6,6 +6,7 @@ from marketing.order.models import Order, OrderDetail
 
 class OrderDetailSerializer(BaseRestrictSerializer):
     product_name = serializers.ReadOnlyField(source='product_id.name')
+    order_box = serializers.FloatField()
 
     class Meta:
         model = OrderDetail
