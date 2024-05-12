@@ -1,10 +1,10 @@
-from django.contrib.contenttypes.models import ContentType
 from rest_framework import serializers
 
 from account.handlers.restrict_serializer import BaseRestrictSerializer
 from marketing.product.models import ProductCategory, RegistrationUnit, Producer, RegistrationCert, ProductType, \
     Product, CategoryDetail, UseObject, UseFor
-from system.file_upload.api.serializers import FileProductCateSerializer, FileProductCateViewSerializer
+from system.file_upload.api.serializers import FileProductCateViewSerializer, \
+    FileCateShortView
 from utils.helpers import normalize_vietnamese as norm_vn
 
 
@@ -96,7 +96,8 @@ class ProductCateSerializer(BaseRestrictSerializer):
     def to_representation(self, instance):
         representation = super().to_representation(instance)
         request = self.context.get('request')
-        files_fields_details(request, instance, representation)
+        files = instance.product_cate_files.all()
+        files_fields_details(request, files, representation)
         return representation
 
     def create(self, validated_data):
@@ -203,10 +204,28 @@ class ProductSerializer(BaseRestrictSerializer):
         fields = '__all__'
 
 
+class ShortViewCategory(serializers.ModelSerializer):
+    files = FileCateShortView(source='product_cate_files', many=True)
+
+    class Meta:
+        model = ProductCategory
+        fields = ['id', 'files']
+
+
 class ProductIdSerializer(serializers.ModelSerializer):
+    category = ShortViewCategory()
+
     class Meta:
         model = Product
         fields = ['id', 'category']
+
+    # def to_representation(self, instance):
+    #     representation = super().to_representation(instance)
+    #     request = self.context.get('request')
+    #     if instance.category is not None:
+    #         files = instance.category.product_cate_files.all()
+    #         files_fields_details(request, files, representation)
+    #     return representation
 
 
 class ProductCateViewSerializer(serializers.ModelSerializer):
@@ -217,13 +236,13 @@ class ProductCateViewSerializer(serializers.ModelSerializer):
     def to_representation(self, instance):
         representation = super().to_representation(instance)
         request = self.context.get('request')
-        files_fields_details(request, instance, representation)
+        files = instance.product_cate_files.all()
+        files_fields_details(request, files, representation)
         return representation
 
 
 # Support functions
-def files_fields_details(request, instance, representation):
-    files = instance.product_cate_files.all()
+def files_fields_details(request, files, representation):
     # Get file add to serializer
     file_serializer = FileProductCateViewSerializer(files, many=True, context={'request': request})
     # Split files to document and image

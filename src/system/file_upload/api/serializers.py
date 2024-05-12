@@ -32,21 +32,17 @@ class FileViewSerializer(serializers.ModelSerializer):
 
 
 class FileShortViewSerializer(serializers.ModelSerializer):
-    file_url = serializers.SerializerMethodField()
-
     class Meta:
         model = FileUpload
-        fields = ['id', 'type', 'file_url']
+        fields = ['id', 'type', 'file']
 
-    def get_file_url(self, obj):
-        if obj.file:
-            request = self.context.get('request')
-            if request is not None:
-                print("Has request")
-                return request.build_absolute_uri(obj.file.url)
-            print("Return no request")
-            return obj.file.url
-        return None
+
+class FileCateShortView(serializers.ModelSerializer):
+    file_data = FileShortViewSerializer(source='file', read_only=True)
+
+    class Meta:
+        model = ProductCateFile
+        fields = ['priority', 'file_data']
 
 
 class FileProductCateSerializer(serializers.ModelSerializer):
