@@ -16,7 +16,7 @@ class GenericApiOrder(viewsets.GenericViewSet, mixins.ListModelMixin, mixins.Cre
     serializer_class = OrderSerializer
     queryset = Order.objects.all()
     authentication_classes = [JWTAuthentication, BasicAuthentication]
-    permission_classes = [partial(ValidatePermRest, model=Order)]
+    # permission_classes = [partial(ValidatePermRest, model=Order)]
 
     def list(self, request, *args, **kwargs):
         response = filter_data(self, request, ['id', 'date_get', 'date_company_get', 'client_id'], *args,
