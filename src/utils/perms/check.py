@@ -1,4 +1,6 @@
-from account.models import Perm, UserPerm
+from rest_framework_simplejwt.tokens import AccessToken
+
+from account.models import Perm, UserPerm, User
 
 
 def perm_exist(perm_name: str):
@@ -14,6 +16,7 @@ def user_has_perm(user, perm_name: str):
     # Check if user
     has_obj_perm = user.perm_user.filter(name__icontains=perm_name)
     if has_obj_perm.exists():
+        print(f"Perm in user name is {perm_name}")
         for perm in has_obj_perm:
             check = user.is_allow(perm.name)
             if check:
@@ -27,6 +30,28 @@ def user_has_perm(user, perm_name: str):
                 check = user.is_group_has_perm(perm.name)
                 if check:
                     return check
+
+
+def user_id_from_token(token):
+    try:
+        decoded_data = AccessToken(token)
+        # Lấy user_id từ payload
+        user_id = decoded_data['user_id']
+        return user_id
+    except Exception as e:
+        print(f"Error decoding token: {str(e)}")
+        return None
+
+
+def get_user_by_token(access_tokne):
+    user_id = user_id_from_token(access_tokne)
+    if user_id:
+        try:
+            return User.objects.get(id=user_id)
+        except User.DoesNotExist:
+            print("User does not exist.")
+            raise ValueError({"message": "User from Token does not exist."})
+    raise ValueError({"message": "Token is invalid."})
 
 
 # def user_object_perm(user, perm):
