@@ -6,10 +6,11 @@ import requests
 from django.contrib.auth import get_user_model
 from django.http import HttpResponse
 from django.utils import timezone
+from drf_spectacular.utils import extend_schema
 from rest_framework import mixins, viewsets, status
 from rest_framework.authentication import BasicAuthentication
-from rest_framework.decorators import api_view, permission_classes
-from rest_framework.permissions import AllowAny
+from rest_framework.decorators import api_view
+from rest_framework.exceptions import ValidationError
 from rest_framework.response import Response
 from rest_framework.views import APIView
 from rest_framework_simplejwt.authentication import JWTAuthentication
@@ -21,9 +22,11 @@ from account.handlers.handle import handle_create_acc
 from account.handlers.validate_perm import ValidatePermRest
 from account.models import User, Verify, PhoneNumber, RefreshToken
 from app.api_routes.handlers import get_token_for_user, remove_token_blacklist
-from utils.constants import status as user_status
+from user_system.client_group.models import ClientGroup
+from user_system.client_profile.models import ClientProfile
+from utils.constants import status as user_status, maNhomND
 from utils.env import APP_SERVER
-from utils.helpers import generate_digits_code
+from utils.helpers import generate_digits_code, generate_id, phone_validate
 from utils.model_filter_paginate import filter_data
 
 
@@ -37,7 +40,7 @@ class ApiAccount(viewsets.GenericViewSet, mixins.ListModelMixin, mixins.CreateMo
                  mixins.RetrieveModelMixin, mixins.UpdateModelMixin, mixins.DestroyModelMixin):
     serializer_class = UserSerializer
     queryset = User.objects.all()
-    authentication_classes = [JWTAuthentication]
+    authentication_classes = [JWTAuthentication, BasicAuthentication]
     permission_classes = [partial(ValidatePermRest, model=User)]
 
     def list(self, request, *args, **kwargs):
@@ -52,7 +55,6 @@ def api_update_profile(request):
 
 class RegisterSMS(APIView):
     authentication_classes = [JWTAuthentication, BasicAuthentication]
-
     # permission_classes = [partial(ValidatePermRest, model=User)]
 
     def get_serializer(self, *args, **kwargs):
@@ -72,27 +74,42 @@ class RegisterSMS(APIView):
         return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
 
 
-@api_view(['POST', 'GET'])
-def otp_verify(request, pk):
-    if request.method == 'GET':
-        response = {
-            'otp_code': '123456'
+@extend_schema(
+    methods=['POST'],
+    description='Xác thực OTP của user.',
+    request={
+        'application/json': {
+            'example': {
+                'otp_code': '123456',
+            }
         }
-        return Response(response, status=status.HTTP_405_METHOD_NOT_ALLOWED)
+    },
+    responses={
+        200: "Success",
+    }
+)
+@api_view(['POST'])
+def otp_verify(request, pk):
     try:
         phone = PhoneNumber.objects.get(phone_number=pk)
     except PhoneNumber.DoesNotExist:
         return HttpResponse(status=status.HTTP_404_NOT_FOUND)
     if request.method == 'POST':
+        # Get verify code from request
         otp_code = request.data.get('otp_code', None)
-        verify = Verify.objects.filter(phone_verify=phone).latest('created_at')
-        print(f"-------------TEST--------------")
-        print(otp_code)
-        print(verify)
+        # Get verify object from phone number on params
+        check_verify = Verify.objects.filter(phone_verify=phone)
+        # Check if Phone has assign for verify object
+        if not check_verify.exists():
+            return Response({'message': 'Số điện thoại không tồn tại trên hệ thống.'}, status=status.HTTP_400_BAD_REQUEST)
+        verify = check_verify.latest('created_at')
+        # When verify was verified
         if verify.is_verify:
             return Response({'message': 'Tài khoản đã xác thực.'}, status=status.HTTP_400_BAD_REQUEST)
+        # When verify code not same with system verify code
         if otp_code != verify.verify_code:
             return Response({'message': 'Mã OTP không chính xác.'}, status=status.HTTP_400_BAD_REQUEST)
+        # When verifying success
         if verify.is_verify_valid():
             # Update verify
             verify.is_verify = True
@@ -106,12 +123,14 @@ def otp_verify(request, pk):
             token = get_token_for_user(verify.user)
             # Add data for refresh token
             active_token = RefreshToken.objects.filter(user=verify.user, status="active")
+            # Update deactivate other activate token
             if active_token.exists():
                 token_obj = active_token.first()
                 token_obj.status = "deactivate"
                 token_obj.save()
                 _token = RestRefreshToken(token_obj.refresh_token)
                 _token.blacklist()
+            # Create new and save active token
             ref_token = RefreshToken.objects.create(user=verify.user, phone_number=phone,
                                                     refresh_token=str(token['refresh']), status="active")
             verify.refresh_token = ref_token
@@ -127,10 +146,27 @@ def otp_verify(request, pk):
         print("OTP code is expired")
         return Response({'message': 'Mã otp đã hết hạn'}, status=status.HTTP_200_OK)
 
-    return Response(status=status.HTTP_400_BAD_REQUEST)
+    return Response({'message': 'GET method not supported'}, status=status.HTTP_405_METHOD_NOT_ALLOWED)
 
 
-@api_view(['POST', 'GET'])
+@extend_schema(
+    methods=['POST'],
+    description='Đăng ký SĐT, nếu SĐT đã tồn tại thì gửi OTP cho user.'
+                'Nếu SĐT chưa xác thực sẽ gửi mã OTP cho user.'
+                'Nếu SĐT đã xác thực và có refresh_token thì sẽ response access_token mới',
+    request={
+        'application/json': {
+            'example': {
+                'phone_number': '0123456789',
+                'refresh_token': 'your_access_token_here'
+            }
+        }
+    },
+    responses={
+        200: "Success",
+    }
+)
+@api_view(['POST'])
 def phone_login(request):
     if request.method == 'POST':
         phone_number = request.data.get('phone_number', None)
@@ -167,27 +203,54 @@ def phone_login(request):
                                                verify_type="SMS OTP")
             response = response_verify_code(new_verify)
             return Response(response, status.HTTP_200_OK)
-    else:
-        response = {
-            'phone_number': '0123456789',
-            'refresh_token': 'token...'
-        }
-        return Response(response, status=status.HTTP_405_METHOD_NOT_ALLOWED)
+    return Response({'message': 'GET method not supported'}, status=status.HTTP_405_METHOD_NOT_ALLOWED)
 
 
 def call_api_register(phone_number):
     # Get path
-    main_url = APP_SERVER
-    register_path = f"/application/api/v1/2024/accounts/register/"
-    api_url = main_url + register_path
-    # Input data
-    data = {
-        'phone_number': phone_number
-    }
-    # Call api
-    response = requests.post(api_url, data)
-    # Return response data and decode json
-    return response.json()
+    # main_url = APP_SERVER
+    # register_path = f"/application/api/v1/2024/accounts/register/"
+    # api_url = main_url + register_path
+    # # Input data
+    # data = {
+    #     'phone_number': phone_number
+    # }
+    # # Call api
+    # response = requests.post(api_url, data)
+    # # Return response data and decode json
+    # return response.json()
+    is_valid, phone = phone_validate(phone_number)
+
+    phone = PhoneNumber.objects.filter(phone_number=phone)
+    # Get digits number code
+    verify_code = generate_digits_code()
+    # Case phone Existed but not verify
+    if phone.exists():
+        phone_num = phone.first()
+        verify = Verify.objects.filter(phone_verify=phone_num, is_verify=False)
+        # If verified, raise error
+        if not verify.exists():
+            raise ValidationError({'phone_number': ['Số điện thoại đã xác thực.']})
+        verify = verify.first()
+        # Update new verify code and time expired
+        verify.get_new_code(verify_code)
+    else:
+        # Handle create user
+        type_kh = "client"
+        # Generate default id for user client Farmer
+        _id = generate_id(maNhomND)
+        # Create new user
+        user = User.objects.create(id=_id, user_type=type_kh, status=user_status[1], is_active=False)
+        # Create new phone number
+        phone = PhoneNumber.objects.create(phone_number=phone_number, user=user)
+        client_group = ClientGroup.objects.get(id=maNhomND)
+        # Create new default Profile for user as type Client
+        ClientProfile.objects.create(client_id=user, client_group_id=client_group)
+        # Create Verify with data
+        verify = Verify.objects.create(user=user, phone_verify=phone, verify_code=verify_code,
+                                       verify_type="SMS OTP")
+
+    return response_verify_code(verify)
 
 
 def get_token_from_refresh(refresh_token):
@@ -195,7 +258,21 @@ def get_token_from_refresh(refresh_token):
     return str(token.access_token)
 
 
-@api_view(['POST', 'GET'])
+@extend_schema(
+    methods=['POST'],  # chỉ áp dụng cho POST
+    description='Deactivate refresh token của user.',
+    request={
+        'application/json': {
+            'example': {
+                'refresh_token': 'your_access_token_here'
+            }
+        }
+    },
+    responses={
+        200: "Success",
+    }
+)
+@api_view(['POST'])
 def logout(request):
     if request.method == 'POST':
         refresh_token = request.data.get('refresh_token', None)
@@ -210,22 +287,29 @@ def logout(request):
                 return Response({'message': 'Logout successful'}, status.HTTP_200_OK)
             return Response({'message': 'Token không tồn tại'}, status.HTTP_400_BAD_REQUEST)
         return Response({'message': 'Bạn cần nhập refresh token'}, status.HTTP_400_BAD_REQUEST)
-    else:
-        response = {
-            'refresh_token': 'token...'
+    return Response({'message': 'GET method not supported'}, status=status.HTTP_405_METHOD_NOT_ALLOWED)
+
+
+@extend_schema(
+    methods=['POST'],  # chỉ áp dụng cho POST
+    description='Xác thực access token và trả về thông tin người dùng.',
+    request={
+        'application/json': {
+            'example': {
+                'access_token': 'your_access_token_here'
+            }
         }
-        return Response(response, status=status.HTTP_405_METHOD_NOT_ALLOWED)
-
-
-@api_view(['GET', 'POST'])
-@permission_classes([AllowAny])
+    },
+    responses={
+        200: "Success",
+    }
+)
+@api_view(['POST'])
 def check_token(request):
     if request.method == 'POST':
         access_token = request.data.get('access_token', None)
-
         if not access_token:
             return Response({'error': 'No token provided'}, status=status.HTTP_400_BAD_REQUEST)
-
         try:
             token = AccessToken(access_token)
             print(f"Decode token: {token['user_id']}")
@@ -240,7 +324,4 @@ def check_token(request):
 
         except Exception as e:
             return Response({'error': 'Invalid token', 'details': str(e)}, status=status.HTTP_401_UNAUTHORIZED)
-    response = {
-        'access_token': 'token...'
-    }
-    return Response(response, status=status.HTTP_405_METHOD_NOT_ALLOWED)
+    return Response({'message': 'GET method not supported'}, status=status.HTTP_405_METHOD_NOT_ALLOWED)
