@@ -5,7 +5,6 @@ from django.contrib.contenttypes.models import ContentType
 from django.shortcuts import render
 from rest_framework import permissions
 
-from account.models import Perm
 from utils.perms.check import perm_exist, user_has_perm
 
 
@@ -56,6 +55,7 @@ class ValidatePermRest(permissions.BasePermission):
 
     def has_permission(self, request, view):
         start_time = time.time()
+        print(f"----- REQUEST PATH: {request.path}")
         # Allow showing on api schema
         if request.path == '/api_schema':
             return True
@@ -83,9 +83,8 @@ class ValidatePermRest(permissions.BasePermission):
         # Get the action from required permission
         action = required_permission.split('_')[0]
 
-        user_group_perm = user.is_group_has_perm(perm_name)
-        user_perm = user.is_perm(perm_name)
-
+        user_group_perm = user.is_group_has_perm(required_permission)
+        user_perm = user.is_perm(required_permission)
         if action == "create" and 'pk' not in view.kwargs:
             return user_group_perm or user_perm
 
