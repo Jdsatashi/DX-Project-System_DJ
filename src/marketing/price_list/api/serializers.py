@@ -8,6 +8,8 @@ from marketing.product.models import Product, ProductType
 
 class ProductPriceSerializer(serializers.ModelSerializer):
     product_id = serializers.CharField(write_only=True)
+    price = serializers.FloatField()
+    point = serializers.FloatField()
 
     class Meta:
         model = ProductPrice
@@ -32,22 +34,19 @@ class ProductReadSerializer(serializers.ModelSerializer):
         model = Product
         fields = ['id', 'name', 'product_type', 'category']
 
-    def get_product_type(self, obj):
+    @staticmethod
+    def get_product_type(obj):
         return obj.product_type.name
 
 
 class ProductPriceReadSerializer(serializers.ModelSerializer):
     product = ProductReadSerializer(read_only=True)
+    price = serializers.FloatField()
+    point = serializers.FloatField()
 
     class Meta:
         model = ProductPrice
         fields = ['product', 'price', 'quantity_in_box', 'point']
-
-
-class ProductViewSerializer(serializers.ModelSerializer):
-    class Meta:
-        model = Product
-        fields = ['id', 'category']
 
 
 class PriceListSerializer(BaseRestrictSerializer):
