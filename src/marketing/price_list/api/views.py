@@ -28,7 +28,8 @@ class GenericApiPriceList(viewsets.GenericViewSet, mixins.ListModelMixin, mixins
         model_class = self.serializer_class.Meta.model
         if user.is_superuser:
             return model_class.objects.all()
-
+        if not user.is_authenticated:
+            return Response({'message': 'User is not authenticate'}, status=status.HTTP_401_UNAUTHORIZED)
         all_permissions = user.get_all_allow_perms()
         price_list_ids = []
 
