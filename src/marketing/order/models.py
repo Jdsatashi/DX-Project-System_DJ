@@ -35,17 +35,6 @@ class Order(models.Model):
 
     def clean(self):
         if self.price_list_id:
-            print("I'LL TEST THIS")
-            pl_perm = GetPerm(PriceList)
-            pl_perm_id = pl_perm.perm_pk(self.price_list_id.id)
-            # if perm_exist
-            # Check permission user with price list
-            user = self.client_id
-            if user_has_perm(user, pl_perm_id):
-                print(f"User has perm {pl_perm_id}")
-            else:
-                print(f"User not have any of this permission")
-                raise ValidationError("User not have any of this permission")
             if self.created_at is None:
                 self.created_at = datetime.utcnow()
             if not (self.price_list_id.date_start <= self.created_at.date() <= self.price_list_id.date_end):
