@@ -1,6 +1,7 @@
 from functools import partial
 
 from rest_framework import viewsets, mixins, status
+from rest_framework.authentication import BasicAuthentication
 from rest_framework.response import Response
 from rest_framework_simplejwt.authentication import JWTAuthentication
 
@@ -16,7 +17,7 @@ class GenericApiProductType(viewsets.GenericViewSet, mixins.ListModelMixin, mixi
                             mixins.RetrieveModelMixin, mixins.UpdateModelMixin, mixins.DestroyModelMixin):
     serializer_class = ProductTypeSerializer
     queryset = ProductType.objects.all()
-    # authentication_classes = [JWTAuthentication]
+    authentication_classes = [JWTAuthentication, BasicAuthentication]
     # permission_classes = [partial(ValidatePermRest, model=ProductType)]
 
 
@@ -24,7 +25,7 @@ class GenericApiRegistrationUnit(viewsets.GenericViewSet, mixins.ListModelMixin,
                                  mixins.RetrieveModelMixin, mixins.UpdateModelMixin, mixins.DestroyModelMixin):
     serializer_class = RegistrationUnitSerializer
     queryset = RegistrationUnit.objects.all()
-    # authentication_classes = [JWTAuthentication]
+    authentication_classes = [JWTAuthentication, BasicAuthentication]
     # permission_classes = [partial(ValidatePermRest, model=RegistrationUnit)]
 
 
@@ -32,7 +33,7 @@ class GenericApiProducer(viewsets.GenericViewSet, mixins.ListModelMixin, mixins.
                          mixins.RetrieveModelMixin, mixins.UpdateModelMixin, mixins.DestroyModelMixin):
     serializer_class = ProducerSerializer
     queryset = Producer.objects.all()
-    # authentication_classes = [JWTAuthentication]
+    authentication_classes = [JWTAuthentication, BasicAuthentication]
     # permission_classes = [partial(ValidatePermRest, model=Producer)]
 
 
@@ -40,7 +41,7 @@ class GenericApiRegistrationCert(viewsets.GenericViewSet, mixins.ListModelMixin,
                                  mixins.RetrieveModelMixin, mixins.UpdateModelMixin, mixins.DestroyModelMixin):
     serializer_class = RegistrationCertSerializer
     queryset = RegistrationCert.objects.all()
-    # authentication_classes = [JWTAuthentication]
+    authentication_classes = [JWTAuthentication, BasicAuthentication]
     # permission_classes = [partial(ValidatePermRest, model=RegistrationCert)]
 
     def list(self, request, *args, **kwargs):
@@ -52,8 +53,7 @@ class GenericApiProductCategory(viewsets.GenericViewSet, mixins.ListModelMixin, 
                                 mixins.RetrieveModelMixin, mixins.UpdateModelMixin, mixins.DestroyModelMixin):
     serializer_class = ProductCateSerializer
     queryset = ProductCategory.objects.all()
-
-    # authentication_classes = [JWTAuthentication]
+    authentication_classes = [JWTAuthentication, BasicAuthentication]
     # permission_classes = [partial(ValidatePermRest, model=ProductCategory)]
 
     def list(self, request, *args, **kwargs):
@@ -65,7 +65,7 @@ class GenericApiCategoryDetail(viewsets.GenericViewSet, mixins.ListModelMixin, m
                                mixins.RetrieveModelMixin, mixins.UpdateModelMixin, mixins.DestroyModelMixin):
     serializer_class = CategoryDetailSerializer
     queryset = CategoryDetail.objects.all()
-    # authentication_classes = [JWTAuthentication]
+    authentication_classes = [JWTAuthentication, BasicAuthentication]
     # permission_classes = [partial(ValidatePermRest, model=ProductCategory)]
 
     def list(self, request, *args, **kwargs):
@@ -77,7 +77,7 @@ class GenericApiProduct(viewsets.GenericViewSet, mixins.ListModelMixin, mixins.C
                         mixins.RetrieveModelMixin, mixins.UpdateModelMixin, mixins.DestroyModelMixin):
     serializer_class = ProductSerializer
     queryset = Product.objects.all()
-    # authentication_classes = [JWTAuthentication]
+    authentication_classes = [JWTAuthentication, BasicAuthentication]
     # permission_classes = [partial(ValidatePermRest, model=Product)]
 
     def list(self, request, *args, **kwargs):

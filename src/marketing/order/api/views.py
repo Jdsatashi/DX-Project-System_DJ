@@ -1,6 +1,7 @@
 from functools import partial
 
 from rest_framework import viewsets, mixins, status
+from rest_framework.authentication import BasicAuthentication
 from rest_framework.response import Response
 from rest_framework_simplejwt.authentication import JWTAuthentication
 
@@ -14,8 +15,8 @@ class GenericApiOrder(viewsets.GenericViewSet, mixins.ListModelMixin, mixins.Cre
                           mixins.RetrieveModelMixin, mixins.UpdateModelMixin, mixins.DestroyModelMixin):
     serializer_class = OrderSerializer
     queryset = Order.objects.all()
-    # authentication_classes = [JWTAuthentication]
-    # permission_classes = [partial(ValidatePermRest, model=Order)]
+    authentication_classes = [JWTAuthentication, BasicAuthentication]
+    permission_classes = [partial(ValidatePermRest, model=Order)]
 
     def list(self, request, *args, **kwargs):
         response = filter_data(self, request, ['id', 'date_get', 'date_company_get', 'client_id'], *args,

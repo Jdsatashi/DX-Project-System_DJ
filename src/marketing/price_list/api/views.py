@@ -3,6 +3,7 @@ from functools import partial
 from django.contrib.contenttypes.models import ContentType
 from django.utils import timezone
 from rest_framework import viewsets, mixins, status
+from rest_framework.authentication import BasicAuthentication
 from rest_framework.decorators import api_view, action
 from rest_framework.response import Response
 from rest_framework_simplejwt.authentication import JWTAuthentication
@@ -19,7 +20,7 @@ class GenericApiPriceList(viewsets.GenericViewSet, mixins.ListModelMixin, mixins
                           mixins.RetrieveModelMixin, mixins.UpdateModelMixin, mixins.DestroyModelMixin):
     serializer_class = PriceListSerializer
     # queryset = PriceList.objects.all()
-    authentication_classes = [JWTAuthentication]
+    authentication_classes = [JWTAuthentication, BasicAuthentication]
     permission_classes = [partial(ValidatePermRest, model=PriceList)]
 
     def get_queryset(self):

@@ -14,7 +14,7 @@ class GenericApiFileUpload(viewsets.GenericViewSet, mixins.ListModelMixin, mixin
                            mixins.RetrieveModelMixin, mixins.UpdateModelMixin, mixins.DestroyModelMixin):
     serializer_class = FileUploadSerializer
     queryset = FileUpload.objects.all()
-    # authentication_classes = [JWTAuthentication, BasicAuthentication, SessionAuthentication]
+    authentication_classes = [JWTAuthentication, BasicAuthentication]
     # permission_classes = [partial(ValidatePermRest, model=FileUpload)]
 
 
@@ -28,7 +28,7 @@ class ApiFileProductCate(viewsets.GenericViewSet, mixins.ListModelMixin, mixins.
                          mixins.RetrieveModelMixin, mixins.UpdateModelMixin, mixins.DestroyModelMixin):
     serializer_class = FileProductCateSerializer
     queryset = ProductCateFile.objects.all()
-    # authentication_classes = [JWTAuthentication, BasicAuthentication, SessionAuthentication]
+    authentication_classes = [JWTAuthentication, BasicAuthentication]
     # permission_classes = [partial(ValidatePermRest, model=ProductCateFile)]
 
 
@@ -36,5 +36,5 @@ class ApiFileProduct(viewsets.GenericViewSet, mixins.ListModelMixin, mixins.Crea
                      mixins.RetrieveModelMixin, mixins.UpdateModelMixin, mixins.DestroyModelMixin):
     serializer_class = FileProductSerializer
     queryset = ProductFile.objects.all()
-    # authentication_classes = [JWTAuthentication, BasicAuthentication, SessionAuthentication]
+    authentication_classes = [JWTAuthentication, BasicAuthentication]
     # permission_classes = [partial(ValidatePermRest, model=ProductFile)]
