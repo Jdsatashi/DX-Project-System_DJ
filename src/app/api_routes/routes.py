@@ -1,12 +1,15 @@
 from django.urls import path, include
 from django.views.generic import TemplateView
+from drf_spectacular.views import SpectacularSwaggerView, SpectacularRedocView
 
 from app.api_routes.handlers import ApiContentType
 
 app_name = 'api_routes'
 
 urlpatterns = [
-    path('', TemplateView.as_view(template_name='layouts/api_docs.html', extra_context={'schema_url': 'api_schema'}), name='api_docs'),
+    path('', SpectacularSwaggerView.as_view(url_name='api-schema'), name='swagger-ui'),
+    path('redocs/', SpectacularRedocView.as_view(url_name='api-schema'), name='redoc'),
+
     path('content-type/', ApiContentType.as_view(), name="api-content_type"),
     path('accounts/', include('account.api.routes', 'api_account')),
     path('token/', include('app.api_routes.urls', 'api_token')),
