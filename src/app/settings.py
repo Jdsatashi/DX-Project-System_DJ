@@ -60,6 +60,7 @@ INSTALLED_APPS = [
                      # Django Rest Framework
                      'rest_framework',
                      'rest_framework_simplejwt.token_blacklist',
+                     'drf_spectacular',
                      # Cors header
                      'corsheaders',
                      # System applications
@@ -184,7 +185,8 @@ REST_FRAMEWORK = {
         'rest_framework.authentication.BasicAuthentication',
         'rest_framework.authentication.SessionAuthentication',
         'rest_framework_simplejwt.authentication.JWTAuthentication',
-    )
+    ),
+    'DEFAULT_SCHEMA_CLASS': 'drf_spectacular.openapi.AutoSchema',
 }
 
 # CORS_ALLOWED_ORIGINS = [
