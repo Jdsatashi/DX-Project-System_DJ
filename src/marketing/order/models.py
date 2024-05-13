@@ -1,3 +1,4 @@
+import time
 from datetime import datetime
 
 from django.core.exceptions import ValidationError
@@ -34,6 +35,7 @@ class Order(models.Model):
 
     def clean(self):
         if self.price_list_id:
+            print("I'LL TEST THIS")
             pl_perm = GetPerm(PriceList)
             pl_perm_id = pl_perm.perm_pk(self.price_list_id.id)
             # if perm_exist
@@ -43,6 +45,7 @@ class Order(models.Model):
                 print(f"User has perm {pl_perm_id}")
             else:
                 print(f"User not have any of this permission")
+                raise ValidationError("User not have any of this permission")
             if self.created_at is None:
                 self.created_at = datetime.utcnow()
             if not (self.price_list_id.date_start <= self.created_at.date() <= self.price_list_id.date_end):
@@ -50,6 +53,7 @@ class Order(models.Model):
                     f"Order date {self.created_at.date()} must be within the PriceList's date range from {self.price_list_id.date_start} to {self.price_list_id.date_end}.")
 
     def save(self, *args, **kwargs):
+        start_time = time.time()
         if not self.pk:
             start_char = 'MT'
             current_year = datetime.utcnow().year
@@ -65,6 +69,7 @@ class Order(models.Model):
             self.id = _id
 
         self.clean()
+        print(f"Complete save: {time.time() - start_time}")
         return super().save(*args, **kwargs)
 
     def __str__(self):
