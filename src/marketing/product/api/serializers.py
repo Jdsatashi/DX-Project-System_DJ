@@ -213,19 +213,9 @@ class ShortViewCategory(serializers.ModelSerializer):
 
 
 class ProductIdSerializer(serializers.ModelSerializer):
-    category = ShortViewCategory()
-
     class Meta:
         model = Product
         fields = ['id', 'category']
-
-    # def to_representation(self, instance):
-    #     representation = super().to_representation(instance)
-    #     request = self.context.get('request')
-    #     if instance.category is not None:
-    #         files = instance.category.product_cate_files.all()
-    #         files_fields_details(request, files, representation)
-    #     return representation
 
 
 class ProductCateViewSerializer(serializers.ModelSerializer):
