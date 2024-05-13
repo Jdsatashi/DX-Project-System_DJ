@@ -21,7 +21,7 @@ class GenericApiPriceList(viewsets.GenericViewSet, mixins.ListModelMixin, mixins
     serializer_class = PriceListSerializer
     # queryset = PriceList.objects.all()
     authentication_classes = [JWTAuthentication, BasicAuthentication]
-    permission_classes = [partial(ValidatePermRest, model=PriceList)]
+    # permission_classes = [partial(ValidatePermRest, model=PriceList)]
 
     def get_queryset(self):
         user = self.request.user
