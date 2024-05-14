@@ -7,8 +7,6 @@ from django.db import models
 from account.models import User
 from marketing.price_list.models import ProductPrice, PriceList
 from marketing.product.models import Product
-from utils.perms.check import user_has_perm
-from utils.perms.get_perms import GetPerm
 
 
 # Create your models here.
@@ -26,6 +24,9 @@ class Order(models.Model):
     is_so = models.BooleanField(null=True, default=False)
     id_so = models.CharField(null=True, max_length=255, default=None)
     id_offer_consider = models.CharField(null=True, max_length=255, default=None)
+
+    order_point = models.FloatField(null=True)
+    order_price = models.FloatField(null=True)
 
     created_by = models.CharField(max_length=64, null=True)
     note = models.CharField(max_length=255, null=True)
@@ -56,7 +57,11 @@ class Order(models.Model):
                 raise ValueError({'id': 'Out of index'})
             _id = f"{start_char}{two_digit_year}{two_digit_month}{i:05d}"
             self.id = _id
-
+            print(f"Complete create pk: {time.time() - start_time}")
+        if self.order_point:
+            self.order_point = round(self.order_point, 5)
+        if self.order_price:
+            self.order_price = round(self.order_price, 5)
         self.clean()
         print(f"Complete save: {time.time() - start_time}")
         return super().save(*args, **kwargs)
@@ -69,17 +74,15 @@ class OrderDetail(models.Model):
     order_id = models.ForeignKey(Order, null=True, on_delete=models.CASCADE, related_name="order_detail")
     product_id = models.ForeignKey(Product, null=True, on_delete=models.CASCADE, related_name="order_product")
     order_quantity = models.IntegerField(null=False, default=1)
-    order_box = models.DecimalField(max_digits=8, decimal_places=2, null=False, default=0)
-    point_per_box = models.DecimalField(max_digits=8, decimal_places=2, null=True)
-    price_list_so = models.DecimalField(max_digits=10, decimal_places=0, null=True)
+    order_box = models.FloatField(null=False, default=0)
+    price_list_so = models.FloatField(null=True)
     note = models.CharField(max_length=255, null=True)
-
-    def clean(self):
-        if self.order_id and self.product_id:
-            product_list = self.order_id.price_list_id.products.all()
-            if self.product_id not in product_list:
-                raise ValidationError("The product must be part of the PriceList associated with the Order.")
+    product_price = models.BigIntegerField(null=True)
+    point_get = models.FloatField(null=True)
 
     def save(self, *args, **kwargs):
-        # self.clean()
+        if self.order_box:
+            self.order_box = round(self.order_box, 5)
+        if self.point_get:
+            self.point_get = round(self.point_get, 5)
         super().save(*args, **kwargs)
