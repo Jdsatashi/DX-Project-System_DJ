@@ -1,7 +1,9 @@
 from datetime import datetime
 
+from django.apps import apps
 from django.db import models
 
+from account.models import User
 from marketing.product.models import Product
 
 
@@ -42,3 +44,42 @@ class ProductPrice(models.Model):
     price = models.BigIntegerField(null=False, blank=False)
     quantity_in_box = models.IntegerField(null=False, default=0)
     point = models.FloatField(null=True, blank=True)
+
+
+class PointOfSeason(models.Model):
+    price_list = models.ForeignKey(PriceList, null=True, on_delete=models.SET_NULL)
+    user = models.ForeignKey(User, null=True, on_delete=models.SET_NULL)
+    point = models.FloatField(null=True, blank=True, default=0)
+    total_point = models.FloatField(null=True, blank=True, default=0)
+    used_point = models.FloatField(null=True, blank=True, default=0)
+    bonus_point = models.FloatField(null=True, blank=True, default=0)
+    redundant = models.FloatField(null=True, blank=True, default=0)
+
+    def save(self, *args, **kwargs):
+        if not self.pk:
+            pl = self.price_list
+            user = self.user
+            if not PointOfSeason.objects.filter(price_list=pl, user=user).exists():
+                Order = apps.get_model('order', 'Order')
+                OrderDetail = apps.get_model('order', 'OrderDetail')
+                user_orders = Order.objects.filter(client_id=user, price_list_id=pl)
+                order_details = OrderDetail.objects.filter(order_id__in=user_orders)
+                point = 0
+                total_point = 0
+                used_point = 0
+                bonus_point = 0
+                redundant = 0
+                for order_detail in order_details:
+                    product = order_detail.product
+                    price = product.price_list.get(price_list=pl).price
+                    point = product.point
+                    total_point += price * point
+                    used_point += order_detail.point
+                    bonus_point += order_detail.bonus_point
+                    redundant += order_detail.redundant
+                self.point = point
+                self.total_point = total_point
+                self.used_point = used_point
+                self.bonus_point = bonus_point
+                self.redundant = redundant
+        return super().save(*args, **kwargs)
