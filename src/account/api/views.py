@@ -2,7 +2,6 @@ import datetime
 from functools import partial
 
 import pytz
-import requests
 from django.contrib.auth import get_user_model
 from django.http import HttpResponse
 from django.utils import timezone
@@ -17,22 +16,14 @@ from rest_framework_simplejwt.authentication import JWTAuthentication
 from rest_framework_simplejwt.exceptions import TokenError
 from rest_framework_simplejwt.tokens import RefreshToken as RestRefreshToken, AccessToken
 
-from account.api.serializers import UserSerializer, RegisterSerializer, response_verify_code
-from account.handlers.handle import handle_create_acc
+from account.api.serializers import UserSerializer, RegisterSerializer, response_verify_code, UserUpdateSerializer
 from account.handlers.validate_perm import ValidatePermRest
 from account.models import User, Verify, PhoneNumber, RefreshToken
 from app.api_routes.handlers import get_token_for_user, remove_token_blacklist
-from user_system.client_group.models import ClientGroup
-from user_system.client_profile.models import ClientProfile
+from marketing.price_list.models import PriceList, PointOfSeason
 from utils.constants import status as user_status, maNhomND
-from utils.env import APP_SERVER
 from utils.helpers import generate_digits_code, generate_id, phone_validate
 from utils.model_filter_paginate import filter_data
-
-
-def api_create_user(req):
-    ctx = handle_create_acc(req)
-    return HttpResponse(ctx, content_type='application/json')
 
 
 # Register api view
@@ -49,8 +40,11 @@ class ApiAccount(viewsets.GenericViewSet, mixins.ListModelMixin, mixins.CreateMo
         return Response(response, status.HTTP_200_OK)
 
 
-def api_update_profile(request):
-    pass
+class ApiUpdateUserProfile(viewsets.GenericViewSet, mixins.RetrieveModelMixin, mixins.UpdateModelMixin):
+    serializer_class = UserUpdateSerializer
+    queryset = User.objects.all()
+    # authentication_classes = [JWTAuthentication, BasicAuthentication]
+    # permission_classes = [partial(ValidatePermRest, model=User)]
 
 
 class RegisterSMS(APIView):
@@ -206,58 +200,6 @@ def phone_login(request):
     return Response({'message': 'GET method not supported'}, status=status.HTTP_405_METHOD_NOT_ALLOWED)
 
 
-def call_api_register(phone_number):
-    # Get path
-    # main_url = APP_SERVER
-    # register_path = f"/application/api/v1/2024/accounts/register/"
-    # api_url = main_url + register_path
-    # # Input data
-    # data = {
-    #     'phone_number': phone_number
-    # }
-    # # Call api
-    # response = requests.post(api_url, data)
-    # # Return response data and decode json
-    # return response.json()
-    is_valid, phone = phone_validate(phone_number)
-
-    phone = PhoneNumber.objects.filter(phone_number=phone)
-    # Get digits number code
-    verify_code = generate_digits_code()
-    # Case phone Existed but not verify
-    if phone.exists():
-        phone_num = phone.first()
-        verify = Verify.objects.filter(phone_verify=phone_num, is_verify=False)
-        # If verified, raise error
-        if not verify.exists():
-            raise ValidationError({'phone_number': ['Số điện thoại đã xác thực.']})
-        verify = verify.first()
-        # Update new verify code and time expired
-        verify.get_new_code(verify_code)
-    else:
-        # Handle create user
-        type_kh = "client"
-        # Generate default id for user client Farmer
-        _id = generate_id(maNhomND)
-        # Create new user
-        user = User.objects.create(id=_id, user_type=type_kh, status=user_status[1], is_active=False)
-        # Create new phone number
-        phone = PhoneNumber.objects.create(phone_number=phone_number, user=user)
-        client_group = ClientGroup.objects.get(id=maNhomND)
-        # Create new default Profile for user as type Client
-        ClientProfile.objects.create(client_id=user, client_group_id=client_group)
-        # Create Verify with data
-        verify = Verify.objects.create(user=user, phone_verify=phone, verify_code=verify_code,
-                                       verify_type="SMS OTP")
-
-    return response_verify_code(verify)
-
-
-def get_token_from_refresh(refresh_token):
-    token = RestRefreshToken(refresh_token)
-    return str(token.access_token)
-
-
 @extend_schema(
     methods=['POST'],  # chỉ áp dụng cho POST
     description='Deactivate refresh token của user.',
@@ -318,10 +260,53 @@ def check_token(request):
             current_time = timezone.now()
             expiration_time = datetime.datetime.fromtimestamp(token['exp'], pytz.UTC)
             if current_time < expiration_time:
-                return Response({'user': UserSerializer(user).data}, status=status.HTTP_200_OK)
+                today = current_time.date()
+                main_pl = PriceList.objects.filter(id='SPTN000015', date_start__lte=today, date_end__gte=today).first()
+                point, _ = PointOfSeason.objects.get_or_create(user=user, price_list=main_pl)
+                response = UserSerializer(user).data
+                response['point'] = point.point
+                return Response({'user': response}, status=status.HTTP_200_OK)
             else:
                 return Response({'error': 'Token expired'}, status=status.HTTP_401_UNAUTHORIZED)
 
         except Exception as e:
-            return Response({'error': 'Invalid token', 'details': str(e)}, status=status.HTTP_401_UNAUTHORIZED)
+            raise e
+            # return Response({'error': 'Invalid token', 'details': str(e)}, status=status.HTTP_401_UNAUTHORIZED)
     return Response({'message': 'GET method not supported'}, status=status.HTTP_405_METHOD_NOT_ALLOWED)
+
+
+def call_api_register(phone_number):
+    is_valid, phone = phone_validate(phone_number)
+
+    phone = PhoneNumber.objects.filter(phone_number=phone)
+    # Get digits number code
+    verify_code = generate_digits_code()
+    # Case phone Existed but not verify
+    if phone.exists():
+        phone_num = phone.first()
+        verify = Verify.objects.filter(phone_verify=phone_num, is_verify=False)
+        # If verified, raise error
+        if not verify.exists():
+            raise ValidationError({'phone_number': ['Số điện thoại đã xác thực.']})
+        verify = verify.first()
+        # Update new verify code and time expired
+        verify.get_new_code(verify_code)
+    else:
+        # Handle create user
+        type_kh = "client"
+        # Generate default id for user client Farmer
+        _id = generate_id(maNhomND)
+        # Create new user
+        user = User.objects.create(id=_id, user_type=type_kh, status=user_status[1], is_active=False)
+        # Create new phone number
+        phone = PhoneNumber.objects.create(phone_number=phone_number, user=user)
+        # Create Verify with data
+        verify = Verify.objects.create(user=user, phone_verify=phone, verify_code=verify_code,
+                                       verify_type="SMS OTP")
+
+    return response_verify_code(verify)
+
+
+def get_token_from_refresh(refresh_token):
+    token = RestRefreshToken(refresh_token)
+    return str(token.access_token)
