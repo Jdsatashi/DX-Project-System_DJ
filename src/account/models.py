@@ -1,11 +1,14 @@
 # models.py
 import datetime
 
+from django.apps import apps
 from django.contrib.auth.models import AbstractBaseUser, BaseUserManager, PermissionsMixin
 from django.contrib.contenttypes.fields import GenericForeignKey
 from django.contrib.contenttypes.models import ContentType
 from django.db import models
 from django.utils import timezone
+
+from utils.constants import maNhomND
 
 
 # Custom command create_user or create_super user
@@ -77,6 +80,19 @@ class User(AbstractBaseUser, PermissionsMixin):
         #     self.password = make_password(self.id.lower())
         self.clean()
         super().save(*args, **kwargs)
+        if self.user_type == 'employee':
+            EmployeeProfile = apps.get_model('employee_profile', 'EmployeeProfile')
+            profile = EmployeeProfile.objects.filter(employee_id=self).first()
+            if not profile:
+                EmployeeProfile.objects.create(employee_id=self)
+        elif self.user_type == 'client':
+            ClientProfile = apps.get_model('client_profile', 'ClientProfile')
+            ClientGroup = apps.get_model('client_group', 'ClientGroup')
+            farmer_group = ClientGroup.objects.filter(id=maNhomND).first()
+            print(f"testing: {farmer_group}")
+            profile = ClientProfile.objects.filter(client_id=self).first()
+            if not profile:
+                ClientProfile.objects.create(client_id=self, client_group_id=farmer_group, register_name=f"Nông dân {self.id}")
 
     def is_perm(self, permission):
         return self.perm_user.filter(name=permission).exists()
