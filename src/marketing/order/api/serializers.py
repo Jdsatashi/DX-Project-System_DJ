@@ -3,15 +3,12 @@ from rest_framework import serializers
 from account.handlers.restrict_serializer import BaseRestrictSerializer
 from marketing.order.models import Order, OrderDetail
 from marketing.price_list.models import ProductPrice
-from marketing.product.models import Product
 
 
 class OrderDetailSerializer(BaseRestrictSerializer):
-    order_box = serializers.FloatField()
-
     class Meta:
         model = OrderDetail
-        fields = ['product_id', 'order_quantity', 'order_box']
+        fields = ['product_id', 'order_quantity', 'order_box', 'product_price', 'point_get']
 
 
 class OrderSerializer(BaseRestrictSerializer):
@@ -23,7 +20,8 @@ class OrderSerializer(BaseRestrictSerializer):
     class Meta:
         model = Order
         fields = '__all__'
-        read_only_fields = ['id', 'created_by', 'created_at', 'updated_at', ]
+        read_only_fields = ['id', 'created_by', 'created_at',
+                            'updated_at', 'order_point', 'order_price']
 
     def create(self, validated_data):
         # Split insert data
@@ -35,21 +33,27 @@ class OrderSerializer(BaseRestrictSerializer):
         total_price = float()
         # Add product to OrderDetail
         for detail_data in order_details_data:
+            # Get product price to have ratio point/box and price/item
             quantity = detail_data.get('order_quantity')
             product_id = detail_data.get('product_id')
-            # print(f"Product id: {product_id}")
-            # product = Product.objects.get(id=product_id)
-            # print(product)
             product_price = ProductPrice.objects.get(price_list=order.price_list_id, product=product_id)
-            product_point = product_price.point
-            total_point += float(product_point) * float(quantity / product_price.quantity_in_box)
+            # Calculate price and point
             prices = float(product_price.price) * float(quantity)
-            total_price += prices
-            print(f"Tổng giá cho sản phẩm: {prices}")
+            point = float(product_price.point) * float(quantity / product_price.quantity_in_box)
+            # Add price and point to detail data
+            detail_data['product_price'] = prices
+            detail_data['point_get'] = point
+            # Create new OrderDetail
             order_detail = OrderDetail.objects.create(order_id=order, **detail_data)
+            # Add price and point to total
+            total_point += point
+            total_price += prices
         # Create perm for data
         print(f"point of this order: {total_point}")
         print(f"Price of this order: {total_price}")
+        order.order_point = total_point
+        order.order_price = total_price
+        order.save()
         restrict = perm_data.get('restrict')
         if restrict:
             self.handle_restrict(perm_data, order.id, self.Meta.model)
