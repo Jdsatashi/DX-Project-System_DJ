@@ -1,7 +1,8 @@
 from django.urls import path
 from rest_framework.routers import DefaultRouter
 
-from account.api.views import api_create_user, ApiAccount, otp_verify, RegisterSMS, phone_login, logout, check_token
+from account.api.views import ApiAccount, otp_verify, phone_login, logout, check_token, \
+    ApiUpdateUserProfile
 
 app_name = 'api_account'
 
@@ -20,5 +21,6 @@ urlpatterns = [
     path('<pk>', account_detail),
     path('login/', phone_login),
     path('logout/', logout),
-    path('check-token/', check_token)
+    path('check-token/', check_token),
+    path('profile/<pk>', ApiUpdateUserProfile.as_view({'get': 'retrieve', 'put': 'update'}))
 ]
