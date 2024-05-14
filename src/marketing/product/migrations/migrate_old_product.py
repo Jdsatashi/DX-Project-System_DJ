@@ -1,6 +1,6 @@
 from django.db import migrations
 
-from utils.get_old_data import old_product_type, old_product, old_product_category, old_cate_detail
+from utils.insert_db.get_old_data import old_product_type, old_product, old_product_category, old_cate_detail
 
 
 def add_old_product(apps, schema_editor):

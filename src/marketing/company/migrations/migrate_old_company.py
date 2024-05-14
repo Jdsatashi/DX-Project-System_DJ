@@ -1,6 +1,6 @@
 from django.db import migrations
 
-from utils.get_old_data import add_old_company
+from utils.insert_db.get_old_data import add_old_company
 
 
 class Migration(migrations.Migration):

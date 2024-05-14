@@ -2,7 +2,7 @@ import time
 
 from django.db import migrations
 
-from utils.get_old_data import create_position, create_client_group_id, append_nv, append_kh
+from utils.insert_db.get_old_data import create_position, create_client_group_id, append_nv, append_kh
 
 
 def insertDB(apps, schema_editor):
