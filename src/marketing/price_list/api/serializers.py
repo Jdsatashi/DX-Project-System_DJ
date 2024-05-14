@@ -1,5 +1,5 @@
 from account.handlers.restrict_serializer import BaseRestrictSerializer
-from marketing.price_list.models import PriceList, ProductPrice
+from marketing.price_list.models import PriceList, ProductPrice, PointOfSeason
 from rest_framework import serializers
 
 from marketing.product.api.serializers import ViewProductTypeSerializer
@@ -129,3 +129,15 @@ class PriceListSerializer(BaseRestrictSerializer):
             self.handle_restrict(perm_data, instance.id, self.Meta.model)
 
         return instance
+
+
+class UserPointView(serializers.ModelSerializer):
+    class Meta:
+        model = PointOfSeason
+        fields = ['point']
+
+
+class UserPoint(BaseRestrictSerializer):
+    class Meta:
+        model = PointOfSeason
+        fields = '__all__'
