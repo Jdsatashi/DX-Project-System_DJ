@@ -39,6 +39,6 @@ class PriceList(models.Model):
 class ProductPrice(models.Model):
     price_list = models.ForeignKey(PriceList, null=True, on_delete=models.SET_NULL)
     product = models.ForeignKey(Product, null=True, on_delete=models.SET_NULL)
-    price = models.DecimalField(max_digits=10, decimal_places=2, null=False, blank=False)
+    price = models.BigIntegerField(null=False, blank=False)
     quantity_in_box = models.IntegerField(null=False, default=0)
-    point = models.DecimalField(max_digits=10, decimal_places=2, null=True, blank=True)
+    point = models.FloatField(null=True, blank=True)
