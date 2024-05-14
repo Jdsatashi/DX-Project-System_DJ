@@ -6,6 +6,7 @@ from account.models import User, GroupPerm, Perm, Verify, PhoneNumber
 from app.settings import SMS_SERVICE
 from user_system.client_group.models import ClientGroup
 from user_system.client_profile.models import ClientProfile
+from user_system.employee_profile.models import EmployeeProfile
 from utils.constants import maNhomND, status
 from utils.helpers import value_or_none, phone_validate, generate_id, generate_digits_code
 
@@ -41,10 +42,35 @@ class UserSerializer(serializers.ModelSerializer):
         return super().create(validated_data)
 
 
+class ClientInfo(serializers.ModelSerializer):
+    class Meta:
+        model = ClientProfile
+        fields = ['register_name', 'organization', 'dob', 'address']
+
+
+class EmployeeInfo(serializers.ModelSerializer):
+    class Meta:
+        model = EmployeeProfile
+        fields = ['fullname', 'gender', 'dob', 'address']
+
+
 class UserUpdateSerializer(serializers.ModelSerializer):
+    profile = serializers.SerializerMethodField()
+
     class Meta:
         model = User
-        fields = ['email', 'region']
+        fields = ['id', 'username', 'email', 'region', 'user_type', 'profile']
+        read_only_fields = ['id', 'username', 'user_type']
+
+    @staticmethod
+    def get_profile(obj):
+        if obj.user_type == 'client':
+            client_profile = ClientProfile.objects.get(client_id=obj)
+            return ClientInfo(client_profile).data
+        elif obj.user_type == 'employee':
+            employee_profile = EmployeeProfile.objects.get(employee_id=obj)
+            return EmployeeInfo(employee_profile).data
+        return None
 
 
 class RegisterSerializer(serializers.ModelSerializer):
