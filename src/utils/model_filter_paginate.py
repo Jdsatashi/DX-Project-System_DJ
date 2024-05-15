@@ -1,3 +1,5 @@
+from datetime import datetime
+
 from django.core.paginator import Paginator
 from django.db.models import Q
 
@@ -12,7 +14,9 @@ def get_query_parameters(request):
     strict = int(strict)
     strict = strict if strict in [0, 1] else 0
     strict_mode = bool(strict)
-    return query, strict_mode, limit, page, order_by
+    from_date = data.get('from_date') or request.query_params.get('from_date', '')
+    to_date = data.get('to_date') or request.query_params.get('to_date', '')
+    return query, strict_mode, limit, page, order_by, from_date, to_date
 
 
 def dynamic_q(query, fields, strict_mode):
@@ -27,11 +31,21 @@ def filter_data(self, request, query_fields, **kwargs):
     # Get query set if exists or get default
     queryset = kwargs.get('queryset', self.get_queryset())
     # Split query search, strict mode, limit, page, order_by
-    query, strict_mode, limit, page, order_by = get_query_parameters(request)
+    query, strict_mode, limit, page, order_by, from_date, to_date = get_query_parameters(request)
     # If query exists, filter queryset
     if query != '':
         query_filter = dynamic_q(query, query_fields, strict_mode)
         queryset = queryset.filter(query_filter)
+    if from_date or to_date:
+        try:
+            if from_date:
+                from_date = datetime.strptime(from_date, '%d/%m/%Y')
+                queryset = queryset.filter(created_at__gte=from_date)
+            if to_date:
+                to_date = datetime.strptime(to_date, '%d/%m/%Y')
+                queryset = queryset.filter(created_at__lte=to_date)
+        except ValueError:
+            pass
     # Get fields in models
     valid_fields = [f.name for f in self.serializer_class.Meta.model._meta.get_fields()]
     # Check field order_by exists, then order queryset
