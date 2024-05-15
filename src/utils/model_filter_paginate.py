@@ -1,4 +1,4 @@
-from datetime import datetime
+from datetime import datetime, timedelta
 
 from django.core.paginator import Paginator
 from django.db.models import Q
@@ -42,7 +42,7 @@ def filter_data(self, request, query_fields, **kwargs):
                 from_date = datetime.strptime(from_date, '%d/%m/%Y')
                 queryset = queryset.filter(created_at__gte=from_date)
             if to_date:
-                to_date = datetime.strptime(to_date, '%d/%m/%Y')
+                to_date = datetime.strptime(to_date, '%d/%m/%Y') + timedelta(days=1) - timedelta(seconds=1)
                 queryset = queryset.filter(created_at__lte=to_date)
         except ValueError:
             pass
