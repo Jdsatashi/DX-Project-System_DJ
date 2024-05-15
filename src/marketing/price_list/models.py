@@ -59,6 +59,7 @@ class PointOfSeason(models.Model):
         if not self.pk:
             pl = self.price_list
             user = self.user
+            print(f"I think error from here")
             if not PointOfSeason.objects.filter(price_list=pl, user=user).exists():
                 Order = apps.get_model('order', 'Order')
                 OrderDetail = apps.get_model('order', 'OrderDetail')
@@ -66,20 +67,24 @@ class PointOfSeason(models.Model):
                 order_details = OrderDetail.objects.filter(order_id__in=user_orders)
                 point = 0
                 total_point = 0
-                used_point = 0
-                bonus_point = 0
-                redundant = 0
                 for order_detail in order_details:
-                    product = order_detail.product
-                    price = product.price_list.get(price_list=pl).price
-                    point = product.point
-                    total_point += price * point
-                    used_point += order_detail.point
-                    bonus_point += order_detail.bonus_point
-                    redundant += order_detail.redundant
+                    # if order_detail.point_get == 0:
+                    product = order_detail.product_id
+                    product_price = ProductPrice.objects.get(price_list=pl, product=product)
+                    quantity = order_detail.order_quantity
+                    if product_price.point is not None or product_price.point != 0:
+                        order_point = product_price.point * (quantity / product_price.quantity_in_box)
+
+                        if order_detail.point_get == 0 or order_detail.point_get is None:
+                            order_detail.point_get = order_point
+                            order_detail.save()
+                        if order_detail.product_price == 0 or order_detail.product_price is None:
+                            order_detail.product_price = float(quantity) * float(product_price.price)
+                            order_detail.save()
+                        point += order_point
+                        total_point += order_point
+
                 self.point = point
                 self.total_point = total_point
-                self.used_point = used_point
-                self.bonus_point = bonus_point
-                self.redundant = redundant
+
         return super().save(*args, **kwargs)
