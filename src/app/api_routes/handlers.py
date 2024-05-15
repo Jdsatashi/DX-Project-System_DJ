@@ -1,3 +1,5 @@
+from datetime import timedelta, datetime
+
 from django.contrib.auth.hashers import check_password
 from django.contrib.contenttypes.models import ContentType
 from rest_framework import serializers
@@ -5,13 +7,14 @@ from rest_framework.exceptions import AuthenticationFailed
 from rest_framework.response import Response
 from rest_framework.views import APIView
 from rest_framework_simplejwt.exceptions import TokenError
-from rest_framework_simplejwt.serializers import TokenObtainPairSerializer
+from rest_framework_simplejwt.serializers import TokenObtainPairSerializer, TokenRefreshSerializer
 from rest_framework_simplejwt.tokens import RefreshToken as RestRefreshToken
-from rest_framework_simplejwt.views import TokenObtainPairView, TokenBlacklistView
+from rest_framework_simplejwt.views import TokenObtainPairView, TokenBlacklistView, TokenRefreshView
 from rest_framework_simplejwt.token_blacklist.models import BlacklistedToken, OutstandingToken
 from account.api.serializers import UserSerializer, PhoneNumberSerializer
-from account.models import User, Verify, PhoneNumber, RefreshToken
+from account.models import User, Verify, PhoneNumber, RefreshToken, TokenMapping
 from utils.constants import user_type, status
+from utils.env import TOKEN_LT
 from utils.helpers import phone_validate
 
 
@@ -53,7 +56,11 @@ class CustomTokenObtainPairSerializer(TokenObtainPairSerializer):
                     deactivate_token.blacklist()
                 except TokenError:
                     print("Ok here")
-            token_save = RefreshToken.objects.create(user=user, phone_number=phone, refresh_token=str(token), status="active")
+            try:
+                refresh_token = token['refresh']
+            except KeyError:
+                refresh_token = token
+            token_save = RefreshToken.objects.create(user=user, phone_number=phone, refresh_token=str(refresh_token), status="active")
 
         serializer = UserSerializer(user)
         phone_numbers = user.phone_numbers.all()
@@ -65,9 +72,17 @@ class CustomTokenObtainPairSerializer(TokenObtainPairSerializer):
             'phone_number': phone_number_serializer.data,
         }
         token['user_id'] = user.id
+        access_token = token.access_token
+
+        TokenMapping.objects.create(
+            user=user,
+            refresh_jti=token['jti'],  # JTI of refresh token
+            access_jti=access_token['jti'],  # JTI of access token
+            expired_at=datetime.now() + timedelta(hours=int(TOKEN_LT))  # Thời gian hết hạn của access token
+        )
         response = {
             'refresh': str(token),
-            'access': str(token.access_token),
+            'access': str(access_token),
             'user': serializer.data
         }
         if user.user_type == 'client':
@@ -79,6 +94,30 @@ class CustomTokenObtainPairSerializer(TokenObtainPairSerializer):
 
 class CustomTokenObtainPairView(TokenObtainPairView):
     serializer_class = CustomTokenObtainPairSerializer
+
+
+class CustomTokenRefreshSerializer(TokenRefreshSerializer):
+    def validate(self, attrs):
+        refresh = attrs['refresh']
+        refresh_token = RestRefreshToken(str(refresh))
+
+        data = super().validate(attrs)
+        access_token = refresh_token.access_token
+
+        # Lưu jti của tokens vào bảng TokenMapping
+        TokenMapping.objects.create(
+            user=User.objects.get(id=refresh_token['user_id']),
+            refresh_jti=refresh_token['jti'],
+            access_jti=access_token['jti'],
+            expired_at=datetime.now() + timedelta(hours=int(TOKEN_LT))  # Thời gian hết hạn của access token
+        )
+
+        data['access'] = str(access_token)
+        return data
+
+
+class CustomTokenRefreshView(TokenRefreshView):
+    serializer_class = CustomTokenRefreshSerializer
 
 
 class ContentTypeSerializer(serializers.ModelSerializer):

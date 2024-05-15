@@ -158,6 +158,14 @@ class RefreshToken(models.Model):
         super().save(*args, **kwargs)
 
 
+class TokenMapping(models.Model):
+    user = models.ForeignKey(User, null=True, on_delete=models.CASCADE)
+    refresh_jti = models.CharField(max_length=255)
+    access_jti = models.CharField(max_length=255)
+    expired_at = models.DateTimeField(null=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+
+
 class Verify(models.Model):
     user = models.ForeignKey(User, on_delete=models.CASCADE, related_name='verify')
     phone_verify = models.ForeignKey(PhoneNumber, max_length=24, null=True, related_name='phone_numbers',

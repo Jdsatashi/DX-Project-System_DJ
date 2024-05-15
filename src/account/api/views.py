@@ -18,7 +18,7 @@ from rest_framework_simplejwt.tokens import RefreshToken as RestRefreshToken, Ac
 
 from account.api.serializers import UserSerializer, RegisterSerializer, response_verify_code, UserUpdateSerializer
 from account.handlers.validate_perm import ValidatePermRest
-from account.models import User, Verify, PhoneNumber, RefreshToken
+from account.models import User, Verify, PhoneNumber, RefreshToken, TokenMapping
 from app.api_routes.handlers import get_token_for_user, remove_token_blacklist
 from marketing.price_list.models import PriceList, PointOfSeason
 from utils.constants import status as user_status, maNhomND
@@ -124,17 +124,24 @@ def otp_verify(request, pk):
                 token_obj.save()
                 _token = RestRefreshToken(token_obj.refresh_token)
                 _token.blacklist()
+            try:
+                refresh_token = token['refresh']
+            except TokenError:
+                print(TokenError)
+                refresh_token = token
+            print(f"Test refresh token: {str(refresh_token)}")
+            access_token = create_access_token_from_refresh(str(refresh_token))
             # Create new and save active token
             ref_token = RefreshToken.objects.create(user=verify.user, phone_number=phone,
-                                                    refresh_token=str(token['refresh']), status="active")
+                                                    refresh_token=str(refresh_token), status="active")
             verify.refresh_token = ref_token
             verify.save()
             # Add response data
             serializer = UserSerializer(verify.user)
             response = {'message': 'Successful verify phone number', 'user': serializer.data, 'phone_number': pk,
                         'token': {
-                            'refresh': str(token['refresh']),
-                            'access': str(token['access'])
+                            'refresh': str(refresh_token),
+                            'access': str(access_token)
                         }}
             return Response(response, status=status.HTTP_200_OK)
         print("OTP code is expired")
@@ -175,6 +182,16 @@ def phone_login(request):
 
         user = phone.user
         if refresh_token:
+            # Deactivate old Token
+            old_token = RefreshToken.objects.filter(user=user, phone_number=phone, status="active")
+            if old_token.exists() and old_token.first().refresh_token != refresh_token:
+                try:
+                    deactive_token = old_token.first()
+                    deactivate_token = RestRefreshToken(deactive_token.refresh_token)
+                    deactivate_token.blacklist()
+                except TokenError:
+                    print("Ok here")
+            # Get current token if exist
             ref_token = RefreshToken.objects.filter(refresh_token=refresh_token, phone_number=phone)
             if ref_token.exists():
                 print("test 1")
@@ -185,7 +202,7 @@ def phone_login(request):
                     current_token.status = "active"
                     current_token.save()
                 try:
-                    new_token = get_token_from_refresh(refresh_token)
+                    new_token = create_access_token_from_refresh(refresh_token)
                 except TokenError:
                     return Response({'message': 'Phiên đăng nhập đã hết hạn, vui lòng đăng nhập lại'}, status.HTTP_400_BAD_REQUEST)
                 return Response({'refresh': refresh_token, 'access': new_token}, status.HTTP_200_OK)
@@ -310,3 +327,16 @@ def call_api_register(phone_number):
 def get_token_from_refresh(refresh_token):
     token = RestRefreshToken(refresh_token)
     return str(token.access_token)
+
+
+def create_access_token_from_refresh(refresh_token_str):
+    refresh_token = RestRefreshToken(refresh_token_str)
+    access_token = refresh_token.access_token
+    user = User.objects.get(id=refresh_token['user_id'])
+    TokenMapping.objects.create(
+        user=user,
+        access_jti=access_token['jti'],
+        refresh_jti=refresh_token['jti']
+    )
+
+    return str(access_token)
