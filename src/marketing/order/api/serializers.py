@@ -2,7 +2,7 @@ from rest_framework import serializers
 
 from account.handlers.restrict_serializer import BaseRestrictSerializer
 from marketing.order.models import Order, OrderDetail
-from marketing.price_list.models import ProductPrice
+from marketing.price_list.models import ProductPrice, PointOfSeason
 
 
 class OrderDetailSerializer(BaseRestrictSerializer):
@@ -54,6 +54,12 @@ class OrderSerializer(BaseRestrictSerializer):
         order.order_point = total_point
         order.order_price = total_price
         order.save()
+
+        point_of_season, created = PointOfSeason.objects.get_or_create(price_list=order.price_list_id, user=order.client_id)
+        point_of_season.point = (point_of_season.point or 0) + total_point
+        point_of_season.total_point = (point_of_season.total_point or 0) + total_point
+        point_of_season.save()
+
         restrict = perm_data.get('restrict')
         if restrict:
             self.handle_restrict(perm_data, order.id, self.Meta.model)

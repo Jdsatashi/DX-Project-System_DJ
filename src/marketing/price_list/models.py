@@ -55,36 +55,30 @@ class PointOfSeason(models.Model):
     bonus_point = models.FloatField(null=True, blank=True, default=0)
     redundant = models.FloatField(null=True, blank=True, default=0)
 
-    def save(self, *args, **kwargs):
-        if not self.pk:
-            pl = self.price_list
-            user = self.user
-            print(f"I think error from here")
-            if not PointOfSeason.objects.filter(price_list=pl, user=user).exists():
-                Order = apps.get_model('order', 'Order')
-                OrderDetail = apps.get_model('order', 'OrderDetail')
-                user_orders = Order.objects.filter(client_id=user, price_list_id=pl)
-                order_details = OrderDetail.objects.filter(order_id__in=user_orders)
-                point = 0
-                total_point = 0
-                for order_detail in order_details:
-                    # if order_detail.point_get == 0:
-                    product = order_detail.product_id
-                    product_price = ProductPrice.objects.get(price_list=pl, product=product)
-                    quantity = order_detail.order_quantity
-                    if product_price.point is not None or product_price.point != 0:
-                        order_point = product_price.point * (quantity / product_price.quantity_in_box)
+    def auto_point(self, pl, user):
+        if not PointOfSeason.objects.filter(price_list=pl, user=user).exists():
+            Order = apps.get_model('order', 'Order')
+            OrderDetail = apps.get_model('order', 'OrderDetail')
+            user_orders = Order.objects.filter(client_id=user, price_list_id=pl)
+            order_details = OrderDetail.objects.filter(order_id__in=user_orders)
+            point = 0
+            total_point = 0
+            for order_detail in order_details:
+                # if order_detail.point_get == 0:
+                product = order_detail.product_id
+                product_price = ProductPrice.objects.get(price_list=pl, product=product)
+                quantity = order_detail.order_quantity
+                if product_price.point is not None or product_price.point != 0:
+                    order_point = product_price.point * (quantity / product_price.quantity_in_box)
 
-                        if order_detail.point_get == 0 or order_detail.point_get is None:
-                            order_detail.point_get = order_point
-                            order_detail.save()
-                        if order_detail.product_price == 0 or order_detail.product_price is None:
-                            order_detail.product_price = float(quantity) * float(product_price.price)
-                            order_detail.save()
-                        point += order_point
-                        total_point += order_point
+                    if order_detail.point_get == 0 or order_detail.point_get is None:
+                        order_detail.point_get = order_point
+                        order_detail.save()
+                    if order_detail.product_price == 0 or order_detail.product_price is None:
+                        order_detail.product_price = float(quantity) * float(product_price.price)
+                        order_detail.save()
+                    point += order_point
+                    total_point += order_point
 
-                self.point = point
-                self.total_point = total_point
-
-        return super().save(*args, **kwargs)
+            self.point = point
+            self.total_point = total_point

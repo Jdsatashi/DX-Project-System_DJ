@@ -58,6 +58,12 @@ class Order(models.Model):
             _id = f"{start_char}{two_digit_year}{two_digit_month}{i:05d}"
             self.id = _id
             print(f"Complete create pk: {time.time() - start_time}")
+        order_details = self.order_detail.all()
+        for detail in order_details:
+            if detail.point_get != 0 and detail.point_get is not None:
+                self.order_point += detail.point_get
+            if detail.product_price:
+                self.order_price += detail.product_price
         if self.order_point:
             self.order_point = round(self.order_point, 5)
         if self.order_price:
