@@ -281,7 +281,7 @@ def check_token(request):
         if not access_token:
             return Response({'error': 'No token provided'}, status=status.HTTP_400_BAD_REQUEST)
         try:
-            token = AccessToken(access_token)
+            token = AccessToken(str(access_token))
             print(f"Decode token: {token['user_id']}")
             user = get_user_model().objects.get(id=token['user_id'])
             print(f"Test exp: {token.check_exp()}")
@@ -300,8 +300,8 @@ def check_token(request):
                 return Response({'error': 'Token expired'}, status=status.HTTP_401_UNAUTHORIZED)
 
         except Exception as e:
-            raise e
-            # return Response({'error': 'Invalid token', 'details': str(e)}, status=status.HTTP_401_UNAUTHORIZED)
+            # raise e
+            return Response({'error': 'Invalid token or Token was expired', 'details': str(e)}, status=status.HTTP_401_UNAUTHORIZED)
     return Response({'message': 'GET method not supported'}, status=status.HTTP_405_METHOD_NOT_ALLOWED)
 
 
