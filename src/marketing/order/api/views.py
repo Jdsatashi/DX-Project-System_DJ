@@ -65,6 +65,15 @@ class ProductStatisticsView(APIView):
 
             statistics_list = [{"product_id": k, "data": v} for k, v in statistics.items()]
 
+            if int(limit) == 0:
+                serializer = ProductStatisticsSerializer(statistics_list, many=True)
+                response_data = {
+                    'data': serializer.data,
+                    'total_page': 1,
+                    'current_page': 1
+                }
+                return Response(response_data, status=status.HTTP_200_OK)
+
             # Paginate data
             paginator = Paginator(statistics_list, limit)
             page_obj = paginator.get_page(page)
@@ -145,7 +154,7 @@ def get_product_statistics_2(user, start_date_1, end_date_1, start_date_2, end_d
     for detail in details_1:
         product_id = detail['product_id']
         combined_results[product_id] = {
-            f"{start_date_1.date()} - {end_date_1.date()}": {
+            f"current": {
                 "price": detail['total_price'],
                 "point": detail['total_point'],
                 "quantity": detail['total_quantity']
@@ -156,7 +165,7 @@ def get_product_statistics_2(user, start_date_1, end_date_1, start_date_2, end_d
         product_id = detail['product_id']
         if product_id not in combined_results:
             combined_results[product_id] = {}
-        combined_results[product_id][f"{start_date_2.date()} - {end_date_2.date()}"] = {
+        combined_results[product_id][f"one_year_ago"] = {
             "price": detail['total_price'],
             "point": detail['total_point'],
             "quantity": detail['total_quantity']
