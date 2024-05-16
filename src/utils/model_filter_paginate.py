@@ -82,11 +82,13 @@ def filter_data(self, request, query_fields, **kwargs):
     # If has next page, add urls to response data
     if page_obj.has_next():
         next_page = request.build_absolute_uri(
-            '?page={}&limit={}&query={}'.format(page_obj.next_page_number(), limit, query))
+            '?page={}&limit={}&query={}&order_by={}&from_date={}&to_date={}'.format(
+                page_obj.next_page_number(), limit, query, order_by, from_date, to_date))
         response_data['next_page'] = next_page
     # If has previous page, add urls to response data
     if page_obj.has_previous():
         prev_page = request.build_absolute_uri(
-            '?page={}&limit={}&query={}'.format(page_obj.previous_page_number(), limit, query))
+            '?page={}&limit={}&query={}&order_by={}&from_date={}&to_date={}'.format(
+                page_obj.previous_page_number(), limit, query, order_by, from_date, to_date))
         response_data['prev_page'] = prev_page
     return response_data
