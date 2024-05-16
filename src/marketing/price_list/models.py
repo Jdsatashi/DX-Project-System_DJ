@@ -82,3 +82,33 @@ class PointOfSeason(models.Model):
 
             self.point = point
             self.total_point = total_point
+
+
+class SpecialOffer(models.Model):
+    id = models.CharField(max_length=64,  primary_key=True)
+    name = models.CharField(max_length=255)
+    date_start = models.DateField()
+    date_end = models.DateField()
+
+    price_list = models.ForeignKey(PriceList, null=True, on_delete=models.CASCADE)
+    client_id = models.ForeignKey(User, null=True, on_delete=models.CASCADE)
+    product = models.ManyToManyField(Product, through='SpecialOfferProduct')
+
+    target = models.BigIntegerField(null=False, default=0)
+    quantity_can_use = models.FloatField(null=True)
+    box_can_use = models.IntegerField(null=True)
+
+    status = models.CharField(null=True, max_length=24)
+    note = models.CharField(null=True, max_length=255)
+
+    created_by = models.CharField(max_length=64, null=True, blank=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+
+class SpecialOfferProduct(models.Model):
+    id = models.CharField(max_length=64,  primary_key=True)
+    special_offer = models.ForeignKey(SpecialOffer, on_delete=models.CASCADE)
+    product = models.ForeignKey(Product, on_delete=models.CASCADE)
+    price = models.DecimalField(max_digits=10, decimal_places=2)
+    quantity = models.IntegerField(default=0)
