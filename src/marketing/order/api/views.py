@@ -63,7 +63,7 @@ class ProductStatisticsView(APIView):
             # Data set for statistic
             statistics = get_product_statistics_2(user, start_date_1, end_date_1, start_date_2, end_date_2)
 
-            statistics_list = [{"product_id": k, "data": v} for k, v in statistics.items()]
+            statistics_list = [{"product_id": k, **v} for k, v in statistics.items()]
 
             if int(limit) == 0:
                 serializer = ProductStatisticsSerializer(statistics_list, many=True)
