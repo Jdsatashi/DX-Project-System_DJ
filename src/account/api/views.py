@@ -175,6 +175,7 @@ def phone_login_2(request):
         refresh_token = request.data.get('refresh_token', None)
         if phone_number is None:
             return Response({'message': 'Bạn cần nhập số điện thoại'}, status=status.HTTP_400_BAD_REQUEST)
+        app_log.debug(f"Check token: {refresh_token}")
         # Trying get Phone if exist
         try:
             phone = PhoneNumber.objects.get(phone_number=phone_number)
