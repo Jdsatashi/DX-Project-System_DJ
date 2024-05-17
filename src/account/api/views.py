@@ -20,6 +20,7 @@ from account.api.serializers import UserSerializer, RegisterSerializer, response
 from account.handlers.validate_perm import ValidatePermRest
 from account.models import User, Verify, PhoneNumber, RefreshToken, TokenMapping
 from app.api_routes.handlers import get_token_for_user, remove_token_blacklist
+from app.logs import app_log
 from marketing.price_list.models import PriceList, PointOfSeason
 from utils.constants import status as user_status, maNhomND
 from utils.helpers import generate_digits_code, generate_id, phone_validate
@@ -200,14 +201,13 @@ def phone_login(request):
             ref_token = RefreshToken.objects.filter(refresh_token=refresh_token, phone_number=phone)
             if ref_token.exists():
                 # If token input is deactivate case
-                if ref_token.first().status == "deactivate":
-                    print("Here test 3")
-                    # Remove token from blacklist
-                    remove_token_blacklist(refresh_token)
-                    # Set token is active
-                    current_token = ref_token.first()
-                    current_token.status = "active"
-                    current_token.save()
+                print("Here test 3")
+                # Remove token from blacklist
+                remove_token_blacklist(refresh_token)
+                # Set token is active
+                current_token = ref_token.first()
+                current_token.status = "active"
+                current_token.save()
                 # Get new access token
                 try:
                     new_token = create_access_token_from_refresh(refresh_token)
@@ -287,6 +287,7 @@ def check_token(request):
             print(f"Decode token: {token['user_id']}")
             user = get_user_model().objects.get(id=token['user_id'])
             print(f"Test exp: {token.check_exp()}")
+            app_log.info(f"Access token of user {user.id}: {access_token}")
             current_time = timezone.now()
             expiration_time = datetime.datetime.fromtimestamp(token['exp'], pytz.UTC)
             if current_time < expiration_time:
