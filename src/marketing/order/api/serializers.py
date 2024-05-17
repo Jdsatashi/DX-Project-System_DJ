@@ -7,9 +7,11 @@ from marketing.price_list.models import ProductPrice
 
 
 class OrderDetailSerializer(BaseRestrictSerializer):
+    product_name = serializers.CharField(source='product_id.name')
+
     class Meta:
         model = OrderDetail
-        fields = ['product_id', 'order_quantity', 'order_box', 'product_price', 'point_get']
+        fields = ['product_id', 'product_name', 'order_quantity', 'order_box', 'product_price', 'point_get']
 
 
 class OrderSerializer(BaseRestrictSerializer):
@@ -53,8 +55,6 @@ class OrderSerializer(BaseRestrictSerializer):
             total_point += point
             total_price += prices
         # Create perm for data
-        print(f"point of this order: {total_point}")
-        print(f"Price of this order: {total_price}")
         order.order_point = total_point
         order.order_price = total_price
         order.save()
