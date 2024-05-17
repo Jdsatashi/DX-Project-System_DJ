@@ -142,18 +142,20 @@ class RefreshToken(models.Model):
 
     def save(self, *args, **kwargs):
         if self.status == "active":
+            now = timezone.now()
+            time_threshold = now - datetime.timedelta(hours=24)
             RefreshToken.objects.filter(
-                phone_number=self.phone_number,
-                status="active"
+                user=self.user,
+                status="expired",
+                updated_at__lt=time_threshold
+            ).exclude(
+                id=self.id
+            ).delete()
+            RefreshToken.objects.filter(
+                user=self.user,
             ).exclude(
                 id=self.id
             ).update(status="expired")
-            RefreshToken.objects.filter(
-                user=self.user,
-                status="active"
-            ).exclude(
-                id=self.id
-            ).update(status="deactivate")
 
         super().save(*args, **kwargs)
 
@@ -164,6 +166,12 @@ class TokenMapping(models.Model):
     access_jti = models.CharField(max_length=255)
     expired_at = models.DateTimeField(null=True)
     created_at = models.DateTimeField(auto_now_add=True)
+
+    def save(self, *args, **kwargs):
+        refresh_id = TokenMapping.objects.filter(refresh_jti=self.refresh_jti)
+        if refresh_id.exists():
+            refresh_id.exclude(access_jti=self.access_jti).delete()
+        super().save(*args, **kwargs)
 
 
 class Verify(models.Model):
@@ -258,3 +266,19 @@ class UserGroupPerm(models.Model):
 
     class Meta:
         db_table = 'users_user_group_perm'
+
+
+"""
+RefreshToken.objects.filter(
+    phone_number=self.phone_number,
+    status="active"
+).exclude(
+    id=self.id
+).update(status="expired")
+RefreshToken.objects.filter(
+    user=self.user,
+    status="active"
+).exclude(
+    id=self.id
+).update(status="deactivate")
+"""

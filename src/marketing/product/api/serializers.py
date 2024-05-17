@@ -1,6 +1,7 @@
 from rest_framework import serializers
 
 from account.handlers.restrict_serializer import BaseRestrictSerializer
+from marketing.company.models import Company
 from marketing.product.models import ProductCategory, RegistrationUnit, Producer, RegistrationCert, ProductType, \
     Product, CategoryDetail, UseObject, UseFor
 from system.file_upload.api.serializers import FileProductCateViewSerializer, \
@@ -31,6 +32,12 @@ class ProducerSerializer(serializers.ModelSerializer):
     class Meta:
         model = Producer
         fields = '__all__'
+
+
+class ProductCompanySerializer(serializers.ModelSerializer):
+    class Meta:
+        model = Company
+        fields = ['name']
 
 
 class RegistrationCertSerializer(serializers.ModelSerializer):
@@ -82,6 +89,7 @@ class RegistrationCertSerializer(serializers.ModelSerializer):
 class ProductCateSerializer(BaseRestrictSerializer):
     registration = RegistrationCertSerializer()
     product_type = ViewProductTypeSerializer()
+    company = serializers.CharField(source='company.name')
 
     class Meta:
         model = ProductCategory

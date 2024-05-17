@@ -42,6 +42,11 @@ class CustomTokenObtainPairSerializer(TokenObtainPairSerializer):
 
         # Generate token
         token = super().get_token(user)
+        try:
+            refresh_token = token['refresh']
+        except KeyError:
+            refresh_token = token
+
         # Handle with phone_number
         if is_phone:
             phone = PhoneNumber.objects.get(phone_number=username)
@@ -52,26 +57,17 @@ class CustomTokenObtainPairSerializer(TokenObtainPairSerializer):
             if old_token.exists():
                 try:
                     deactive_token = old_token.first()
+                    # Set token expired
+                    deactive_token.status = "expired"
+                    deactive_token.save()
                     deactivate_token = RestRefreshToken(deactive_token.refresh_token)
                     deactivate_token.blacklist()
                 except TokenError:
-                    print("Ok here")
-            try:
-                refresh_token = token['refresh']
-            except KeyError:
-                refresh_token = token
+                    print("Token error")
             token_save = RefreshToken.objects.create(user=user, phone_number=phone, refresh_token=str(refresh_token), status="active")
 
         serializer = UserSerializer(user)
-        phone_numbers = user.phone_numbers.all()
-        phone_number_serializer = PhoneNumberSerializer(phone_numbers, many=True)
         # Add custom data to token payload
-        token['user'] = {
-            'user_id': user.id,
-            'email': user.email,
-            'phone_number': phone_number_serializer.data,
-        }
-        token['user_id'] = user.id
         access_token = token.access_token
 
         TokenMapping.objects.create(
@@ -81,12 +77,11 @@ class CustomTokenObtainPairSerializer(TokenObtainPairSerializer):
             expired_at=datetime.now() + timedelta(hours=int(TOKEN_LT))  # Thời gian hết hạn của access token
         )
         response = {
-            'refresh': str(token),
+            'refresh': str(refresh_token),
             'access': str(access_token),
             'user': serializer.data
         }
         if user.user_type == 'client':
-            print(username)
             phone = PhoneNumber.objects.get(phone_number=username)
             response['phone_number'] = PhoneNumberSerializer(phone).data
         return response

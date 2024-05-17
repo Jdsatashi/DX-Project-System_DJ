@@ -121,7 +121,7 @@ def otp_verify(request, pk):
             # Update deactivate other activate token
             if active_token.exists():
                 token_obj = active_token.first()
-                token_obj.status = "deactivate"
+                token_obj.status = "expired"
                 token_obj.save()
                 _token = RestRefreshToken(token_obj.refresh_token)
                 _token.blacklist()
@@ -169,7 +169,7 @@ def otp_verify(request, pk):
     }
 )
 @api_view(['POST'])
-def phone_login(request):
+def phone_login_2(request):
     if request.method == 'POST':
         phone_number = request.data.get('phone_number', None)
         refresh_token = request.data.get('refresh_token', None)
@@ -184,48 +184,33 @@ def phone_login(request):
             return Response(response_data)
         # Get user from phone object
         user = phone.user
-        # If json data has refresh token
         if refresh_token:
-            # Deactivate old Token
-            old_token = RefreshToken.objects.filter(user=user, phone_number=phone, status="active")
-            if old_token.exists() and old_token.first().refresh_token != refresh_token:
-                try:
-                    # Get first Token object
-                    deactive_token = old_token.first()
-                    # Deactivate this resfesh token
-                    deactivate_token = RestRefreshToken(deactive_token.refresh_token)
-                    deactivate_token.blacklist()
-                except TokenError:
-                    print("Ok here")
-            # Get current token if exist
-            ref_token = RefreshToken.objects.filter(refresh_token=refresh_token, phone_number=phone)
-            if ref_token.exists():
-                # If token input is deactivate case
-                print("Here test 3")
-                # Remove token from blacklist
-                remove_token_blacklist(refresh_token)
-                # Set token is active
-                current_token = ref_token.first()
-                current_token.status = "active"
-                current_token.save()
-                # Get new access token
-                try:
-                    new_token = create_access_token_from_refresh(refresh_token)
-                except TokenError:
-                    # If get new token error, refresh_token error
-                    return Response({'message': 'Phiên đăng nhập đã hết hạn, vui lòng đăng nhập lại'}, status.HTTP_400_BAD_REQUEST)
-                # Return token when not error
-                return Response({'refresh': refresh_token, 'access': new_token}, status.HTTP_200_OK)
-            # If not found token return 404
-            return Response({'message': 'Token không tồn tại'}, status.HTTP_404_NOT_FOUND)
+            # Find old token
+            old_token = RefreshToken.objects.filter(user=user, phone_number=phone, status="active").exclude(refresh_token=refresh_token)
+            print(f"Test old token: {old_token}")
+            if old_token.exists():
+                print("Deactivate token")
+                token = old_token.first()
+                token_str = token.refresh_token
+                # Set token expired
+                token.status = "expired"
+                token.save()
+                deactivate_token = RestRefreshToken(token_str)
+                deactivate_token.blacklist()
+            # Get new token
+            try:
+                new_token = create_access_token_from_refresh(refresh_token)
+            except TokenError:
+                # If get new token error, refresh_token error
+                return Response({'message': 'Phiên đăng nhập đã hết hạn, vui lòng đăng nhập lại'}, status=status.HTTP_401_UNAUTHORIZED)
+            # Return token when not error
+            return Response({'refresh': refresh_token, 'access': new_token}, status.HTTP_200_OK)
         else:
-            print("test 2")
             verify_code = generate_digits_code()
             new_verify = Verify.objects.create(user=user, phone_verify=phone, verify_code=verify_code,
                                                verify_type="SMS OTP")
             response = response_verify_code(new_verify)
             return Response(response, status.HTTP_200_OK)
-    return Response({'message': 'GET method not supported'}, status=status.HTTP_405_METHOD_NOT_ALLOWED)
 
 
 @extend_schema(
@@ -356,3 +341,83 @@ def create_access_token_from_refresh(refresh_token_str):
     )
 
     return str(access_token)
+
+
+
+"""
+@extend_schema(
+    methods=['POST'],
+    description='Đăng ký SĐT, nếu SĐT đã tồn tại thì gửi OTP cho user.'
+                'Nếu SĐT chưa xác thực sẽ gửi mã OTP cho user.'
+                'Nếu SĐT đã xác thực và có refresh_token thì sẽ response access_token mới',
+    request={
+        'application/json': {
+            'example': {
+                'phone_number': '0123456789',
+                'refresh_token': 'your_access_token_here'
+            }
+        }
+    },
+    responses={
+        200: "Success",
+    }
+)
+@api_view(['POST'])
+def phone_login(request):
+    if request.method == 'POST':
+        phone_number = request.data.get('phone_number', None)
+        refresh_token = request.data.get('refresh_token', None)
+        if phone_number is None:
+            return Response({'message': 'Bạn cần nhập số điện thoại'}, status=status.HTTP_400_BAD_REQUEST)
+        # Trying get Phone if exist
+        try:
+            phone = PhoneNumber.objects.get(phone_number=phone_number)
+        # When not exist, register this phone number
+        except PhoneNumber.DoesNotExist:
+            response_data = call_api_register(phone_number)
+            return Response(response_data)
+        # Get user from phone object
+        user = phone.user
+        # If json data has refresh token
+        if refresh_token:
+            # Deactivate Token was sign for User
+            old_token = RefreshToken.objects.filter(user=user, phone_number=phone, status="active").exclude(refresh_token=refresh_token)
+            if old_token.exists():
+                try:
+                    # Get first Token object
+                    deactive_token = old_token.first()
+                    deactive_token.status = "expired"
+                    deactive_token.save()
+                    # Deactivate this resfesh token
+                    deactivate_token = RestRefreshToken(deactive_token.refresh_token)
+                    deactivate_token.blacklist()
+                except TokenError:
+                    print("Ok here")
+            # Get current token if exist
+            ref_token = RefreshToken.objects.filter(refresh_token=refresh_token, phone_number=phone)
+            if ref_token.exists():
+                # Remove token from blacklist
+                remove_token_blacklist(refresh_token)
+                # Set token is active
+                current_token = ref_token.first()
+                current_token.status = "active"
+                current_token.save()
+                # Get new access token
+            try:
+                new_token = create_access_token_from_refresh(refresh_token)
+            except TokenError:
+                # If get new token error, refresh_token error
+                return Response({'message': 'Phiên đăng nhập đã hết hạn, vui lòng đăng nhập lại'}, status.HTTP_401_BAD_REQUEST)
+            # Return token when not error
+            return Response({'refresh': refresh_token, 'access': new_token}, status.HTTP_200_OK)
+            # If not found token return 404
+            # return Response({'message': 'Token không tồn tại'}, status.HTTP_404_NOT_FOUND)
+        else:
+            print("test 2")
+            verify_code = generate_digits_code()
+            new_verify = Verify.objects.create(user=user, phone_verify=phone, verify_code=verify_code,
+                                               verify_type="SMS OTP")
+            response = response_verify_code(new_verify)
+            return Response(response, status.HTTP_200_OK)
+    return Response({'message': 'GET method not supported'}, status=status.HTTP_405_METHOD_NOT_ALLOWED)
+"""
