@@ -37,7 +37,7 @@ class ProducerSerializer(serializers.ModelSerializer):
 class ProductCompanySerializer(serializers.ModelSerializer):
     class Meta:
         model = Company
-        fields = ['name']
+        fields = ['id', 'name']
 
 
 class RegistrationCertSerializer(serializers.ModelSerializer):
@@ -89,7 +89,7 @@ class RegistrationCertSerializer(serializers.ModelSerializer):
 class ProductCateSerializer(BaseRestrictSerializer):
     registration = RegistrationCertSerializer()
     product_type = ViewProductTypeSerializer()
-    company = serializers.CharField(source='company.name')
+    company = ProductCompanySerializer()
 
     class Meta:
         model = ProductCategory
