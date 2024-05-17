@@ -277,9 +277,11 @@ def logout(request):
 @api_view(['POST'])
 def check_token(request):
     if request.method == 'POST':
-        access_token = request.data.get('access_token', None)
-        if not access_token:
-            return Response({'error': 'No token provided'}, status=status.HTTP_400_BAD_REQUEST)
+        auth_header = request.headers.get('Authorization')
+        if auth_header and auth_header.startswith('Bearer '):
+            access_token = auth_header.split(' ')[1]
+        else:
+            return Response({"error": "Access token not provided"}, status=status.HTTP_400_BAD_REQUEST)
         try:
             token = AccessToken(str(access_token))
             print(f"Decode token: {token['user_id']}")
