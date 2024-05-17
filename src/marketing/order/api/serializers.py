@@ -129,5 +129,6 @@ class OrderSerializer(BaseRestrictSerializer):
 
 class ProductStatisticsSerializer(serializers.Serializer):
     product_id = serializers.CharField()
+    product_name = serializers.CharField()
     current = serializers.DictField(required=False)
     one_year_ago = serializers.DictField(required=False)

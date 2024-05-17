@@ -117,7 +117,7 @@ def get_product_statistics(user, start_date, end_date):
     # Lấy tất cả OrderDetail liên quan đến các Order đã lọc
     return OrderDetail.objects.filter(
         order_id__in=orders
-    ).values('product_id').annotate(
+    ).values('product_id', 'product_id__name').annotate(
         total_quantity=Sum('order_quantity'),
         total_point=Sum('point_get'),
         total_price=Sum('product_price')
@@ -137,13 +137,13 @@ def get_product_statistics_2(user, start_date_1, end_date_1, start_date_2, end_d
     orders_2 = Order.objects.filter(client_id=user, created_at__gte=start_date_2, created_at__lte=end_date_2)
 
     # Get order details for each date range
-    details_1 = OrderDetail.objects.filter(order_id__in=orders_1).values('product_id').annotate(
+    details_1 = OrderDetail.objects.filter(order_id__in=orders_1).values('product_id', 'product_id__name').annotate(
         total_quantity=Sum('order_quantity'),
         total_point=Sum('point_get'),
         total_price=Sum('product_price')
     )
 
-    details_2 = OrderDetail.objects.filter(order_id__in=orders_2).values('product_id').annotate(
+    details_2 = OrderDetail.objects.filter(order_id__in=orders_2).values('product_id', 'product_id__name').annotate(
         total_quantity=Sum('order_quantity'),
         total_point=Sum('point_get'),
         total_price=Sum('product_price')
@@ -153,7 +153,10 @@ def get_product_statistics_2(user, start_date_1, end_date_1, start_date_2, end_d
     combined_results = {}
     for detail in details_1:
         product_id = detail['product_id']
+        product_name = detail['product_id__name']
+
         combined_results[product_id] = {
+            "product_name": product_name,
             f"current": {
                 "price": detail['total_price'],
                 "point": detail['total_point'],
@@ -163,9 +166,12 @@ def get_product_statistics_2(user, start_date_1, end_date_1, start_date_2, end_d
 
     for detail in details_2:
         product_id = detail['product_id']
+        product_name = detail['product_id__name']
+
         if product_id not in combined_results:
             combined_results[product_id] = {}
         combined_results[product_id][f"one_year_ago"] = {
+            "product_name": product_name,
             "price": detail['total_price'],
             "point": detail['total_point'],
             "quantity": detail['total_quantity']
