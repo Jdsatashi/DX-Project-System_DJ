@@ -1,3 +1,3 @@
 import logging
 
-acc_log = logging.getLogger('my_app')
+app_log = logging.getLogger('app_log')
