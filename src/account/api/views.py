@@ -185,6 +185,8 @@ def phone_login_2(request):
             return Response(response_data)
         # Get user from phone object
         user = phone.user
+        print(f"Test token: {refresh_token}")
+        app_log.debug(f"Test token: {refresh_token}")
         if refresh_token:
             # Find old token
             old_token = RefreshToken.objects.filter(user=user, phone_number=phone, status="active").exclude(refresh_token=refresh_token)
