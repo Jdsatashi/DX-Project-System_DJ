@@ -144,18 +144,19 @@ class RefreshToken(models.Model):
         if self.status == "active":
             now = timezone.now()
             time_threshold = now - datetime.timedelta(hours=24)
-            RefreshToken.objects.filter(
-                user=self.user,
-                status="expired",
-                updated_at__lt=time_threshold
-            ).exclude(
-                id=self.id
-            ).delete()
-            RefreshToken.objects.filter(
-                user=self.user,
-            ).exclude(
-                id=self.id
-            ).update(status="expired")
+            # RefreshToken.objects.filter(
+            #     user=self.user,
+            #     status="expired",
+            #     updated_at__lt=time_threshold
+            # ).exclude(
+            #     id=self.id
+            # ).delete()
+            # print(f"Model set expired")
+            # RefreshToken.objects.filter(
+            #     user=self.user,
+            # ).exclude(
+            #     id=self.id
+            # ).update(status="expired")
 
         super().save(*args, **kwargs)
 
