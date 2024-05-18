@@ -1,3 +1,5 @@
+from datetime import datetime, timedelta
+
 from django.db import models
 
 from account.models import User, PhoneNumber
@@ -78,3 +80,24 @@ class LiveStreamTracking(models.Model):
     note = models.CharField(max_length=255, null=True)
 
     created_at = models.DateTimeField(auto_now_add=True)
+
+    def save(self, *args, **kwargs):
+        if self.time_join and self.time_leave:
+            # Convert time fields to datetime objects
+            today = datetime.today()
+            join_time = datetime.combine(today, self.time_join)
+            leave_time = datetime.combine(today, self.time_leave)
+
+            # Calculate the difference
+            watch_duration = leave_time - join_time
+
+            # Handle case where time_leave is past midnight
+            if watch_duration < timedelta(0):
+                watch_duration += timedelta(days=1)
+
+            # Convert timedelta to time
+            total_seconds = int(watch_duration.total_seconds())
+            hours, remainder = divmod(total_seconds, 3600)
+            minutes, seconds = divmod(remainder, 60)
+            self.time_watch = datetime.strptime(f'{hours:02}:{minutes:02}:{seconds:02}', '%H:%M:%S').time()
+        super().save(*args, **kwargs)
