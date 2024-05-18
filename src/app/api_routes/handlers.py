@@ -46,6 +46,7 @@ class CustomTokenObtainPairSerializer(TokenObtainPairSerializer):
             refresh_token = token['refresh']
         except KeyError:
             refresh_token = token
+        access_token = token.access_token
 
         # Handle with phone_number
         if is_phone:
@@ -64,11 +65,11 @@ class CustomTokenObtainPairSerializer(TokenObtainPairSerializer):
                     deactivate_token.blacklist()
                 except TokenError:
                     print("Token error")
+            access_token['phone_number'] = phone.phone_number
             token_save = RefreshToken.objects.create(user=user, phone_number=phone, refresh_token=str(refresh_token), status="active")
 
         serializer = UserSerializer(user)
         # Add custom data to token payload
-        access_token = token.access_token
 
         TokenMapping.objects.create(
             user=user,

@@ -131,7 +131,7 @@ def otp_verify(request, pk):
                 print(TokenError)
                 refresh_token = token
             print(f"Test refresh token: {str(refresh_token)}")
-            access_token = create_access_token_from_refresh(str(refresh_token))
+            access_token = create_access_token_from_refresh(str(refresh_token), pk)
             # Create new and save active token
             ref_token = RefreshToken.objects.create(user=verify.user, phone_number=phone,
                                                     refresh_token=str(refresh_token), status="active")
@@ -188,21 +188,9 @@ def phone_login_2(request):
         print(f"Test token: {refresh_token}")
         app_log.debug(f"Test token: {refresh_token}")
         if refresh_token:
-            # Find old token
-            # old_token = RefreshToken.objects.filter(user=user, phone_number=phone, status="active").exclude(refresh_token=refresh_token)
-            # print(f"Test old token: {old_token}")
-            # if old_token.exists():
-            #     print("Deactivate token")
-            #     token = old_token.first()
-            #     token_str = token.refresh_token
-            #     # Set token expired
-            #     token.status = "expired"
-            #     token.save()
-            #     deactivate_token = RestRefreshToken(token_str)
-            #     deactivate_token.blacklist()
             # Get new token
             try:
-                new_token = create_access_token_from_refresh(refresh_token)
+                new_token = create_access_token_from_refresh(refresh_token, phone_number)
             except TokenError:
                 # If get new token error, refresh_token error
                 return Response({'message': 'Phiên đăng nhập đã hết hạn, vui lòng đăng nhập lại'}, status=status.HTTP_401_UNAUTHORIZED)
@@ -333,9 +321,11 @@ def get_token_from_refresh(refresh_token):
     return str(token.access_token)
 
 
-def create_access_token_from_refresh(refresh_token_str):
+def create_access_token_from_refresh(refresh_token_str, phone_number):
     refresh_token = RestRefreshToken(refresh_token_str)
     access_token = refresh_token.access_token
+    access_token['phone_number'] = phone_number
+
     user = User.objects.get(id=refresh_token['user_id'])
     TokenMapping.objects.create(
         user=user,
