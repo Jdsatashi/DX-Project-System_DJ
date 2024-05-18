@@ -7,7 +7,7 @@ from marketing.price_list.models import ProductPrice
 
 
 class OrderDetailSerializer(BaseRestrictSerializer):
-    product_name = serializers.CharField(source='product_id.name')
+    product_name = serializers.CharField(source='product_id.name', read_only=True)
 
     class Meta:
         model = OrderDetail
