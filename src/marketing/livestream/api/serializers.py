@@ -10,13 +10,6 @@ from marketing.livestream.models import LiveStream, LiveStreamComment, LiveStrea
     LiveStreamStatistic, LiveStreamTracking
 
 
-class LiveStreamSerializer(BaseRestrictSerializer):
-    class Meta:
-        model = LiveStream
-        fields = '__all__'
-        read_only_fields = ('id', 'created_at', 'updated_at')
-
-
 class LiveStreamCommentSerializer(BaseRestrictSerializer):
     class Meta:
         model = LiveStreamComment
@@ -64,6 +57,20 @@ class LiveStreamCommentSerializer(BaseRestrictSerializer):
             self.handle_restrict(perm_data, comment_object.id, self.Meta.model)
 
         return comment_object
+
+
+class LiveStreamDetailCommentSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = LiveStreamComment
+        fields = '__all__'
+        read_only_fields = ('id', 'created_at', 'updated_at')
+
+
+class LiveStreamSerializer(BaseRestrictSerializer):
+    class Meta:
+        model = LiveStream
+        fields = '__all__'
+        read_only_fields = ('id', 'created_at', 'updated_at')
 
 
 class LiveProduct(BaseRestrictSerializer):
@@ -153,7 +160,6 @@ class LiveTracking(BaseRestrictSerializer):
         # Get user and phone objects from access token
         try:
             token = AccessToken(access_token)
-            user = User.objects.get(id=token['user_id'])
             phone = PhoneNumber.objects.get(phone_number=token['phone_number'])
         except TokenError:
             return Response({'message': 'Invalid token'}, status=401)

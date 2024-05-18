@@ -2,7 +2,8 @@ from django.urls import path
 from rest_framework.routers import DefaultRouter
 
 from marketing.livestream.api.views import (ApiLiveStream, ApiLiveStreamComment, ApiLiveProduct,
-                                            ApiLiveProductList, ApiLiveStatistic, ApiLiveTracking)
+                                            ApiLiveProductList, ApiLiveStatistic, ApiLiveTracking,
+                                            ApiLiveStreamDetailComment)
 from utils.constants import actions_views, actions_detail
 
 app_name = 'api_livestream'
@@ -14,6 +15,7 @@ router.register('genericview', ApiLiveProduct, basename='api_livestream_product'
 router.register('genericview', ApiLiveProductList, basename='api_livestream_product_list')
 router.register('genericview', ApiLiveStatistic, basename='api_livestream_statistic')
 router.register('genericview', ApiLiveTracking, basename='api_livestream_tracking')
+router.register('genericview', ApiLiveStreamDetailComment, basename='api_livestream_detail_comment')
 
 livestream_views = ApiLiveStream.as_view(actions_views)
 livestream_details = ApiLiveStream.as_view(actions_detail)
@@ -32,10 +34,13 @@ live_details = ApiLiveTracking.as_view(actions_detail)
 
 livestream_comment_views = ApiLiveStreamComment.as_view(actions_views)
 
+livestream_detail_comment = ApiLiveStreamDetailComment.as_view({'get': 'list'})
+
 urlpatterns = [
     path('', livestream_views, name='api_livestream'),
     path('<pk>', livestream_details, name='api_livestream_detail'),
     path('comments/', livestream_comment_views, name='api_livestream_comment'),
+    path('stream-comments/<livestream_id>', livestream_detail_comment, name='api_livestream_detail_comment'),
     path('products/', live_product_views, name='api_livestream_product'),
     path('products/<pk>', live_product_details, name='api_livestream_product_detail'),
     path('products-list/', live_product_list_views, name='api_livestream_product_list'),

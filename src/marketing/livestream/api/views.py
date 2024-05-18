@@ -2,12 +2,13 @@ from functools import partial
 
 from rest_framework import mixins, viewsets, status
 from rest_framework.authentication import BasicAuthentication
+from rest_framework.decorators import api_view
 from rest_framework.response import Response
 from rest_framework_simplejwt.authentication import JWTAuthentication
 
 from account.handlers.validate_perm import ValidatePermRest
 from marketing.livestream.api.serializers import LiveStreamSerializer, LiveStreamCommentSerializer, LiveProduct, \
-    LiveProductList, LiveStatistic, LiveTracking
+    LiveProductList, LiveStatistic, LiveTracking, LiveStreamDetailCommentSerializer
 from marketing.livestream.models import LiveStream, LiveStreamComment, LiveStreamTracking, LiveStreamStatistic, \
     LiveStreamProductList, LiveStreamProduct
 from utils.model_filter_paginate import filter_data
@@ -39,6 +40,20 @@ class ApiLiveStreamComment(viewsets.GenericViewSet, mixins.ListModelMixin, mixin
         response = filter_data(self, request, ['live_stream__title', 'viewers__id', 'comments'],
                                **kwargs)
         return Response(response, status.HTTP_200_OK)
+
+
+class ApiLiveStreamDetailComment(viewsets.GenericViewSet, mixins.ListModelMixin):
+    serializer_class = LiveStreamDetailCommentSerializer
+    queryset = LiveStreamComment.objects.all()
+
+    def list(self, request, *args, **kwargs):
+        livestream_id = self.kwargs.get('livestream_id')
+        if not livestream_id:
+            return Response({'error': 'livestream_id is required'}, status=status.HTTP_400_BAD_REQUEST)
+
+        queryset = self.get_queryset().filter(live_stream_id=livestream_id)
+        response = filter_data(self, request, ['comment', 'user__username', 'user__id', 'phone__phone_number'], queryset=queryset)
+        return Response(response, status=status.HTTP_200_OK)
 
 
 class ApiLiveProduct(viewsets.GenericViewSet, mixins.ListModelMixin, mixins.CreateModelMixin,
