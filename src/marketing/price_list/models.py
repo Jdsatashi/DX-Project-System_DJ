@@ -91,7 +91,6 @@ class SpecialOffer(models.Model):
     date_end = models.DateField()
 
     price_list = models.ForeignKey(PriceList, null=True, on_delete=models.CASCADE)
-    client_id = models.ForeignKey(User, null=True, on_delete=models.CASCADE)
     product = models.ManyToManyField(Product, through='SpecialOfferProduct')
 
     target = models.BigIntegerField(null=False, default=0)
