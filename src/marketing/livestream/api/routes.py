@@ -3,7 +3,7 @@ from rest_framework.routers import DefaultRouter
 
 from marketing.livestream.api.views import (ApiLiveStream, ApiLiveStreamComment, ApiLiveProduct,
                                             ApiLiveProductList, ApiLiveStatistic, ApiLiveTracking,
-                                            ApiLiveStreamDetailComment)
+                                            ApiLiveStreamDetailComment, ApiLiveOrder)
 from utils.constants import actions_views, actions_detail
 
 app_name = 'api_livestream'
@@ -16,6 +16,7 @@ router.register('genericview', ApiLiveProductList, basename='api_livestream_prod
 router.register('genericview', ApiLiveStatistic, basename='api_livestream_statistic')
 router.register('genericview', ApiLiveTracking, basename='api_livestream_tracking')
 router.register('genericview', ApiLiveStreamDetailComment, basename='api_livestream_detail_comment')
+router.register('genericview', ApiLiveOrder, basename='api_livestream_order')
 
 livestream_views = ApiLiveStream.as_view(actions_views)
 livestream_details = ApiLiveStream.as_view(actions_detail)
@@ -31,6 +32,9 @@ live_statistic_details = ApiLiveStatistic.as_view(actions_detail)
 
 live_views = ApiLiveTracking.as_view(actions_views)
 live_details = ApiLiveTracking.as_view(actions_detail)
+
+live_order_views = ApiLiveOrder.as_view(actions_views)
+live_order_details = ApiLiveOrder.as_view(actions_detail)
 
 livestream_comment_views = ApiLiveStreamComment.as_view(actions_views)
 
@@ -49,4 +53,6 @@ urlpatterns = [
     path('statistic/<pk>', live_statistic_details, name='api_livestream_statistic_detail'),
     path('tracking/', live_views, name='api_livestream_tracking'),
     path('tracking/<pk>', live_details, name='api_livestream_tracking_detail'),
+    path('orders/', live_order_views, name='api_livestream_tracking'),
+    path('orders/<pk>', live_order_details, name='api_livestream_tracking_detail'),
 ]

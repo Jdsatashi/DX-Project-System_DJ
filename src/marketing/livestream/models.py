@@ -101,3 +101,29 @@ class LiveStreamTracking(models.Model):
             minutes, seconds = divmod(remainder, 60)
             self.time_watch = datetime.strptime(f'{hours:02}:{minutes:02}:{seconds:02}', '%H:%M:%S').time()
         super().save(*args, **kwargs)
+
+
+class OrderLiveProduct(models.Model):
+    livestream_product_list = models.ForeignKey(LiveStreamProductList, on_delete=models.CASCADE)
+    phone = models.ForeignKey(PhoneNumber, on_delete=models.CASCADE)
+
+    note = models.CharField(max_length=255, null=True)
+
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+
+class OrderLiveProductDetails(models.Model):
+    order_id = models.ForeignKey(OrderLiveProduct, on_delete=models.CASCADE)
+    product = models.ForeignKey(Product, on_delete=models.CASCADE)
+    quantity = models.IntegerField(default=1)
+    product_price = models.BigIntegerField(default=0)
+    point_get = models.FloatField(null=True, default=0)
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    def save(self, *args, **kwargs):
+        product_list = self.order_id.livestream_product_list
+        product = self.product
+        if not LiveStreamProduct.objects.filter(livestream_product_list=product_list, product=product).exists():
+            raise ValueError({'product': 'Product not in LiveStreamProductList'})
+        super().save(*args, **kwargs)
