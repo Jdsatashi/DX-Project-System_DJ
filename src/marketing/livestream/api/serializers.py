@@ -203,9 +203,9 @@ class LiveOrderSerializer(BaseRestrictSerializer):
             livestream_product_list=livestream_product_list
         ).count()
         # Validate if order > turn_order
-        # if current_order_count >= max_orders:
-        #     raise serializers.ValidationError(
-        #         f"User has reached the maximum number of orders ({max_orders}) for this livestream.")
+        if current_order_count >= max_orders:
+            raise serializers.ValidationError(
+                f"User has reached the maximum number of orders ({max_orders}) for this livestream.")
 
         products_data = data.pop('product_list')
         if products_data is None:
