@@ -190,7 +190,7 @@ class ApiLiveOfferRegister(viewsets.GenericViewSet, mixins.ListModelMixin, mixin
         return Response(response, status.HTTP_200_OK)
 
 
-class CheckLiveStreamRegistrationView(views.APIView):
+class CheckLiveStreamRegistrationView(APIView):
     def post(self, request, *args, **kwargs):
         live_stream_id = request.data.get('live_stream_id')
         phone_number = request.data.get('phone_number')
