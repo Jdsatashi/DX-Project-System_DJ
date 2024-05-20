@@ -42,8 +42,8 @@ live_details = ApiLiveTracking.as_view(actions_detail)
 live_peekview_views = ApiPeekView.as_view(actions_views)
 live_peekview_details = ApiPeekView.as_view(actions_detail)
 
-live_offer_register_views = ApiPeekView.as_view(actions_views)
-live_offer_register_details = ApiPeekView.as_view(actions_detail)
+live_offer_register_views = ApiLiveOfferRegister.as_view(actions_views)
+live_offer_register_details = ApiLiveOfferRegister.as_view(actions_detail)
 
 livestream_comment_views = ApiLiveStreamComment.as_view(actions_views)
 
