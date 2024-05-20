@@ -147,7 +147,7 @@ class ApiPeekView(viewsets.GenericViewSet, mixins.ListModelMixin, mixins.CreateM
     # permission_classes = [partial(ValidatePermRest, model=LiveStreamComment)]
 
     def list(self, request, *args, **kwargs):
-        response = filter_data(self, request, ['live_stream__title', 'live_stream__id'],
+        response = filter_data(self, request, ['live_stream__id'],
                                **kwargs)
         return Response(response, status.HTTP_200_OK)
 
@@ -155,26 +155,24 @@ class ApiPeekView(viewsets.GenericViewSet, mixins.ListModelMixin, mixins.CreateM
 class JoinPeekView(APIView):
     def post(self, request, *args, **kwargs):
         live_stream_id = request.data.get('live_stream_id')
-        try:
-            peek_view = LiveStreamPeekView.objects.get(live_stream_id=live_stream_id)
-            peek_view.in_livestream += 1
-            peek_view.save()
-            return Response(PeekViewSerializer(peek_view).data, status=status.HTTP_200_OK)
-        except LiveStreamPeekView.DoesNotExist:
-            return Response({"error": "LiveStreamPeekView not found"}, status=status.HTTP_404_NOT_FOUND)
+        livestream = LiveStream.objects.filter(id=live_stream_id).first()
+        print(livestream)
+        peek_view = LiveStreamPeekView.objects.filter(live_stream=livestream).first()
+        print(peek_view)
+        peek_view.in_livestream += 1
+        peek_view.save()
+        return Response(PeekViewSerializer(peek_view).data, status=status.HTTP_200_OK)
 
 
 class LeavePeekView(APIView):
     def post(self, request, *args, **kwargs):
         live_stream_id = request.data.get('live_stream_id')
-        try:
-            peek_view = LiveStreamPeekView.objects.get(live_stream_id=live_stream_id)
-            peek_view.out_livestream += 1
-            peek_view.save()
-            return Response(PeekViewSerializer(peek_view).data, status=status.HTTP_200_OK)
-        except LiveStreamPeekView.DoesNotExist:
-            return Response({"error": "LiveStreamPeekView not found"}, status=status.HTTP_404_NOT_FOUND)
-
+        livestream = LiveStream.objects.filter(id=live_stream_id).first()
+        peek_view = LiveStreamPeekView.objects.filter(live_stream=livestream).first()
+        print(peek_view)
+        peek_view.out_livestream += 1
+        peek_view.save()
+        return Response(PeekViewSerializer(peek_view).data, status=status.HTTP_200_OK)
 
 class ApiLiveOfferRegister(viewsets.GenericViewSet, mixins.ListModelMixin, mixins.CreateModelMixin,
                            mixins.RetrieveModelMixin, mixins.UpdateModelMixin, mixins.DestroyModelMixin):

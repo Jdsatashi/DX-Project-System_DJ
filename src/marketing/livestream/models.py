@@ -76,7 +76,7 @@ class LiveStreamTracking(models.Model):
 
 
 class LiveStreamPeekView(models.Model):
-    live_stream = models.ForeignKey(LiveStream, on_delete=models.CASCADE)
+    live_stream = models.OneToOneField(LiveStream, on_delete=models.CASCADE)
     in_livestream = models.IntegerField(default=0)
     out_livestream = models.IntegerField(default=0)
 
