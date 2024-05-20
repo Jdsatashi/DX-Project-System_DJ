@@ -1,5 +1,6 @@
 from functools import partial
 
+from django.shortcuts import get_object_or_404
 from rest_framework import mixins, viewsets, status
 from rest_framework.authentication import BasicAuthentication
 from rest_framework.decorators import api_view
@@ -8,6 +9,7 @@ from rest_framework.views import APIView
 from rest_framework_simplejwt.authentication import JWTAuthentication
 
 from account.handlers.validate_perm import ValidatePermRest
+from account.models import PhoneNumber
 from marketing.livestream.api.serializers import LiveStreamSerializer, LiveStreamCommentSerializer, \
     LiveStatistic, LiveTracking, LiveStreamDetailCommentSerializer, PeekViewSerializer, LiveOfferRegisterSerializer
 from marketing.livestream.models import LiveStream, LiveStreamComment, LiveStreamTracking, LiveStreamStatistic, \
@@ -186,3 +188,29 @@ class ApiLiveOfferRegister(viewsets.GenericViewSet, mixins.ListModelMixin, mixin
         response = filter_data(self, request, ['live_stream__title', 'live_stream__id', 'phone__phone_number'],
                                **kwargs)
         return Response(response, status.HTTP_200_OK)
+
+
+class CheckLiveStreamRegistrationView(views.APIView):
+    def post(self, request, *args, **kwargs):
+        live_stream_id = request.data.get('live_stream_id')
+        phone_number = request.data.get('phone_number')
+
+        if not live_stream_id or not phone_number:
+            return Response({'error': 'live_stream_id and phone_number are required'},
+                            status=status.HTTP_400_BAD_REQUEST)
+
+        live_stream = get_object_or_404(LiveStream, id=live_stream_id)
+        phone = get_object_or_404(PhoneNumber, phone_number=phone_number)
+        user = phone.user
+
+        # Kiểm tra tất cả các số điện thoại của người dùng
+        phone_numbers = PhoneNumber.objects.filter(user=user)
+
+        registered = LiveStreamOfferRegister.objects.filter(live_stream=live_stream, phone__in=phone_numbers,
+                                                            register=True).exists()
+
+        if registered:
+            return Response({'message': 'User is registered for this live stream'}, status=status.HTTP_200_OK)
+        else:
+            return Response({'message': 'User is not registered for this live stream'},
+                            status=status.HTTP_404_NOT_FOUND)

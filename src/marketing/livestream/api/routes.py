@@ -4,7 +4,7 @@ from rest_framework.routers import DefaultRouter
 from marketing.livestream.api.views import (ApiLiveStream, ApiLiveStreamComment,
                                             ApiLiveStatistic, ApiLiveTracking,
                                             ApiLiveStreamDetailComment, ApiPeekView, JoinPeekView, LeavePeekView,
-                                            ApiLiveOfferRegister)
+                                            ApiLiveOfferRegister, CheckLiveStreamRegistrationView)
 from utils.constants import actions_views, actions_detail
 
 app_name = 'api_livestream'
@@ -68,6 +68,7 @@ urlpatterns = [
     path('peekview/leave/', LeavePeekView.as_view()),
     path('offer-register/', live_offer_register_views, name='api_offer_register'),
     path('offer-register/<pk>', live_offer_register_details, name='api_offer_register_detail'),
+    path('offer-register/check/', CheckLiveStreamRegistrationView.as_view(), name='api_offer_register_check'),
     # path('orders/', live_order_views, name='api_livestream_tracking'),
     # path('orders/<pk>', live_order_details, name='api_livestream_tracking_detail'),
 ]
