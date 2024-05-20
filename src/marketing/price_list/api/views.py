@@ -10,8 +10,8 @@ from rest_framework_simplejwt.authentication import JWTAuthentication
 
 from account.handlers.validate_perm import ValidatePermRest
 from account.models import User, UserPerm, Perm
-from marketing.price_list.api.serializers import PriceListSerializer
-from marketing.price_list.models import PriceList
+from marketing.price_list.api.serializers import PriceListSerializer, SpecialOfferSerializer
+from marketing.price_list.models import PriceList, SpecialOffer
 from utils.constants import acquy
 from utils.model_filter_paginate import filter_data
 
@@ -21,6 +21,7 @@ class GenericApiPriceList(viewsets.GenericViewSet, mixins.ListModelMixin, mixins
     serializer_class = PriceListSerializer
     # queryset = PriceList.objects.all()
     authentication_classes = [JWTAuthentication, BasicAuthentication]
+
     # permission_classes = [partial(ValidatePermRest, model=PriceList)]
 
     def get_queryset(self):
@@ -61,3 +62,11 @@ class GenericApiPriceList(viewsets.GenericViewSet, mixins.ListModelMixin, mixins
         response = filter_data(self, request, ['id', 'name', 'date_start', 'date_end'], queryset=queryset,
                                **kwargs)
         return Response(response)
+
+
+class ApiSpecialOffer(viewsets.GenericViewSet, mixins.ListModelMixin, mixins.CreateModelMixin,
+                      mixins.RetrieveModelMixin, mixins.UpdateModelMixin, mixins.DestroyModelMixin):
+    serializer_class = SpecialOfferSerializer
+    queryset = SpecialOffer.objects.all()
+    authentication_classes = [JWTAuthentication, BasicAuthentication]
+    # permission_classes = [partial(ValidatePermRest, model=PriceList)]

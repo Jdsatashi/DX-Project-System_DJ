@@ -4,13 +4,14 @@ from rest_framework import mixins, viewsets, status
 from rest_framework.authentication import BasicAuthentication
 from rest_framework.decorators import api_view
 from rest_framework.response import Response
+from rest_framework.views import APIView
 from rest_framework_simplejwt.authentication import JWTAuthentication
 
 from account.handlers.validate_perm import ValidatePermRest
-from marketing.livestream.api.serializers import LiveStreamSerializer, LiveStreamCommentSerializer, LiveProduct, \
-    LiveProductList, LiveStatistic, LiveTracking, LiveStreamDetailCommentSerializer, LiveOrderSerializer
+from marketing.livestream.api.serializers import LiveStreamSerializer, LiveStreamCommentSerializer, \
+    LiveStatistic, LiveTracking, LiveStreamDetailCommentSerializer, PeekViewSerializer
 from marketing.livestream.models import LiveStream, LiveStreamComment, LiveStreamTracking, LiveStreamStatistic, \
-    LiveStreamProductList, LiveStreamProduct, OrderLiveProduct
+    LiveStreamPeekView
 from utils.model_filter_paginate import filter_data
 
 
@@ -57,34 +58,34 @@ class ApiLiveStreamDetailComment(viewsets.GenericViewSet, mixins.ListModelMixin)
         return Response(response, status=status.HTTP_200_OK)
 
 
-class ApiLiveProduct(viewsets.GenericViewSet, mixins.ListModelMixin, mixins.CreateModelMixin,
-                     mixins.RetrieveModelMixin, mixins.UpdateModelMixin, mixins.DestroyModelMixin):
-    serializer_class = LiveProduct
-    queryset = LiveStreamProduct.objects.all()
-
-    authentication_classes = [JWTAuthentication, BasicAuthentication]
-
-    # permission_classes = [partial(ValidatePermRest, model=LiveStreamProduct)]
-
-    def list(self, request, *args, **kwargs):
-        response = filter_data(self, request, ['id', 'product', 'price', 'point', 'live_stream__title'],
-                               **kwargs)
-        return Response(response, status.HTTP_200_OK)
-
-
-class ApiLiveProductList(viewsets.GenericViewSet, mixins.ListModelMixin, mixins.CreateModelMixin,
-                         mixins.RetrieveModelMixin, mixins.UpdateModelMixin, mixins.DestroyModelMixin):
-    serializer_class = LiveProductList
-    queryset = LiveStreamProductList.objects.all()
-
-    authentication_classes = [JWTAuthentication, BasicAuthentication]
-
-    # permission_classes = [partial(ValidatePermRest, model=LiveStreamProductList)]
-
-    def list(self, request, *args, **kwargs):
-        response = filter_data(self, request, ['live_stream__title', 'id'],
-                               **kwargs)
-        return Response(response, status.HTTP_200_OK)
+# class ApiLiveProduct(viewsets.GenericViewSet, mixins.ListModelMixin, mixins.CreateModelMixin,
+#                      mixins.RetrieveModelMixin, mixins.UpdateModelMixin, mixins.DestroyModelMixin):
+#     serializer_class = LiveProduct
+#     queryset = LiveStreamProduct.objects.all()
+#
+#     authentication_classes = [JWTAuthentication, BasicAuthentication]
+#
+#     # permission_classes = [partial(ValidatePermRest, model=LiveStreamProduct)]
+#
+#     def list(self, request, *args, **kwargs):
+#         response = filter_data(self, request, ['id', 'product', 'price', 'point', 'live_stream__title'],
+#                                **kwargs)
+#         return Response(response, status.HTTP_200_OK)
+#
+#
+# class ApiLiveProductList(viewsets.GenericViewSet, mixins.ListModelMixin, mixins.CreateModelMixin,
+#                          mixins.RetrieveModelMixin, mixins.UpdateModelMixin, mixins.DestroyModelMixin):
+#     serializer_class = LiveProductList
+#     queryset = LiveStreamProductList.objects.all()
+#
+#     authentication_classes = [JWTAuthentication, BasicAuthentication]
+#
+#     # permission_classes = [partial(ValidatePermRest, model=LiveStreamProductList)]
+#
+#     def list(self, request, *args, **kwargs):
+#         response = filter_data(self, request, ['live_stream__title', 'id'],
+#                                **kwargs)
+#         return Response(response, status.HTTP_200_OK)
 
 
 class ApiLiveStatistic(viewsets.GenericViewSet, mixins.ListModelMixin, mixins.CreateModelMixin,
@@ -117,17 +118,51 @@ class ApiLiveTracking(viewsets.GenericViewSet, mixins.ListModelMixin, mixins.Cre
         return Response(response, status.HTTP_200_OK)
 
 
-class ApiLiveOrder(viewsets.GenericViewSet, mixins.ListModelMixin, mixins.CreateModelMixin,
-                   mixins.RetrieveModelMixin, mixins.UpdateModelMixin, mixins.DestroyModelMixin):
-    serializer_class = LiveOrderSerializer
-    queryset = OrderLiveProduct.objects.all()
+#
+#
+# class ApiLiveOrder(viewsets.GenericViewSet, mixins.ListModelMixin, mixins.CreateModelMixin,
+#                    mixins.RetrieveModelMixin, mixins.UpdateModelMixin, mixins.DestroyModelMixin):
+#     serializer_class = LiveOrderSerializer
+#     queryset = OrderLiveProduct.objects.all()
+#
+#     authentication_classes = [JWTAuthentication, BasicAuthentication]
+#
+#     # permission_classes = [partial(ValidatePermRest, model=LiveStreamTracking)]
+#
+#     def list(self, request, *args, **kwargs):
+#         response = filter_data(self, request,
+#                                ['livestream_product_list__title', 'livestream_product_list__id', 'phone__phone_number'],
+#                                **kwargs)
+#         return Response(response, status.HTTP_200_OK)
+
+
+class ApiPeekView(viewsets.GenericViewSet, mixins.ListModelMixin, mixins.RetrieveModelMixin):
+    serializer_class = PeekViewSerializer
+    queryset = LiveStreamPeekView.objects.all()
 
     authentication_classes = [JWTAuthentication, BasicAuthentication]
+    # permission_classes = [partial(ValidatePermRest, model=LiveStreamComment)]
 
-    # permission_classes = [partial(ValidatePermRest, model=LiveStreamTracking)]
 
-    def list(self, request, *args, **kwargs):
-        response = filter_data(self, request,
-                               ['livestream_product_list__title', 'livestream_product_list__id', 'phone__phone_number'],
-                               **kwargs)
-        return Response(response, status.HTTP_200_OK)
+class JoinPeekView(APIView):
+    def post(self, request, *args, **kwargs):
+        live_stream_id = request.data.get('live_stream_id')
+        try:
+            peek_view = LiveStreamPeekView.objects.get(live_stream_id=live_stream_id)
+            peek_view.in_livestream += 1
+            peek_view.save()
+            return Response(PeekViewSerializer(peek_view).data, status=status.HTTP_200_OK)
+        except LiveStreamPeekView.DoesNotExist:
+            return Response({"error": "LiveStreamPeekView not found"}, status=status.HTTP_404_NOT_FOUND)
+
+
+class LeavePeekView(APIView):
+    def post(self, request, *args, **kwargs):
+        live_stream_id = request.data.get('live_stream_id')
+        try:
+            peek_view = LiveStreamPeekView.objects.get(live_stream_id=live_stream_id)
+            peek_view.out_livestream += 1
+            peek_view.save()
+            return Response(PeekViewSerializer(peek_view).data, status=status.HTTP_200_OK)
+        except LiveStreamPeekView.DoesNotExist:
+            return Response({"error": "LiveStreamPeekView not found"}, status=status.HTTP_404_NOT_FOUND)

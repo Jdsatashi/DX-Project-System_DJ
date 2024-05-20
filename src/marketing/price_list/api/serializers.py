@@ -1,5 +1,5 @@
 from account.handlers.restrict_serializer import BaseRestrictSerializer
-from marketing.price_list.models import PriceList, ProductPrice, PointOfSeason
+from marketing.price_list.models import PriceList, ProductPrice, PointOfSeason, SpecialOfferProduct, SpecialOffer
 from rest_framework import serializers
 
 from marketing.product.api.serializers import ViewProductTypeSerializer
@@ -141,3 +141,68 @@ class UserPoint(BaseRestrictSerializer):
     class Meta:
         model = PointOfSeason
         fields = '__all__'
+
+
+class SpecialOfferProductSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = SpecialOfferProduct
+        fields = '__all__'
+        read_only_fields = ['id']
+
+
+class SpecialOfferSerializer(BaseRestrictSerializer):
+    special_offers = SpecialOfferProductSerializer(many=True)
+
+    class Meta:
+        model = SpecialOffer
+        fields = '__all__'
+        read_only_fields = ['id', 'created_by', 'created_at', 'updated_at']
+
+    def create(self, validated_data):
+        # Split insert data
+        data, perm_data = self.split_data(validated_data)
+        print(data)
+        products_data = data.pop('special_offers')
+        # Create new SpecialOffer
+        special_offer = SpecialOffer.objects.create(**data)
+        # Add product to SpecialOfferProduct
+        for product_data in products_data:
+            SpecialOfferProduct.objects.create(special_offer=special_offer, **product_data)
+        # Create perm for data
+        restrict = perm_data.get('restrict')
+        if restrict:
+            self.handle_restrict(perm_data, special_offer.id, self.Meta.model)
+        return special_offer
+
+    def update(self, instance, validated_data):
+        # Split insert data
+        data, perm_data = self.split_data(validated_data)
+        products_data = data.pop('special_offers')
+
+        # Update SpecialOffer fields
+        for attr, value in data.items():
+            setattr(instance, attr, value)
+        instance.save()
+
+        # Update SpecialOfferProduct details
+        keep_products = []
+        for product_data in products_data:
+            if "id" in product_data:
+                product = SpecialOfferProduct.objects.get(id=product_data["id"], special_offer=instance)
+                for attr, value in product_data.items():
+                    setattr(product, attr, value)
+                product.save()
+                keep_products.append(product.id)
+            else:
+                product = SpecialOfferProduct.objects.create(special_offer=instance, **product_data)
+                keep_products.append(product.id)
+
+        # Remove products not included in the update
+        for product in instance.special_offers.all():
+            if product.id not in keep_products:
+                product.delete()
+
+        restrict = perm_data.get('restrict')
+        if restrict:
+            self.handle_restrict(perm_data, instance.id, self.Meta.model)
+        return instance
