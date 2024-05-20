@@ -211,4 +211,4 @@ class CheckLiveStreamRegistrationView(APIView):
             return Response({'register': True}, status=status.HTTP_200_OK)
         else:
             return Response({'register': False},
-                            status=status.HTTP_404_NOT_FOUND)
+                            status=status.HTTP_200_OK)
