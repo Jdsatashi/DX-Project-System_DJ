@@ -4,6 +4,8 @@ from rest_framework import serializers, status
 from rest_framework.response import Response
 
 from account.handlers.restrict_serializer import BaseRestrictSerializer
+from marketing.livestream.api.serializers import get_phone_from_token
+from marketing.livestream.models import LiveStreamOfferRegister
 from marketing.order.models import Order, OrderDetail
 from marketing.price_list.models import ProductPrice, SpecialOfferProduct
 
@@ -32,6 +34,12 @@ class OrderSerializer(BaseRestrictSerializer):
         # Split insert data
         data, perm_data = self.split_data(validated_data)
         order_details_data = data.pop('order_detail', [])
+
+        request = self.context.get('request')
+        user, phone = get_phone_from_token(request)
+        if not LiveStreamOfferRegister.objects.filter(phone=phone, register=True).exists():
+            raise serializers.ValidationError({'message': 'Phone number not registered for LiveStream offer'})
+
         # Create new Order
         order = Order.objects.create(**data)
         print(f"Time split data: {time.time() - start_time}")
