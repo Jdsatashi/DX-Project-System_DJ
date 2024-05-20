@@ -9,9 +9,9 @@ from rest_framework_simplejwt.authentication import JWTAuthentication
 
 from account.handlers.validate_perm import ValidatePermRest
 from marketing.livestream.api.serializers import LiveStreamSerializer, LiveStreamCommentSerializer, \
-    LiveStatistic, LiveTracking, LiveStreamDetailCommentSerializer, PeekViewSerializer
+    LiveStatistic, LiveTracking, LiveStreamDetailCommentSerializer, PeekViewSerializer, LiveOfferRegisterSerializer
 from marketing.livestream.models import LiveStream, LiveStreamComment, LiveStreamTracking, LiveStreamStatistic, \
-    LiveStreamPeekView
+    LiveStreamPeekView, LiveStreamOfferRegister
 from utils.model_filter_paginate import filter_data
 
 
@@ -136,12 +136,18 @@ class ApiLiveTracking(viewsets.GenericViewSet, mixins.ListModelMixin, mixins.Cre
 #         return Response(response, status.HTTP_200_OK)
 
 
-class ApiPeekView(viewsets.GenericViewSet, mixins.ListModelMixin, mixins.RetrieveModelMixin):
+class ApiPeekView(viewsets.GenericViewSet, mixins.ListModelMixin, mixins.CreateModelMixin,
+                  mixins.RetrieveModelMixin, mixins.UpdateModelMixin, mixins.DestroyModelMixin):
     serializer_class = PeekViewSerializer
     queryset = LiveStreamPeekView.objects.all()
 
     authentication_classes = [JWTAuthentication, BasicAuthentication]
     # permission_classes = [partial(ValidatePermRest, model=LiveStreamComment)]
+
+    def list(self, request, *args, **kwargs):
+        response = filter_data(self, request, ['live_stream__title', 'live_stream__id'],
+                               **kwargs)
+        return Response(response, status.HTTP_200_OK)
 
 
 class JoinPeekView(APIView):
@@ -166,3 +172,17 @@ class LeavePeekView(APIView):
             return Response(PeekViewSerializer(peek_view).data, status=status.HTTP_200_OK)
         except LiveStreamPeekView.DoesNotExist:
             return Response({"error": "LiveStreamPeekView not found"}, status=status.HTTP_404_NOT_FOUND)
+
+
+class ApiLiveOfferRegister(viewsets.GenericViewSet, mixins.ListModelMixin, mixins.CreateModelMixin,
+                           mixins.RetrieveModelMixin, mixins.UpdateModelMixin, mixins.DestroyModelMixin):
+    serializer_class = LiveOfferRegisterSerializer
+    queryset = LiveStreamOfferRegister.objects.all()
+
+    authentication_classes = [JWTAuthentication, BasicAuthentication]
+    # permission_classes = [partial(ValidatePermRest, model=LiveStreamComment)]
+
+    def list(self, request, *args, **kwargs):
+        response = filter_data(self, request, ['live_stream__title', 'live_stream__id', 'phone__phone_number'],
+                               **kwargs)
+        return Response(response, status.HTTP_200_OK)

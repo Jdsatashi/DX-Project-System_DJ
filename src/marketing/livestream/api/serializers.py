@@ -7,7 +7,7 @@ from rest_framework import serializers
 from account.handlers.restrict_serializer import BaseRestrictSerializer
 from account.models import User, PhoneNumber
 from marketing.livestream.models import LiveStream, LiveStreamComment, LiveStreamStatistic, LiveStreamTracking, \
-    LiveStreamPeekView
+    LiveStreamPeekView, LiveStreamOfferRegister
 
 
 class LiveStreamCommentSerializer(BaseRestrictSerializer):
@@ -196,3 +196,10 @@ class PeekViewSerializer(serializers.ModelSerializer):
         model = LiveStreamPeekView
         fields = '__all__'
         read_only_fields = ['id', 'live_stream']
+
+
+class LiveOfferRegisterSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = LiveStreamOfferRegister
+        fields = '__all__'
+        read_only_fields = ['id', 'created_at']

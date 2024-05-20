@@ -79,3 +79,10 @@ class LiveStreamPeekView(models.Model):
     live_stream = models.ForeignKey(LiveStream, on_delete=models.CASCADE)
     in_livestream = models.IntegerField(default=0)
     out_livestream = models.IntegerField(default=0)
+
+
+class LiveStreamOfferRegister(models.Model):
+    live_stream = models.ForeignKey(LiveStream, on_delete=models.CASCADE)
+    phone = models.ForeignKey(PhoneNumber, null=True, on_delete=models.CASCADE)
+    register = models.BooleanField(default=False)
+    created_at = models.DateTimeField(auto_now_add=True)
