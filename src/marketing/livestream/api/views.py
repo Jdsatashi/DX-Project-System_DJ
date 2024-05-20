@@ -210,7 +210,7 @@ class CheckLiveStreamRegistrationView(APIView):
                                                             register=True).exists()
 
         if registered:
-            return Response({'message': 'User is registered for this live stream'}, status=status.HTTP_200_OK)
+            return Response({'register': True}, status=status.HTTP_200_OK)
         else:
-            return Response({'message': 'User is not registered for this live stream'},
+            return Response({'register': False},
                             status=status.HTTP_404_NOT_FOUND)
