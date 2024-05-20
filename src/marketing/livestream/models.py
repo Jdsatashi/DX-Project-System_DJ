@@ -42,34 +42,6 @@ class LiveStreamStatistic(models.Model):
     updated_at = models.DateTimeField(auto_now=True)
 
 
-class LiveStreamProductList(models.Model):
-    live_stream = models.OneToOneField(LiveStream, on_delete=models.CASCADE)
-    time_allow_order = models.FloatField(default=1)  # Thời gian được phép đặt hàng
-
-    turn_order = models.IntegerField(default=1)     # Số lần đặt hàng của user
-
-    note = models.CharField(null=True, max_length=255)
-
-    created_at = models.DateTimeField(auto_now_add=True)
-    updated_at = models.DateTimeField(auto_now=True)
-
-
-class LiveStreamProduct(models.Model):
-    livestream_product_list = models.ForeignKey(LiveStreamProductList, on_delete=models.CASCADE)
-    product = models.ForeignKey(Product, on_delete=models.CASCADE)
-
-    price = models.BigIntegerField(default=0)
-    point = models.FloatField(null=True, default=0)
-
-    total_item = models.IntegerField(null=True)
-    max_purchase = models.IntegerField(null=True)
-
-    note = models.CharField(null=True, max_length=255)
-
-    created_at = models.DateTimeField(auto_now_add=True)
-    updated_at = models.DateTimeField(auto_now=True)
-
-
 class LiveStreamTracking(models.Model):
     live_stream = models.ForeignKey(LiveStream, null=True, on_delete=models.CASCADE)
     phone = models.ForeignKey(PhoneNumber, null=True, on_delete=models.CASCADE)
@@ -103,27 +75,7 @@ class LiveStreamTracking(models.Model):
         super().save(*args, **kwargs)
 
 
-class OrderLiveProduct(models.Model):
-    livestream_product_list = models.ForeignKey(LiveStreamProductList, on_delete=models.CASCADE)
-    phone = models.ForeignKey(PhoneNumber, on_delete=models.CASCADE)
-
-    note = models.CharField(max_length=255, null=True)
-
-    created_at = models.DateTimeField(auto_now_add=True)
-    updated_at = models.DateTimeField(auto_now=True)
-
-
-class OrderLiveProductDetails(models.Model):
-    order_id = models.ForeignKey(OrderLiveProduct, on_delete=models.CASCADE)
-    product = models.ForeignKey(Product, on_delete=models.CASCADE)
-    quantity = models.IntegerField(default=1)
-    product_price = models.BigIntegerField(default=0)
-    point_get = models.FloatField(null=True, default=0)
-    created_at = models.DateTimeField(auto_now_add=True)
-
-    def save(self, *args, **kwargs):
-        product_list = self.order_id.livestream_product_list
-        product = self.product
-        if not LiveStreamProduct.objects.filter(livestream_product_list=product_list, product=product).exists():
-            raise ValueError({'product': 'Product not in LiveStreamProductList'})
-        super().save(*args, **kwargs)
+class LiveStreamPeekView(models.Model):
+    live_stream = models.ForeignKey(LiveStream, on_delete=models.CASCADE)
+    in_livestream = models.IntegerField(default=0)
+    out_livestream = models.IntegerField(default=0)

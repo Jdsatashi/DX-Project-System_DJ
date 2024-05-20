@@ -4,6 +4,7 @@ from django.apps import apps
 from django.db import models
 
 from account.models import User
+from marketing.livestream.models import LiveStream
 from marketing.product.models import Product
 
 
@@ -15,6 +16,8 @@ class PriceList(models.Model):
     date_end = models.DateField(null=False, blank=False)
     note = models.CharField(max_length=255, null=True, blank=True)
     products = models.ManyToManyField(Product, through='ProductPrice')
+
+    status = models.CharField(null=True, max_length=24)
 
     created_by = models.CharField(max_length=64, null=True, blank=True)
     created_at = models.DateTimeField(auto_now_add=True)
@@ -87,11 +90,15 @@ class PointOfSeason(models.Model):
 class SpecialOffer(models.Model):
     id = models.CharField(max_length=64,  primary_key=True)
     name = models.CharField(max_length=255)
-    date_start = models.DateField()
-    date_end = models.DateField()
+    time_start = models.DateTimeField(null=True)
+    time_end = models.DateTimeField(null=True)
 
-    price_list = models.ForeignKey(PriceList, null=True, on_delete=models.CASCADE)
+    price_list = models.ForeignKey(PriceList, null=True, on_delete=models.CASCADE, related_name='offers')
     product = models.ManyToManyField(Product, through='SpecialOfferProduct')
+
+    type_list = models.CharField(max_length=24, null=False, default='manual')
+    live_stream = models.ForeignKey(LiveStream, null=True, on_delete=models.SET_NULL, related_name='offers')
+    count_turnover = models.BooleanField(default=False)     # Khuyến mãi sẽ tính doanh số hay không
 
     target = models.BigIntegerField(null=False, default=0)
     quantity_can_use = models.FloatField(null=True)
@@ -104,10 +111,24 @@ class SpecialOffer(models.Model):
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
 
+    def save(self, *args, **kwargs):
+        if not self.pk:
+            char_id = "SO"
+            current_year = datetime.utcnow().year
+            two_digit_year = str(current_year)[-2:]
+            i = 1
+            while SpecialOffer.objects.filter(id=f"{char_id}{two_digit_year}{i:04d}").exists():
+                i += 1
+            if i > 9999:
+                raise ValueError({'id': 'Out of index'})
+            _id = f"{char_id}{two_digit_year}{i:04d}"
+            self.id = _id
+        return super().save(*args, **kwargs)
+
 
 class SpecialOfferProduct(models.Model):
-    id = models.CharField(max_length=64,  primary_key=True)
-    special_offer = models.ForeignKey(SpecialOffer, on_delete=models.CASCADE)
-    product = models.ForeignKey(Product, on_delete=models.CASCADE)
-    price = models.DecimalField(max_digits=10, decimal_places=2)
-    quantity = models.IntegerField(default=0)
+    special_offer = models.ForeignKey(SpecialOffer, null=True, on_delete=models.CASCADE, related_name='special_offers')
+    product = models.ForeignKey(Product, on_delete=models.CASCADE, related_name='special_offers')
+    price = models.BigIntegerField(null=True)
+    point = models.FloatField(null=True)
+    quantity_in_box = models.IntegerField(default=0)

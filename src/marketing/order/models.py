@@ -3,9 +3,10 @@ from datetime import datetime
 
 from django.core.exceptions import ValidationError
 from django.db import models
+from django.db.models import Sum
 
 from account.models import User
-from marketing.price_list.models import ProductPrice, PriceList, PointOfSeason
+from marketing.price_list.models import ProductPrice, PriceList, PointOfSeason, SpecialOffer, SpecialOfferProduct
 from marketing.product.models import Product
 
 
@@ -24,6 +25,8 @@ class Order(models.Model):
     is_so = models.BooleanField(null=True, default=False)
     id_so = models.CharField(null=True, max_length=255, default=None)
     id_offer_consider = models.CharField(null=True, max_length=255, default=None)
+
+    new_special_offer = models.ForeignKey(SpecialOffer, null=True, on_delete=models.CASCADE, related_name='orders')
 
     order_point = models.FloatField(null=True)
     order_price = models.FloatField(null=True)
@@ -46,30 +49,29 @@ class Order(models.Model):
         start_time = time.time()
         if not self.pk:
             self.id = self.generate_pk()
-        # Get all order details
-        # order_details = self.order_detail.all()
-        # # Calculate order point and price
-        # for detail in order_details:
-        #     if detail.point_get != 0 and detail.point_get is not None:
-        #         self.order_point += detail.point_get
-        #     if detail.product_price:
-        #         self.order_price += detail.product_price
-        if self.order_point:
-            self.order_point = round(self.order_point, 5)
-            # Get current order if exists
-            this = Order.objects.filter(id=self.id, order_point=self.order_point)
-            # Set old point when Order already exists
-            old_point = 0 if not this.exists() else this.first().order_point
-            # Get point of season of user
-            point_of_season, created = PointOfSeason.objects.get_or_create(price_list=self.price_list_id,
-                                                                           user=self.client_id)
-            # Add point and save
-            point_of_season.point += self.order_point - old_point
-            point_of_season.total_point += self.order_point - old_point
-            point_of_season.save()
 
-        if self.order_price:
-            self.order_price = round(self.order_price, 5)
+        # Calculate order point and price using aggregate functions
+        order_details = self.order_detail.aggregate(
+            total_point=Sum('point_get'),
+            total_price=Sum('product_price')
+        )
+        self.order_point = round(order_details['total_point'] or 0, 5)
+        self.order_price = round(order_details['total_price'] or 0, 5)
+
+        # Get current order if exists
+        old_order = Order.objects.filter(id=self.id).first()
+        old_point = old_order.order_point if old_order else 0
+
+        # Get point of season of user
+        point_of_season, created = PointOfSeason.objects.get_or_create(
+            price_list=self.price_list_id, user=self.client_id
+        )
+
+        # Update points
+        point_of_season.point += self.order_point - old_point
+        point_of_season.total_point += self.order_point - old_point
+        point_of_season.save()
+
         self.clean()
         print(f"Complete save: {time.time() - start_time}")
         return super().save(*args, **kwargs)
@@ -80,20 +82,23 @@ class Order(models.Model):
     def generate_pk(self):
         # Get start char
         start_char = 'MT'
-        # Get 2 character of year, ex: 2024 => '24'
         current_year = datetime.utcnow().year
         two_digit_year = str(current_year)[-2:]
-        # Get current month, ex: 12 => '12'
         current_month = datetime.utcnow().month
-        two_digit_month = str(current_month) if len(str(current_month)) >= 2 else f"{current_month:02d}"
-        # Get started number
-        i = 1
-        while Order.objects.filter(id=f"{start_char}{two_digit_year}{two_digit_month}{i:05d}").exists():
-            i += 1
-        if i > 99999:
+        two_digit_month = str(current_month).zfill(2)
+
+        prefix = f"{start_char}{two_digit_year}{two_digit_month}"
+        latest_order = Order.objects.filter(id__startswith=prefix).order_by('-id').first()
+
+        if latest_order:
+            latest_id = int(latest_order.id[-5:]) + 1
+        else:
+            latest_id = 1
+
+        if latest_id > 99999:
             raise ValueError({'id': 'Out of index'})
-        _id = f"{start_char}{two_digit_year}{two_digit_month}{i:05d}"
-        return _id
+
+        return f"{prefix}{str(latest_id).zfill(5)}"
 
 
 class OrderDetail(models.Model):
@@ -113,6 +118,9 @@ class OrderDetail(models.Model):
         product_price = ProductPrice.objects.filter(product_id=product, price_list_id=price_list)
         if not product_price.exists():
             raise ValidationError(f"Product ({product.id}) - {product.name} not in PriceList {price_list.name}")
+        so = self.order_id.new_special_offer
+        if so is not None and not SpecialOfferProduct.objects.filter(special_offer=so, product=product).exists():
+            raise ValidationError(f"Product ({product.id}) - {product.name} not in SpecialOffer {so.name}")
         # Rounded float number
         if self.order_box:
             self.order_box = round(self.order_box, 5)
