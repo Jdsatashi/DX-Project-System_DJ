@@ -195,7 +195,7 @@ class PeekViewSerializer(serializers.ModelSerializer):
     class Meta:
         model = LiveStreamPeekView
         fields = '__all__'
-        read_only_fields = ['id', 'live_stream']
+        read_only_fields = ['id']
 
 
 class LiveOfferRegisterSerializer(serializers.ModelSerializer):
