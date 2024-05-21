@@ -31,13 +31,17 @@ class OrderSerializer(BaseRestrictSerializer):
 
     def create(self, validated_data):
         start_time = time.time()
+        print(f"Im testing here")
         # Split insert data
         data, perm_data = self.split_data(validated_data)
         order_details_data = data.pop('order_detail', [])
-
+        print(f"Test data: {data}")
+        print(f"Test order details: {order_details_data}")
         request = self.context.get('request')
         user, phone = get_phone_from_token(request)
-        if not LiveStreamOfferRegister.objects.filter(phone=phone, register=True).exists():
+        is_livestream_order = data.get('new_special_offer')
+
+        if is_livestream_order and not LiveStreamOfferRegister.objects.filter(phone=phone, register=True).exists():
             raise serializers.ValidationError({'message': 'Phone number not registered for LiveStream offer'})
 
         # Create new Order
