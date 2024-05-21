@@ -100,29 +100,6 @@ class ProductStatisticsView(APIView):
             return Response({"error": str(e)}, status=status.HTTP_400_BAD_REQUEST)
         except Exception as e:
             return Response({"error": str(e)}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
-            # return Response({"error": str(e)}, status=status.HTTP_400_BAD_REQUEST)
-
-
-def get_product_statistics(user, start_date, end_date):
-    # Convert date format
-    start_date = datetime.strptime(start_date, '%d/%m/%Y')
-    end_date = datetime.strptime(end_date, '%d/%m/%Y') + timedelta(days=1) - timedelta(seconds=1)
-    start_date = timezone.make_aware(start_date, timezone.get_current_timezone())
-    end_date = timezone.make_aware(end_date, timezone.get_current_timezone())
-    print()
-    # Lấy tất cả các Order của user hiện tại trong khoảng thời gian đã cho
-    orders = Order.objects.filter(client_id=user, created_at__gte=start_date, created_at__lte=end_date)
-    print(f"Query order: {orders}")
-
-    # Lấy tất cả OrderDetail liên quan đến các Order đã lọc
-    return OrderDetail.objects.filter(
-        order_id__in=orders
-    ).values('product_id', 'product_id__name').annotate(
-        total_quantity=Sum('order_quantity'),
-        total_point=Sum('point_get'),
-        total_price=Sum('product_price')
-    ).order_by('product_id')
-
 
 def get_product_statistics_2(user, start_date_1, end_date_1, start_date_2, end_date_2):
     # Convert date format
@@ -140,13 +117,15 @@ def get_product_statistics_2(user, start_date_1, end_date_1, start_date_2, end_d
     details_1 = OrderDetail.objects.filter(order_id__in=orders_1).values('product_id', 'product_id__name').annotate(
         total_quantity=Sum('order_quantity'),
         total_point=Sum('point_get'),
-        total_price=Sum('product_price')
+        total_price=Sum('product_price'),
+        total_box=Sum('order_box')
     )
 
     details_2 = OrderDetail.objects.filter(order_id__in=orders_2).values('product_id', 'product_id__name').annotate(
         total_quantity=Sum('order_quantity'),
         total_point=Sum('point_get'),
-        total_price=Sum('product_price')
+        total_price=Sum('product_price'),
+        total_box=Sum('order_box')
     )
 
     # Combine results into a single dictionary
@@ -157,10 +136,11 @@ def get_product_statistics_2(user, start_date_1, end_date_1, start_date_2, end_d
 
         combined_results[product_id] = {
             "product_name": product_name,
-            f"current": {
+            "current": {
                 "price": detail['total_price'],
                 "point": detail['total_point'],
-                "quantity": detail['total_quantity']
+                "quantity": detail['total_quantity'],
+                "box": detail['total_box']
             }
         }
 
@@ -169,12 +149,15 @@ def get_product_statistics_2(user, start_date_1, end_date_1, start_date_2, end_d
         product_name = detail['product_id__name']
 
         if product_id not in combined_results:
-            combined_results[product_id] = {}
-        combined_results[product_id][f"one_year_ago"] = {
-            "product_name": product_name,
+            combined_results[product_id] = {
+                "product_name": product_name,
+                "one_year_ago": {}
+            }
+        combined_results[product_id]["one_year_ago"] = {
             "price": detail['total_price'],
             "point": detail['total_point'],
-            "quantity": detail['total_quantity']
+            "quantity": detail['total_quantity'],
+            "box": detail['total_box']
         }
 
     return combined_results
