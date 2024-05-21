@@ -144,6 +144,7 @@ class ApiPeekView(viewsets.GenericViewSet, mixins.ListModelMixin, mixins.CreateM
     queryset = LiveStreamPeekView.objects.all()
 
     authentication_classes = [JWTAuthentication, BasicAuthentication]
+
     # permission_classes = [partial(ValidatePermRest, model=LiveStreamComment)]
 
     def list(self, request, *args, **kwargs):
@@ -174,12 +175,14 @@ class LeavePeekView(APIView):
         peek_view.save()
         return Response(PeekViewSerializer(peek_view).data, status=status.HTTP_200_OK)
 
+
 class ApiLiveOfferRegister(viewsets.GenericViewSet, mixins.ListModelMixin, mixins.CreateModelMixin,
                            mixins.RetrieveModelMixin, mixins.UpdateModelMixin, mixins.DestroyModelMixin):
     serializer_class = LiveOfferRegisterSerializer
     queryset = LiveStreamOfferRegister.objects.all()
 
     authentication_classes = [JWTAuthentication, BasicAuthentication]
+
     # permission_classes = [partial(ValidatePermRest, model=LiveStreamComment)]
 
     def list(self, request, *args, **kwargs):

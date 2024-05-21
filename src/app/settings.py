@@ -46,7 +46,8 @@ MY_APPS = [
     'marketing.product',
     'marketing.price_list',
     'marketing.order',
-    'marketing.livestream'
+    'marketing.livestream',
+    'marketing.sale_statistic'
 ]
 
 # Application definition
