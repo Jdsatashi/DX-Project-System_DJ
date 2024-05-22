@@ -8,6 +8,7 @@ from django.db.models import Sum
 from account.models import User
 from marketing.price_list.models import ProductPrice, PriceList, PointOfSeason, SpecialOffer, SpecialOfferProduct
 from marketing.product.models import Product
+from marketing.sale_statistic.models import SaleStatistic
 
 
 # Create your models here.
@@ -18,8 +19,7 @@ class Order(models.Model):
     client_id = models.ForeignKey(User, null=True, on_delete=models.SET_NULL)
     date_delay = models.IntegerField(default=0)
     list_type = models.CharField(max_length=24, null=True)
-    price_list_id = models.ForeignKey(PriceList, null=True, on_delete=models.CASCADE,
-                                      related_name="order_price_list")
+    price_list_id = models.ForeignKey(PriceList, null=True, on_delete=models.CASCADE, related_name="order_price_list")
 
     # SO mean Special Offer
     is_so = models.BooleanField(null=True, default=False)
@@ -29,7 +29,7 @@ class Order(models.Model):
     new_special_offer = models.ForeignKey(SpecialOffer, null=True, on_delete=models.CASCADE, related_name='orders')
 
     order_point = models.FloatField(null=True)
-    order_price = models.FloatField(null=True)
+    order_price = models.FloatField(null=True, default=0)  # Default value to ensure it's not None
 
     created_by = models.CharField(max_length=64, null=True)
     note = models.CharField(max_length=255, null=True)
@@ -46,11 +46,14 @@ class Order(models.Model):
                     f"Order date {self.created_at.date()} must be within the PriceList's date range from {self.price_list_id.date_start} to {self.price_list_id.date_end}.")
 
     def save(self, *args, **kwargs):
-        start_time = time.time()
         if not self.pk:
             self.id = self.generate_pk()
+        self.calculate_totals()
+        super().save(*args, **kwargs)
+        if kwargs.get('update_sale_statistic', True):
+            SaleStatistic.objects.update_from_order(self)
 
-        # Calculate order point and price using aggregate functions
+    def calculate_totals(self):
         order_details = self.order_detail.aggregate(
             total_point=Sum('point_get'),
             total_price=Sum('product_price')
@@ -58,46 +61,20 @@ class Order(models.Model):
         self.order_point = round(order_details['total_point'] or 0, 5)
         self.order_price = round(order_details['total_price'] or 0, 5)
 
-        # Get current order if exists
-        old_order = Order.objects.filter(id=self.id).first()
-        old_point = old_order.order_point if old_order else 0
-
-        # Get point of season of user
-        point_of_season, created = PointOfSeason.objects.get_or_create(
-            price_list=self.price_list_id, user=self.client_id
-        )
-
-        # Update points
-        point_of_season.point += self.order_point - old_point
-        point_of_season.total_point += self.order_point - old_point
-        point_of_season.save()
-
-        self.clean()
-        print(f"Complete save: {time.time() - start_time}")
-        return super().save(*args, **kwargs)
-
-    def __str__(self):
-        return f"{self.id} - {self.client_id}"
-
     def generate_pk(self):
-        # Get start char
         start_char = 'MT'
         current_year = datetime.utcnow().year
         two_digit_year = str(current_year)[-2:]
         current_month = datetime.utcnow().month
         two_digit_month = str(current_month).zfill(2)
-
         prefix = f"{start_char}{two_digit_year}{two_digit_month}"
         latest_order = Order.objects.filter(id__startswith=prefix).order_by('-id').first()
-
         if latest_order:
             latest_id = int(latest_order.id[-5:]) + 1
         else:
             latest_id = 1
-
         if latest_id > 99999:
             raise ValueError({'id': 'Out of index'})
-
         return f"{prefix}{str(latest_id).zfill(5)}"
 
 

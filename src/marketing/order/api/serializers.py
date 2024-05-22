@@ -31,12 +31,9 @@ class OrderSerializer(BaseRestrictSerializer):
 
     def create(self, validated_data):
         start_time = time.time()
-        print(f"Im testing here")
         # Split insert data
         data, perm_data = self.split_data(validated_data)
         order_details_data = data.pop('order_detail', [])
-        print(f"Test data: {data}")
-        print(f"Test order details: {order_details_data}")
         request = self.context.get('request')
         user, phone = get_phone_from_token(request)
         is_livestream_order = data.get('new_special_offer')

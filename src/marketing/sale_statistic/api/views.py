@@ -1,12 +1,11 @@
 from django.utils import timezone
-from rest_framework import viewsets, mixins
+from rest_framework import viewsets, mixins, status
 from rest_framework.authentication import BasicAuthentication
 from rest_framework.response import Response
 from rest_framework_simplejwt.authentication import JWTAuthentication
 
 from marketing.sale_statistic.api.serializers import SaleStatisticSerializer, SaleMonthTargetSerializer
 from marketing.sale_statistic.models import SaleStatistic, SaleTarget
-from utils.constants import status
 from utils.model_filter_paginate import filter_data
 
 
@@ -21,7 +20,7 @@ class ApiSaleStatistic(viewsets.GenericViewSet, mixins.ListModelMixin,
     def list(self, request, *args, **kwargs):
         response = filter_data(self, request, ['user', 'month'],
                                **kwargs)
-        return Response(response, status.HTTP_200_OK)
+        return Response(response, status=status.HTTP_200_OK)
 
 
 class CurrentMonthSaleStatisticView(viewsets.GenericViewSet, mixins.ListModelMixin):
@@ -51,4 +50,4 @@ class ApiSaleMonthTarget(viewsets.GenericViewSet, mixins.ListModelMixin,
     def list(self, request, *args, **kwargs):
         response = filter_data(self, request, ['month'],
                                **kwargs)
-        return Response(response, status.HTTP_200_OK)
+        return Response(response, status=status.HTTP_200_OK)
