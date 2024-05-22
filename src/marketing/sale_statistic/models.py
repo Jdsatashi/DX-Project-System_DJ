@@ -7,6 +7,23 @@ from account.models import User
 
 class SaleStatisticManager(models.Manager):
     def update_from_order(self, order):
+        today = timezone.now().date()
+        first_day_of_month = today.replace(day=1)
+
+        sale_statistic, _ = self.get_or_create(
+            user=order.client_id,
+            month=first_day_of_month,
+        )
+
+        total_turnover_increase = order.order_price if not order.new_special_offer or (
+                    order.new_special_offer and order.new_special_offer.count_turnover) else 0
+
+        self.filter(pk=sale_statistic.pk).update(
+            total_turnover=F('total_turnover') + total_turnover_increase,
+            available_turnover=F('total_turnover') - F('used_turnover') + total_turnover_increase,
+        )
+
+    def update_from_order_2(self, order):
         print("Looping")
         today = timezone.now().date()
         first_day_of_month = today.replace(day=1)

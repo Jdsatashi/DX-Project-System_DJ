@@ -46,12 +46,25 @@ class Order(models.Model):
                     f"Order date {self.created_at.date()} must be within the PriceList's date range from {self.price_list_id.date_start} to {self.price_list_id.date_end}.")
 
     def save(self, *args, **kwargs):
+        is_new = self._state.adding
         if not self.pk:
             self.id = self.generate_pk()
         self.calculate_totals()
         super().save(*args, **kwargs)
-        if kwargs.get('update_sale_statistic', True):
-            SaleStatistic.objects.update_from_order(self)
+
+        if is_new:
+            self.update_sale_statistics_for_user(self.client_id)
+    # def save(self, *args, **kwargs):
+    #     is_new = self._state.adding
+    #     if not self.pk:
+    #         self.id = self.generate_pk()
+    #     self.calculate_totals()
+    #     super().save(*args, **kwargs)
+    #
+    #     if is_new:
+    #         update_all_sale_statistics_for_user(self.client_id)
+        # if kwargs.get('update_sale_statistic', True):
+        #     SaleStatistic.objects.update_from_order(self)
 
     def calculate_totals(self):
         order_details = self.order_detail.aggregate(
@@ -76,6 +89,45 @@ class Order(models.Model):
         if latest_id > 99999:
             raise ValueError({'id': 'Out of index'})
         return f"{prefix}{str(latest_id).zfill(5)}"
+
+    @staticmethod
+    def update_sale_statistics_for_user(user):
+        # Lấy tất cả các Order của user
+        orders = Order.objects.filter(client_id=user).order_by('created_at')
+
+        # Tạo dictionary để lưu trữ doanh số cho mỗi tháng
+        monthly_sales = {}
+
+        for order in orders:
+            # Lấy tháng từ ngày tạo Order
+            order_month = order.created_at.date().replace(day=1)
+
+            # Khởi tạo giá trị doanh số nếu chưa có trong dictionary
+            if order_month not in monthly_sales:
+                monthly_sales[order_month] = 0
+
+            # Tính toán doanh số cho Order
+            if order.new_special_offer and order.new_special_offer.count_turnover:
+                monthly_sales[order_month] += order.order_price or 0
+            elif not order.new_special_offer:
+                monthly_sales[order_month] += order.order_price or 0
+
+        # Cập nhật hoặc tạo mới SaleStatistic cho từng tháng
+        for month, total_turnover in monthly_sales.items():
+            sale_statistic, created = SaleStatistic.objects.get_or_create(
+                user=user,
+                month=month,
+                defaults={
+                    'total_turnover': total_turnover,
+                    'available_turnover': total_turnover,
+                }
+            )
+            if not created:
+                # Nếu SaleStatistic đã tồn tại, cập nhật giá trị
+                SaleStatistic.objects.filter(pk=sale_statistic.pk).update(
+                    total_turnover=total_turnover,
+                    available_turnover=total_turnover - sale_statistic.used_turnover,
+                )
 
 
 class OrderDetail(models.Model):
@@ -104,3 +156,42 @@ class OrderDetail(models.Model):
         if self.point_get:
             self.point_get = round(self.point_get, 5)
         super().save(*args, **kwargs)
+
+
+def update_all_sale_statistics_for_user(user):
+    # Lấy tất cả các Order của user
+    orders = Order.objects.filter(client_id=user).order_by('created_at')
+
+    # Tạo dictionary để lưu trữ doanh số cho mỗi tháng
+    monthly_sales = {}
+
+    for order in orders:
+        # Lấy tháng từ ngày tạo Order
+        order_month = order.created_at.date().replace(day=1)
+
+        # Khởi tạo giá trị doanh số nếu chưa có trong dictionary
+        if order_month not in monthly_sales:
+            monthly_sales[order_month] = 0
+
+        # Tính toán doanh số cho Order
+        if order.new_special_offer and order.new_special_offer.count_turnover:
+            monthly_sales[order_month] += order.order_price or 0
+        elif not order.new_special_offer:
+            monthly_sales[order_month] += order.order_price or 0
+
+    # Cập nhật hoặc tạo mới SaleStatistic cho từng tháng
+    for month, total_turnover in monthly_sales.items():
+        sale_statistic, created = SaleStatistic.objects.get_or_create(
+            user=user,
+            month=month,
+            defaults={
+                'total_turnover': total_turnover,
+                'available_turnover': total_turnover,
+            }
+        )
+        if not created:
+            # Nếu SaleStatistic đã tồn tại, cập nhật giá trị
+            SaleStatistic.objects.filter(pk=sale_statistic.pk).update(
+                total_turnover=total_turnover,
+                available_turnover=total_turnover - sale_statistic.used_turnover,
+            )
