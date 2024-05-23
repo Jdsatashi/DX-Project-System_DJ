@@ -1,13 +1,15 @@
 import time
 
+from django.utils import timezone
 from rest_framework import serializers, status
 from rest_framework.response import Response
 
 from account.handlers.restrict_serializer import BaseRestrictSerializer
 from marketing.livestream.api.serializers import get_phone_from_token
 from marketing.livestream.models import LiveStreamOfferRegister
-from marketing.order.models import Order, OrderDetail
+from marketing.order.models import Order, OrderDetail, update_sale_statistics_for_user
 from marketing.price_list.models import ProductPrice, SpecialOfferProduct
+from marketing.sale_statistic.models import SaleStatistic
 
 
 class OrderDetailSerializer(BaseRestrictSerializer):
@@ -30,20 +32,29 @@ class OrderSerializer(BaseRestrictSerializer):
         read_only_fields = ['id', 'created_by', 'created_at', 'updated_at', 'order_point', 'order_price']
 
     def create(self, validated_data):
-        start_time = time.time()
         # Split insert data
         data, perm_data = self.split_data(validated_data)
         order_details_data = data.pop('order_detail', [])
         request = self.context.get('request')
         user, phone = get_phone_from_token(request)
-        spacial_offer = data.get('new_special_offer')
+        special_offer = data.get('new_special_offer')
+        if special_offer:
+            if (special_offer.live_stream is not None and
+                    not LiveStreamOfferRegister.objects.filter(phone=phone, register=True).exists()):
+                raise serializers.ValidationError({'message': 'Phone number not registered for LiveStream offer'})
+            today = timezone.now().date()
+            first_day_of_month = today.replace(day=1)
+            user_sale_statistic = SaleStatistic.objects.filter(user=user, month=first_day_of_month).first()
+            if user_sale_statistic is None:
+                user_sale_statistic = update_sale_statistics_for_user(user)
 
-        if spacial_offer and not LiveStreamOfferRegister.objects.filter(phone=phone, register=True).exists():
-            raise serializers.ValidationError({'message': 'Phone number not registered for LiveStream offer'})
-        print(f"Special offer: {spacial_offer}")
+            number_box_can_buy = user_sale_statistic.available_turnover // special_offer.target
+            total_order_box = sum(item['order_box'] for item in order_details_data)
+            if number_box_can_buy < total_order_box:
+                raise serializers.ValidationError({'message': 'Not enough turnover'})
+
         # Create new Order
         order = Order.objects.create(**data)
-        print(f"Time split data: {time.time() - start_time}")
 
         # Calculate total price and point
         total_price, total_point, details = self.calculate_total_price_and_point(order, order_details_data)
@@ -52,12 +63,10 @@ class OrderSerializer(BaseRestrictSerializer):
         order.order_point = total_point
         order.order_price = total_price
         order.save()
-        print(f"Time save data: {time.time() - start_time}")
 
         restrict = perm_data.get('restrict')
         if restrict:
             self.handle_restrict(perm_data, order.id, self.Meta.model)
-        print(f"Time create perms: {time.time() - start_time}")
         return order
 
     def update(self, instance, validated_data):
@@ -127,7 +136,7 @@ class OrderSerializer(BaseRestrictSerializer):
                 product_price = ProductPrice.objects.get(price_list=order.price_list_id, product=product_id)
                 prices = float(product_price.price) * float(quantity) if product_price.price is not None else 0
                 point = float(product_price.point) * (
-                            quantity / product_price.quantity_in_box) if product_price.point is not None else 0
+                        quantity / product_price.quantity_in_box) if product_price.point is not None else 0
         except (ProductPrice.DoesNotExist, SpecialOfferProduct.DoesNotExist):
             raise serializers.ValidationError({'message': 'This product not in price list or special offer'})
 
