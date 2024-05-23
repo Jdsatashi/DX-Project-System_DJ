@@ -57,41 +57,40 @@ class BaseRestrictSerializer(serializers.ModelSerializer):
 
     def handle_restrict(self, data: dict, _id: Union[str, int], model: Type[Model]) -> None:
         """ Handle adding rule Perm for specific Object to created object """
-        if data.get('restrict', False):
-            # Get action for full CRUD perm
-            actions = acquy.get('full')
-            user_actions = data.get('allow_actions', [])
-            content = ContentType.objects.get_for_model(model)
-            # Generate string perm name
-            perm_name = f'{content.app_label}_{content.model}_{_id}'
-            list_perm = list()
-            # Processing create perm
-            for action in actions:
-                _perm_name = f"{action}_{perm_name}"
-                Perm.objects.get_or_create(
-                    name=_perm_name,
-                    note=f"{action.capitalize()} {content.model} - {_id}",
-                    object_id=str(_id),
-                    content_type=content
-                )
-                # Add perm to list_perm for register user/nhom
-                if action in acquy.get(user_actions[0]):
-                    list_perm.append(_perm_name)
-            # Get users has perm
-            existed_user_allow = list_user_has_perm(list_perm, True)
-            existed_user_restrict = list_user_has_perm(list_perm, False)
-            existed_group_allow = list_group_has_perm(list_perm, True)
-            existed_group_restrict = list_group_has_perm(list_perm, False)
-            print("--------- TEST PERMISSIONS ---------")
-            # Processing assign perm to user/nhom
-            self.add_perm({'type': 'users', 'data': data['allow_users'], 'existed': existed_user_allow}, list_perm,
-                          True)
-            self.add_perm({'type': 'group', 'data': data['allow_nhom'], 'existed': existed_group_allow}, list_perm,
-                          True)
-            self.add_perm({'type': 'users', 'data': data['restrict_users'], 'existed': existed_user_restrict},
-                          list_perm, False)
-            self.add_perm({'type': 'group', 'data': data['restrict_nhom'], 'existed': existed_group_restrict},
-                          list_perm, False)
+        # Get action for full CRUD perm
+        actions = acquy.get('full')
+        user_actions = data.get('allow_actions', [])
+        content = ContentType.objects.get_for_model(model)
+        # Generate string perm name
+        perm_name = f'{content.app_label}_{content.model}_{_id}'
+        list_perm = list()
+        # Processing create perm
+        for action in actions:
+            _perm_name = f"{action}_{perm_name}"
+            Perm.objects.get_or_create(
+                name=_perm_name,
+                note=f"{action.capitalize()} {content.model} - {_id}",
+                object_id=str(_id),
+                content_type=content
+            )
+            # Add perm to list_perm for register user/nhom
+            if action in acquy.get(user_actions[0]):
+                list_perm.append(_perm_name)
+        # Get users has perm
+        existed_user_allow = list_user_has_perm(list_perm, True)
+        existed_user_restrict = list_user_has_perm(list_perm, False)
+        existed_group_allow = list_group_has_perm(list_perm, True)
+        existed_group_restrict = list_group_has_perm(list_perm, False)
+        print("--------- TEST PERMISSIONS ---------")
+        # Processing assign perm to user/nhom
+        self.add_perm({'type': 'users', 'data': data['allow_users'], 'existed': existed_user_allow}, list_perm,
+                      True)
+        self.add_perm({'type': 'group', 'data': data['allow_nhom'], 'existed': existed_group_allow}, list_perm,
+                      True)
+        self.add_perm({'type': 'users', 'data': data['restrict_users'], 'existed': existed_user_restrict},
+                      list_perm, False)
+        self.add_perm({'type': 'group', 'data': data['restrict_nhom'], 'existed': existed_group_restrict},
+                      list_perm, False)
 
     @staticmethod
     def add_perm(items: dict, perms: list, allow: bool):
