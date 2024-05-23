@@ -28,13 +28,11 @@ class SaleStatisticManager(models.Manager):
         today = timezone.now().date()
         first_day_of_month = today.replace(day=1)
 
-        # Tìm hoặc tạo SaleStatistic cho người dùng của Order và tháng hiện tại
         sale_statistic, _ = self.get_or_create(
             user=order.client_id,
             month=first_day_of_month,
         )
 
-        # Cập nhật total_turnover
         if order.new_special_offer and order.new_special_offer.count_turnover:
             total_turnover_increase = order.order_price
         elif not order.new_special_offer:
@@ -42,7 +40,6 @@ class SaleStatisticManager(models.Manager):
         else:
             total_turnover_increase = 0
 
-        # Cập nhật total_turnover và available_turnover
         self.filter(pk=sale_statistic.pk).update(
             total_turnover=F('total_turnover') + total_turnover_increase,
             available_turnover=F('total_turnover') - F('used_turnover') + total_turnover_increase,
@@ -67,6 +64,10 @@ class SaleStatistic(models.Model):
 
     class Meta:
         unique_together = ('user', 'month')
+
+    def save(self, *args, **kwargs):
+        sale_target = SaleTarget.objects.get_or_create(month=self.month)
+        super().save(*args, **kwargs)
 
     def __str__(self):
         return f"{self.user.username} - {self.month.strftime('%Y-%m')}"

@@ -54,6 +54,7 @@ class Order(models.Model):
 
         if is_new:
             self.update_sale_statistics_for_user(self.client_id)
+
     # def save(self, *args, **kwargs):
     #     is_new = self._state.adding
     #     if not self.pk:
@@ -63,8 +64,8 @@ class Order(models.Model):
     #
     #     if is_new:
     #         update_all_sale_statistics_for_user(self.client_id)
-        # if kwargs.get('update_sale_statistic', True):
-        #     SaleStatistic.objects.update_from_order(self)
+    # if kwargs.get('update_sale_statistic', True):
+    #     SaleStatistic.objects.update_from_order(self)
 
     def calculate_totals(self):
         order_details = self.order_detail.aggregate(
@@ -97,7 +98,7 @@ class Order(models.Model):
 
         # Tạo dictionary để lưu trữ doanh số cho mỗi tháng
         monthly_sales = {}
-
+        print(f"Testing: ---------------------")
         for order in orders:
             # Lấy tháng từ ngày tạo Order
             order_month = order.created_at.date().replace(day=1)
@@ -105,11 +106,12 @@ class Order(models.Model):
             # Khởi tạo giá trị doanh số nếu chưa có trong dictionary
             if order_month not in monthly_sales:
                 monthly_sales[order_month] = 0
-
             # Tính toán doanh số cho Order
-            if order.new_special_offer and order.new_special_offer.count_turnover:
+            if order.new_special_offer and order.new_special_offer.count_turnover is not False:
+                print(f"Testing if turnover: {order.new_special_offer.count_turnover}")
                 monthly_sales[order_month] += order.order_price or 0
             elif not order.new_special_offer:
+                print(f"When not new_special_offer")
                 monthly_sales[order_month] += order.order_price or 0
 
         # Cập nhật hoặc tạo mới SaleStatistic cho từng tháng

@@ -190,10 +190,13 @@ class SpecialOfferSerializer(BaseRestrictSerializer):
             if "id" in product_data:
                 product = SpecialOfferProduct.objects.get(id=product_data["id"], special_offer=instance)
                 for attr, value in product_data.items():
-                    setattr(product, attr, value)
+                    if attr != 'special_offer':  # Avoid setting special_offer attribute again
+                        setattr(product, attr, value)
                 product.save()
                 keep_products.append(product.id)
             else:
+                print(product_data)
+                product_data.pop('special_offer', None)  # Remove special_offer from product_data if exists
                 product = SpecialOfferProduct.objects.create(special_offer=instance, **product_data)
                 keep_products.append(product.id)
 

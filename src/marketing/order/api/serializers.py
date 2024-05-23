@@ -36,11 +36,11 @@ class OrderSerializer(BaseRestrictSerializer):
         order_details_data = data.pop('order_detail', [])
         request = self.context.get('request')
         user, phone = get_phone_from_token(request)
-        is_livestream_order = data.get('new_special_offer')
+        spacial_offer = data.get('new_special_offer')
 
-        if is_livestream_order and not LiveStreamOfferRegister.objects.filter(phone=phone, register=True).exists():
+        if spacial_offer and not LiveStreamOfferRegister.objects.filter(phone=phone, register=True).exists():
             raise serializers.ValidationError({'message': 'Phone number not registered for LiveStream offer'})
-
+        print(f"Special offer: {spacial_offer}")
         # Create new Order
         order = Order.objects.create(**data)
         print(f"Time split data: {time.time() - start_time}")

@@ -1,22 +1,22 @@
-# from django.db.models.signals import post_save
-# from django.dispatch import receiver
-# from django.utils import timezone
-#
-# from account.models import User
-# from .models import SaleStatistic, SaleTarget
-# from ..order.models import Order
-#
-# updating_statistic = False
-#
-#
-# @receiver(post_save, sender=User)
-# def create_monthly_turnover(sender, instance, created, **kwargs):
-#     if created:
-#         today = timezone.now().date()
-#         first_day_of_month = today.replace(day=1)
-#         SaleStatistic.objects.get_or_create(user=instance, month=first_day_of_month)
-#
-#
+from django.db.models.signals import post_save
+from django.dispatch import receiver
+from django.utils import timezone
+
+from account.models import User
+from .models import SaleStatistic, SaleTarget
+from ..order.models import Order
+
+updating_statistic = False
+
+
+@receiver(post_save, sender=User)
+def create_monthly_turnover(sender, instance, created, **kwargs):
+    if created:
+        today = timezone.now().date()
+        first_day_of_month = today.replace(day=1)
+        SaleStatistic.objects.get_or_create(user=instance, month=first_day_of_month)
+
+
 # @receiver(post_save, sender=SaleStatistic)
 # def create_next_month_turnover(sender, instance, created, **kwargs):
 #     if created:
@@ -29,7 +29,6 @@
 #
 #         if not SaleStatistic.objects.filter(user=instance.user, month=next_month).exists():
 #             SaleStatistic.objects.create(user=instance.user, month=next_month, bonus_turnover=bonus_turnover)
-
 
 # @receiver(post_save, sender=Order)
 # def update_sale_statistic(sender, instance, created, **kwargs):

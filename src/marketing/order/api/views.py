@@ -26,7 +26,7 @@ class GenericApiOrder(viewsets.GenericViewSet, mixins.ListModelMixin, mixins.Cre
     # permission_classes = [partial(ValidatePermRest, model=Order)]
 
     def list(self, request, *args, **kwargs):
-        response = filter_data(self, request, ['id', 'date_get', 'date_company_get', 'client_id'],
+        response = filter_data(self, request, ['id', 'date_get', 'date_company_get', 'client_id__id'],
                                **kwargs)
         return Response(response, status.HTTP_200_OK)
 
