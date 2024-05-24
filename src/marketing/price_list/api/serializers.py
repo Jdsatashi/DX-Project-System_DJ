@@ -148,7 +148,7 @@ class SpecialOfferProductSerializer(serializers.ModelSerializer):
 
     class Meta:
         model = SpecialOfferProduct
-        fields = ['id', 'product', 'cashback', 'max_order_box']
+        fields = '__all__'
         read_only_fields = ['id']
 
 
@@ -169,7 +169,9 @@ class SpecialOfferSerializer(BaseRestrictSerializer):
         special_offer = SpecialOffer.objects.create(**data)
         # Add product to SpecialOfferProduct
         for product_data in products_data:
+            self.set_default_values(special_offer, product_data)
             SpecialOfferProduct.objects.create(special_offer=special_offer, **product_data)
+
         # Create perm for data
         restrict = perm_data.get('restrict')
         if restrict:
@@ -197,7 +199,7 @@ class SpecialOfferSerializer(BaseRestrictSerializer):
                 product.save()
                 keep_products.append(product.id)
             else:
-                print(product_data)
+                self.set_default_values(instance, product_data)
                 product_data.pop('special_offer', None)  # Remove special_offer from product_data if exists
                 product = SpecialOfferProduct.objects.create(special_offer=instance, **product_data)
                 keep_products.append(product.id)
@@ -211,3 +213,14 @@ class SpecialOfferSerializer(BaseRestrictSerializer):
         if restrict:
             self.handle_restrict(perm_data, instance.id, self.Meta.model)
         return instance
+
+    @staticmethod
+    def set_default_values(special_offer, product_data):
+        """Set default values for price, point, and quantity_in_box from ProductPrice"""
+        if 'price' not in product_data or product_data['price'] is None:
+            product_price = ProductPrice.objects.filter(price_list=special_offer.price_list,
+                                                        product=product_data['product']).first()
+            if product_price:
+                product_data['price'] = product_price.price
+                product_data['point'] = product_price.point
+                product_data['quantity_in_box'] = product_price.quantity_in_box
