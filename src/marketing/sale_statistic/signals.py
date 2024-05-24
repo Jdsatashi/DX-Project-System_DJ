@@ -3,8 +3,7 @@ from django.dispatch import receiver
 from django.utils import timezone
 
 from account.models import User
-from .models import SaleStatistic, SaleTarget
-from ..order.models import Order
+from marketing.sale_statistic.models import SaleStatistic
 
 updating_statistic = False
 
