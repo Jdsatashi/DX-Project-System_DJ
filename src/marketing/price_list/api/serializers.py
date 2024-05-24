@@ -63,7 +63,7 @@ class PriceListSerializer(BaseRestrictSerializer):
         request = self.context.get('request')
         if request and request.method == 'GET' and hasattr(request,
                                                            'resolver_match') and request.resolver_match.kwargs.get(
-                'pk'):
+            'pk'):
             products_list_serializer = ProductPriceReadSerializer(instance.productprice_set.all(), many=True)
             ret['products_list'] = products_list_serializer.data
         return ret
@@ -144,9 +144,11 @@ class UserPoint(BaseRestrictSerializer):
 
 
 class SpecialOfferProductSerializer(serializers.ModelSerializer):
+    max_order_box = serializers.IntegerField(default=3)
+
     class Meta:
         model = SpecialOfferProduct
-        fields = '__all__'
+        fields = ['id', 'product', 'cashback', 'max_order_box']
         read_only_fields = ['id']
 
 
