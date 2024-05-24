@@ -24,9 +24,9 @@ class OrderDetailSerializer(BaseRestrictSerializer):
 
 class OrderSerializer(BaseRestrictSerializer):
     order_detail = OrderDetailSerializer(many=True)
-    list_type = serializers.CharField(required=False, allow_blank=True)
-    note = serializers.CharField(required=False, allow_blank=True)
-    status = serializers.CharField(required=False, allow_blank=True)
+    list_type = serializers.CharField(required=False, allow_blank=True, allow_null=True)
+    note = serializers.CharField(required=False, allow_blank=True, allow_null=True)
+    status = serializers.CharField(required=False, allow_blank=True, allow_null=True)
 
     class Meta:
         model = Order
@@ -136,6 +136,7 @@ class OrderSerializer(BaseRestrictSerializer):
             # When user not have SaleStatistic, create new one
             if user_sale_statistic is None:
                 user_sale_statistic = update_sale_statistics_for_user(user)
+            print(f"Testing statistic: {user_sale_statistic.total_turnover}")
             # Calculate max box can buy
             number_box_can_buy = user_sale_statistic.available_turnover // special_offer.target
             # Validate each OrderDetail
@@ -155,6 +156,7 @@ class OrderSerializer(BaseRestrictSerializer):
                     raise serializers.ValidationError({
                         'message': f'Order box {order_box} exceeds max order box {special_offer_product.max_order_box} for product {product_id}'})
             total_order_box = sum(item['order_box'] for item in order_details_data)
+
             if number_box_can_buy < total_order_box:
                 raise serializers.ValidationError({'message': 'Not enough turnover'})
 
