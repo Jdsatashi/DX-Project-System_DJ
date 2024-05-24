@@ -15,4 +15,4 @@ staticfiles/
 storage/
 logs/
 product_image/
-.sql
+*.sql
