@@ -2,7 +2,7 @@ from datetime import datetime, timedelta
 from functools import partial
 
 from django.core.paginator import Paginator
-from django.db.models import Sum
+from django.db.models import Sum, Q
 from django.utils import timezone
 from rest_framework import viewsets, mixins, status
 from rest_framework.authentication import BasicAuthentication
@@ -53,15 +53,21 @@ class ProductStatisticsView(APIView):
             end_date_1 = request.data.get('end_date_1', datetime.strftime(default_end_date, '%d/%m/%Y'))
 
             start_date_time = datetime.strptime(start_date_1, '%d/%m/%Y')
-            start_date_2 = request.data.get('start_date_2', datetime.strftime(start_date_time - timedelta(days=365), '%d/%m/%Y'))
-            end_date_2 = request.data.get('end_date_2', datetime.strftime(start_date_time - timedelta(days=1), '%d/%m/%Y'))
+            start_date_2 = request.data.get('start_date_2',
+                                            datetime.strftime(start_date_time - timedelta(days=365), '%d/%m/%Y'))
+            end_date_2 = request.data.get('end_date_2',
+                                          datetime.strftime(start_date_time - timedelta(days=1), '%d/%m/%Y'))
+
+            type_statistic = request.data.get('type_statistic', 'all')
+            input_date = {'start_date_1': start_date_1, 'end_date_1': end_date_1,
+                          'start_date_2': start_date_2, 'end_date_2': end_date_2}
 
             # Get param variables data
             limit = request.query_params.get('limit', 10)
             page = int(request.query_params.get('page', 1))
 
             # Data set for statistic
-            statistics = get_product_statistics_2(user, start_date_1, end_date_1, start_date_2, end_date_2)
+            statistics = get_product_statistics_2(user, input_date, type_statistic)
 
             statistics_list = [{"product_id": k, **v} for k, v in statistics.items()]
 
@@ -101,17 +107,31 @@ class ProductStatisticsView(APIView):
         except Exception as e:
             return Response({"error": str(e)}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
 
-def get_product_statistics_2(user, start_date_1, end_date_1, start_date_2, end_date_2):
+
+def get_product_statistics_2(user, input_date, type_statistic):
     # Convert date format
-    start_date_1 = timezone.make_aware(datetime.strptime(start_date_1, '%d/%m/%Y'), timezone.get_current_timezone())
-    end_date_1 = timezone.make_aware(datetime.strptime(end_date_1, '%d/%m/%Y') + timedelta(days=1) - timedelta(seconds=1), timezone.get_current_timezone())
+    start_date_1 = timezone.make_aware(datetime.strptime(input_date.get('start_date_1'), '%d/%m/%Y'),
+                                       timezone.get_current_timezone())
+    end_date_1 = timezone.make_aware(
+        datetime.strptime(input_date.get('end_date_1'), '%d/%m/%Y') + timedelta(days=1) - timedelta(seconds=1),
+        timezone.get_current_timezone())
 
-    start_date_2 = timezone.make_aware(datetime.strptime(start_date_2, '%d/%m/%Y'), timezone.get_current_timezone())
-    end_date_2 = timezone.make_aware(datetime.strptime(end_date_2, '%d/%m/%Y') + timedelta(days=1) - timedelta(seconds=1), timezone.get_current_timezone())
-
-    # Get orders for each date range
+    start_date_2 = timezone.make_aware(datetime.strptime(input_date.get('start_date_2'), '%d/%m/%Y'),
+                                       timezone.get_current_timezone())
+    end_date_2 = timezone.make_aware(
+        datetime.strptime(input_date.get('end_date_2'), '%d/%m/%Y') + timedelta(days=1) - timedelta(seconds=1),
+        timezone.get_current_timezone())
     orders_1 = Order.objects.filter(client_id=user, created_at__gte=start_date_1, created_at__lte=end_date_1)
     orders_2 = Order.objects.filter(client_id=user, created_at__gte=start_date_2, created_at__lte=end_date_2)
+    # Get orders for each date range
+    match type_statistic:
+        case 'special_offer':
+            # Get orders for each date range with new_special_offer or is_so
+            orders_1 = orders_1.filter(Q(new_special_offer__isnull=False) | Q(is_so=True))
+            orders_2 = orders_2.filter(Q(new_special_offer__isnull=False) | Q(is_so=True))
+        case 'normal':
+            orders_1 = orders_1.filter(Q(new_special_offer__isnull=True) & Q(is_so=False))
+            orders_2 = orders_2.filter(Q(new_special_offer__isnull=True) & Q(is_so=False))
 
     # Get order details for each date range
     details_1 = OrderDetail.objects.filter(order_id__in=orders_1).values('product_id', 'product_id__name').annotate(

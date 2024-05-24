@@ -1,10 +1,12 @@
 import time
 
+from django.db.models import Sum
 from django.utils import timezone
 from rest_framework import serializers, status
 from rest_framework.response import Response
 
 from account.handlers.restrict_serializer import BaseRestrictSerializer
+from account.models import PhoneNumber
 from marketing.livestream.api.serializers import get_phone_from_token
 from marketing.livestream.models import LiveStreamOfferRegister
 from marketing.order.models import Order, OrderDetail, update_sale_statistics_for_user
@@ -34,87 +36,77 @@ class OrderSerializer(BaseRestrictSerializer):
     def create(self, validated_data):
         # Split insert data
         data, perm_data = self.split_data(validated_data)
+        # Get order detail data
         order_details_data = data.pop('order_detail', [])
-        request = self.context.get('request')
-        user, phone = get_phone_from_token(request)
-        special_offer = data.get('new_special_offer')
-        if special_offer:
-            if (special_offer.live_stream is not None and
-                    not LiveStreamOfferRegister.objects.filter(phone=phone, register=True).exists()):
-                raise serializers.ValidationError({'message': 'Phone number not registered for LiveStream offer'})
-            today = timezone.now().date()
-            first_day_of_month = today.replace(day=1)
-            user_sale_statistic = SaleStatistic.objects.filter(user=user, month=first_day_of_month).first()
-            if user_sale_statistic is None:
-                user_sale_statistic = update_sale_statistics_for_user(user)
-
-            number_box_can_buy = user_sale_statistic.available_turnover // special_offer.target
-            total_order_box = sum(item['order_box'] for item in order_details_data)
-            if number_box_can_buy < total_order_box:
-                raise serializers.ValidationError({'message': 'Not enough turnover'})
+        # Validate product order details
+        self.validate_special_offer(data, order_details_data)
 
         # Create new Order
         order = Order.objects.create(**data)
 
         # Calculate total price and point
-        total_price, total_point, details = self.calculate_total_price_and_point(order, order_details_data)
+        details = self.calculate_total_price_and_point(order, order_details_data)
         OrderDetail.objects.bulk_create(details)
-
+        # Get total point and price from query
+        total_price = OrderDetail.objects.filter(order_id=order).aggregate(total_price=Sum('product_price'))['total_price']
+        total_point = OrderDetail.objects.filter(order_id=order).aggregate(total_point=Sum('point_get'))['total_point']
+        # Add to order
         order.order_point = total_point
         order.order_price = total_price
         order.save()
-
+        # Create perms
         restrict = perm_data.get('restrict')
         if restrict:
             self.handle_restrict(perm_data, order.id, self.Meta.model)
         return order
 
     def update(self, instance, validated_data):
+        # Split insert data
         data, perm_data = self.split_data(validated_data)
-        order_detail_data = data.pop('order_detail', [])
+        # Get details data
+        order_details_data = data.pop('order_detail', [])
 
-        # Update main instance Order
+        self.validate_special_offer(data, order_details_data)
+
+        # Update Order fields
         for attr, value in data.items():
             setattr(instance, attr, value)
         instance.save()
 
-        current_details_id = {detail.id: detail for detail in instance.order_detail.all()}
-        update_details_id = set()
+        # Update OrderDetail
+        current_details_id = [detail.id for detail in instance.order_detail.all()]
+        new_details_id = []
         total_point = float(0)
         total_price = float(0)
 
-        # Update or create new OrderDetails
-        new_details = []
-        for detail_data in order_detail_data:
-            product_id = detail_data.pop('product_id')
+        for detail_data in order_details_data:
+            detail_id = detail_data.get('id')
+            product_id = detail_data.get('product_id')
             quantity = detail_data.get('order_quantity')
-            prices, point = self.calculate_price_and_point(instance, product_id, quantity)
 
-            detail_data['product_price'] = prices
-            detail_data['point_get'] = point
-
-            if product_id in current_details_id:
-                detail = current_details_id.pop(product_id)
+            if detail_id:
+                detail = OrderDetail.objects.get(id=detail_id, order_id=instance)
                 for attr, value in detail_data.items():
                     setattr(detail, attr, value)
                 detail.save()
-                update_details_id.add(detail.id)
             else:
-                new_detail = OrderDetail(order_id=instance, product_id=product_id, **detail_data)
-                new_details.append(new_detail)
-                update_details_id.add(new_detail.id)
+                prices, point = self.calculate_price_and_point(instance, product_id, quantity)
+                detail_data['product_price'] = prices
+                detail_data['point_get'] = point
+                detail = OrderDetail(order_id=instance, **detail_data)
+                detail.save()
+                detail_id = detail.id
 
-            total_point += point
-            total_price += prices
+            new_details_id.append(detail_id)
+            total_point += detail.point_get
+            total_price += detail.product_price
 
-        # Bulk create new details
-        OrderDetail.objects.bulk_create(new_details)
-
-        # Remove current OrderDetails which not in Update OrderDetail
+        # Remove OrderDetails not included in the update
         for detail_id in current_details_id:
-            if detail_id not in update_details_id:
-                current_details_id[detail_id].delete()
+            if detail_id not in new_details_id:
+                OrderDetail.objects.filter(id=detail_id).delete()
 
+        # Update order point and price
         instance.order_point = total_point
         instance.order_price = total_price
         instance.save()
@@ -122,7 +114,49 @@ class OrderSerializer(BaseRestrictSerializer):
         restrict = perm_data.get('restrict')
         if restrict:
             self.handle_restrict(perm_data, instance.id, self.Meta.model)
+
         return instance
+
+    def validate_special_offer(self, data, order_details_data):
+        # Get user and phone from token
+        user = data.get('client_id')
+        # Get special offer
+        special_offer = data.get('new_special_offer')
+        # Validate Order if it was special_offer
+        if special_offer:
+            phones = PhoneNumber.objects.filter(user=user)
+            # Check if SpecialOffer of livestream
+            if (special_offer.live_stream is not None and
+                    not LiveStreamOfferRegister.objects.filter(phone__in=phones, register=True).exists()):
+                raise serializers.ValidationError({'message': 'Phone number not registered for LiveStream offer'})
+            # Get current SaleStatistic of user
+            today = timezone.now().date()
+            first_day_of_month = today.replace(day=1)
+            user_sale_statistic = SaleStatistic.objects.filter(user=user, month=first_day_of_month).first()
+            # When user not have SaleStatistic, create new one
+            if user_sale_statistic is None:
+                user_sale_statistic = update_sale_statistics_for_user(user)
+            # Calculate max box can buy
+            number_box_can_buy = user_sale_statistic.available_turnover // special_offer.target
+            # Validate each OrderDetail
+            for detail_data in order_details_data:
+                product_id = detail_data.get('product_id')
+                order_box = detail_data.get('order_box')
+
+                # Check if product is in SpecialOfferProduct
+                if not SpecialOfferProduct.objects.filter(special_offer=special_offer, product_id=product_id).exists():
+                    raise serializers.ValidationError(
+                        {'message': f'Product {product_id} is not in the SpecialOfferProduct'})
+
+                # Check if order_box is less than max_order_box
+                special_offer_product = SpecialOfferProduct.objects.get(special_offer=special_offer,
+                                                                        product_id=product_id)
+                if special_offer_product.max_order_box and order_box > special_offer_product.max_order_box:
+                    raise serializers.ValidationError({
+                        'message': f'Order box {order_box} exceeds max order box {special_offer_product.max_order_box} for product {product_id}'})
+            total_order_box = sum(item['order_box'] for item in order_details_data)
+            if number_box_can_buy < total_order_box:
+                raise serializers.ValidationError({'message': 'Not enough turnover'})
 
     def calculate_price_and_point(self, order, product_id, quantity):
         try:
@@ -139,14 +173,10 @@ class OrderSerializer(BaseRestrictSerializer):
                         quantity / product_price.quantity_in_box) if product_price.point is not None else 0
         except (ProductPrice.DoesNotExist, SpecialOfferProduct.DoesNotExist):
             raise serializers.ValidationError({'message': 'This product not in price list or special offer'})
-
         return prices, point
 
     def calculate_total_price_and_point(self, order, order_details_data):
-        total_price = 0
-        total_point = 0
         details = []
-
         for detail_data in order_details_data:
             quantity = detail_data.get('order_quantity')
             product_id = detail_data.pop('product_id')
@@ -155,14 +185,9 @@ class OrderSerializer(BaseRestrictSerializer):
 
             detail_data['product_price'] = prices
             detail_data['point_get'] = point
-
-            total_price += prices
-            total_point += point
-
             detail = OrderDetail(order_id=order, product_id=product_id, **detail_data)
             details.append(detail)
-
-        return total_price, total_point, details
+        return details
 
 
 class OldOrderSerializer(BaseRestrictSerializer):
