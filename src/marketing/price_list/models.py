@@ -132,3 +132,5 @@ class SpecialOfferProduct(models.Model):
     price = models.BigIntegerField(null=True)
     point = models.FloatField(null=True)
     quantity_in_box = models.IntegerField(default=0)
+    cashback = models.BigIntegerField(null=True)
+    max_order_box = models.IntegerField(null=True)
