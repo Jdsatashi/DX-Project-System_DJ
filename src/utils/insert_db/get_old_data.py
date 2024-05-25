@@ -296,7 +296,7 @@ tb_toaDetail
 
 def insert_order():
     start_time = time.time()
-    for a in range(5, 40):
+    for a in range(0, 40):
         i = 1 + (5000 * a)
         y = 5000 + (5000 * a)
         data = table_data_2(old_data['tb_toa'], '*', {'start': i, 'end': y})
