@@ -11,7 +11,7 @@ from marketing.livestream.api.serializers import get_phone_from_token
 from marketing.livestream.models import LiveStreamOfferRegister
 from marketing.order.models import Order, OrderDetail, update_sale_statistics_for_user
 from marketing.price_list.models import ProductPrice, SpecialOfferProduct
-from marketing.sale_statistic.models import SaleStatistic
+from marketing.sale_statistic.models import SaleStatistic, SaleTarget
 
 
 class OrderDetailSerializer(BaseRestrictSerializer):
@@ -39,7 +39,7 @@ class OrderSerializer(BaseRestrictSerializer):
         # Get order detail data
         order_details_data = data.pop('order_detail', [])
         # Validate product order details
-        self.validate_special_offer(data, order_details_data)
+        user_sale_statistic = self.validate_special_offer(data, order_details_data)
 
         # Create new Order
         order = Order.objects.create(**data)
@@ -48,12 +48,16 @@ class OrderSerializer(BaseRestrictSerializer):
         details = self.calculate_total_price_and_point(order, order_details_data)
         OrderDetail.objects.bulk_create(details)
         # Get total point and price from query
-        total_price = OrderDetail.objects.filter(order_id=order).aggregate(total_price=Sum('product_price'))['total_price']
+        total_price = OrderDetail.objects.filter(order_id=order).aggregate(total_price=Sum('product_price'))[
+            'total_price']
         total_point = OrderDetail.objects.filter(order_id=order).aggregate(total_point=Sum('point_get'))['total_point']
         # Add to order
         order.order_point = total_point
         order.order_price = total_price
         order.save()
+
+        self.update_sale_statistic(order, user_sale_statistic)
+
         # Create perms
         restrict = perm_data.get('restrict')
         if restrict:
@@ -66,7 +70,7 @@ class OrderSerializer(BaseRestrictSerializer):
         # Get details data
         order_details_data = data.pop('order_detail', [])
 
-        self.validate_special_offer(data, order_details_data)
+        user_sale_statistic = self.validate_special_offer(data, order_details_data)
 
         # Update Order fields
         for attr, value in data.items():
@@ -110,6 +114,8 @@ class OrderSerializer(BaseRestrictSerializer):
         instance.order_point = total_point
         instance.order_price = total_price
         instance.save()
+
+        self.update_sale_statistic(instance, user_sale_statistic)
 
         restrict = perm_data.get('restrict')
         if restrict:
@@ -158,7 +164,10 @@ class OrderSerializer(BaseRestrictSerializer):
             total_order_box = sum(item['order_box'] for item in order_details_data)
 
             if number_box_can_buy < total_order_box:
-                raise serializers.ValidationError({'message': 'Not enough turnover'})
+                raise serializers.ValidationError(
+                    {'message': 'Not enough turnover', 'box_can_buy': str(number_box_can_buy)})
+            return user_sale_statistic
+        return None
 
     def calculate_price_and_point(self, order, product_id, quantity):
         try:
@@ -190,6 +199,25 @@ class OrderSerializer(BaseRestrictSerializer):
             detail = OrderDetail(order_id=order, product_id=product_id, **detail_data)
             details.append(detail)
         return details
+
+    @staticmethod
+    def update_sale_statistic(order, user_sale_statistic):
+        if user_sale_statistic:
+            # Calculate used turnover based on SaleTarget for the month of order.created_at
+            order_month = order.created_at.replace(day=1)
+            sale_target = SaleTarget.objects.filter(month=order_month).first()
+
+            if not sale_target:
+                raise serializers.ValidationError({'message': f'No SaleTarget found for the month {order_month}'})
+
+            used_turnover = sum(
+                detail.order_box * sale_target.month_target
+                for detail in order.order_detail.all()
+            )
+
+            user_sale_statistic.used_turnover += used_turnover
+            user_sale_statistic.available_turnover = user_sale_statistic.total_turnover - user_sale_statistic.used_turnover
+            user_sale_statistic.save()
 
 
 class OldOrderSerializer(BaseRestrictSerializer):
@@ -310,3 +338,4 @@ class ProductStatisticsSerializer(serializers.Serializer):
     product_name = serializers.CharField()
     current = serializers.DictField(required=False)
     one_year_ago = serializers.DictField(required=False)
+    total_cashback = serializers.IntegerField(required=False)

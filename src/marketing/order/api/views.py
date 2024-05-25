@@ -14,6 +14,7 @@ from rest_framework_simplejwt.authentication import JWTAuthentication
 from account.handlers.validate_perm import ValidatePermRest
 from marketing.order.api.serializers import OrderSerializer, ProductStatisticsSerializer
 from marketing.order.models import Order, OrderDetail
+from marketing.price_list.models import SpecialOfferProduct
 from utils.model_filter_paginate import filter_data
 
 
@@ -108,7 +109,7 @@ class ProductStatisticsView(APIView):
             return Response({"error": str(e)}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
 
 
-def get_product_statistics_2(user, input_date, type_statistic):
+def get_product_statistics(user, input_date, type_statistic):
     # Convert date format
     start_date_1 = timezone.make_aware(datetime.strptime(input_date.get('start_date_1'), '%d/%m/%Y'),
                                        timezone.get_current_timezone())
@@ -179,5 +180,103 @@ def get_product_statistics_2(user, input_date, type_statistic):
             "quantity": detail['total_quantity'],
             "box": detail['total_box']
         }
+
+    return combined_results
+
+
+def get_product_statistics_2(user, input_date, type_statistic):
+    # Convert date format
+    start_date_1 = timezone.make_aware(datetime.strptime(input_date.get('start_date_1'), '%d/%m/%Y'),
+                                       timezone.get_current_timezone())
+    end_date_1 = timezone.make_aware(
+        datetime.strptime(input_date.get('end_date_1'), '%d/%m/%Y') + timedelta(days=1) - timedelta(seconds=1),
+        timezone.get_current_timezone())
+
+    start_date_2 = timezone.make_aware(datetime.strptime(input_date.get('start_date_2'), '%d/%m/%Y'),
+                                       timezone.get_current_timezone())
+    end_date_2 = timezone.make_aware(
+        datetime.strptime(input_date.get('end_date_2'), '%d/%m/%Y') + timedelta(days=1) - timedelta(seconds=1),
+        timezone.get_current_timezone())
+
+    # Get orders for each date range
+    orders_1 = Order.objects.filter(client_id=user, created_at__gte=start_date_1, created_at__lte=end_date_1)
+    orders_2 = Order.objects.filter(client_id=user, created_at__gte=start_date_2, created_at__lte=end_date_2)
+
+    # Get orders for each date range with type_statistic
+    match type_statistic:
+        case 'special_offer':
+            orders_1 = orders_1.filter(Q(new_special_offer__isnull=False) | Q(is_so=True))
+            orders_2 = orders_2.filter(Q(new_special_offer__isnull=False) | Q(is_so=True))
+        case 'normal':
+            orders_1 = orders_1.filter(Q(new_special_offer__isnull=True) & Q(is_so=False))
+            orders_2 = orders_2.filter(Q(new_special_offer__isnull=True) & Q(is_so=False))
+
+    # Get order details for each date range
+    details_1 = OrderDetail.objects.filter(order_id__in=orders_1).values('product_id', 'product_id__name').annotate(
+        total_quantity=Sum('order_quantity'),
+        total_point=Sum('point_get'),
+        total_price=Sum('product_price'),
+        total_box=Sum('order_box')
+    )
+
+    details_2 = OrderDetail.objects.filter(order_id__in=orders_2).values('product_id', 'product_id__name').annotate(
+        total_quantity=Sum('order_quantity'),
+        total_point=Sum('point_get'),
+        total_price=Sum('product_price'),
+        total_box=Sum('order_box')
+    )
+
+    # Combine results into a single dictionary
+    combined_results = {}
+    for detail in details_1:
+        product_id = detail['product_id']
+        product_name = detail['product_id__name']
+        total_cashback = 0
+
+        # Calculate total cashback for current period
+        for order in orders_1:
+            special_offer = order.new_special_offer
+            if special_offer:
+                sop = SpecialOfferProduct.objects.filter(special_offer=special_offer, product_id=product_id).first()
+                if sop and sop.cashback:
+                    total_cashback += sop.cashback * detail['total_box']
+
+        combined_results[product_id] = {
+            "product_name": product_name,
+            "current": {
+                "price": detail['total_price'],
+                "point": detail['total_point'],
+                "quantity": detail['total_quantity'],
+                "box": detail['total_box']
+            },
+            "total_cashback": total_cashback
+        }
+
+    for detail in details_2:
+        product_id = detail['product_id']
+        product_name = detail['product_id__name']
+        total_cashback = 0
+
+        if product_id not in combined_results:
+            combined_results[product_id] = {
+                "product_name": product_name,
+                "one_year_ago": {}
+            }
+
+        # Calculate total cashback for previous period
+        for order in orders_2:
+            special_offer = order.new_special_offer
+            if special_offer:
+                sop = SpecialOfferProduct.objects.filter(special_offer=special_offer, product_id=product_id).first()
+                if sop and sop.cashback:
+                    total_cashback += sop.cashback * detail['total_box']
+
+        combined_results[product_id]["one_year_ago"] = {
+            "price": detail['total_price'],
+            "point": detail['total_point'],
+            "quantity": detail['total_quantity'],
+            "box": detail['total_box']
+        }
+        combined_results[product_id]["total_cashback"] = total_cashback
 
     return combined_results
