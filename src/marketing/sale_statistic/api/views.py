@@ -27,6 +27,7 @@ class ApiSaleStatistic(viewsets.GenericViewSet, mixins.ListModelMixin,
 class CurrentMonthSaleStatisticView(viewsets.GenericViewSet, mixins.ListModelMixin):
     serializer_class = SaleStatisticSerializer
     authentication_classes = [JWTAuthentication, BasicAuthentication]
+
     # permission_classes = [partial(ValidatePermRest, model=SaleTarget)]
 
     def get_queryset(self):
@@ -42,13 +43,15 @@ class CurrentMonthSaleStatisticView(viewsets.GenericViewSet, mixins.ListModelMix
 
 
 class UserMonthSaleStatisticView(viewsets.GenericViewSet, mixins.ListModelMixin):
-    serializer_class = SaleMonthTargetSerializer
+    serializer_class = SaleStatisticSerializer
     authentication_classes = [JWTAuthentication, BasicAuthentication]
+
     # permission_classes = [partial(ValidatePermRest, model=SaleTarget)]
 
     def get_queryset(self):
         user_id = self.kwargs.get('user_id')
         user = User.objects.get(id=user_id)
+
         return SaleStatistic.objects.filter(user=user)
 
     def list(self, request, *args, **kwargs):
@@ -56,7 +59,6 @@ class UserMonthSaleStatisticView(viewsets.GenericViewSet, mixins.ListModelMixin)
         response = filter_data(self, request, ['month'], queryset=queryset,
                                **kwargs)
         return Response(response, status=status.HTTP_200_OK)
-
 
 
 class ApiSaleMonthTarget(viewsets.GenericViewSet, mixins.ListModelMixin,
