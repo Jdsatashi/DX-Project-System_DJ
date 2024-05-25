@@ -37,7 +37,7 @@ class CurrentMonthSaleStatisticView(viewsets.GenericViewSet, mixins.ListModelMix
 
     def list(self, request, *args, **kwargs):
         queryset = self.get_queryset()
-        response = filter_data(self, request, ['user'], queryset=queryset,
+        response = filter_data(self, request, ['user__id'], queryset=queryset,
                                **kwargs)
         return Response(response, status=status.HTTP_200_OK)
 

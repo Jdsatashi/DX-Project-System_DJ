@@ -206,16 +206,18 @@ class OrderSerializer(BaseRestrictSerializer):
 
             if not sale_target:
                 raise serializers.ValidationError({'message': f'No SaleTarget found for the month {order_month}'})
-            used_turnover = 0
             if is_so:
                 used_turnover = sum(
                     detail.order_box * sale_target.month_target
                     for detail in order.order_detail.all()
                 )
-            user_sale_statistic.total_turnover += total_price
-            user_sale_statistic.used_turnover += used_turnover
-            user_sale_statistic.available_turnover = user_sale_statistic.total_turnover - user_sale_statistic.used_turnover
-            user_sale_statistic.save()
+                user_sale_statistic.used_turnover += used_turnover
+                user_sale_statistic.available_turnover = user_sale_statistic.total_turnover - user_sale_statistic.used_turnover
+                user_sale_statistic.save()
+            else:
+                user_sale_statistic.total_turnover += total_price
+                user_sale_statistic.available_turnover = user_sale_statistic.total_turnover - user_sale_statistic.used_turnover
+                user_sale_statistic.save()
 
 
 # class ProductStatisticsSerializer(serializers.Serializer):
