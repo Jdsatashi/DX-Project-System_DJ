@@ -128,6 +128,13 @@ class OrderSerializer(BaseRestrictSerializer):
         user = data.get('client_id')
         # Get special offer
         special_offer = data.get('new_special_offer')
+        # Get current SaleStatistic of user
+        today = timezone.now().date()
+        first_day_of_month = today.replace(day=1)
+        user_sale_statistic = SaleStatistic.objects.filter(user=user, month=first_day_of_month).first()
+        # When user not have SaleStatistic, create new one
+        if user_sale_statistic is None:
+            user_sale_statistic = update_sale_statistics_for_user(user)
         # Validate Order if it was special_offer
         if special_offer:
             phones = PhoneNumber.objects.filter(user=user)
@@ -135,14 +142,6 @@ class OrderSerializer(BaseRestrictSerializer):
             if (special_offer.live_stream is not None and
                     not LiveStreamOfferRegister.objects.filter(phone__in=phones, register=True).exists()):
                 raise serializers.ValidationError({'message': 'Phone number not registered for LiveStream offer'})
-            # Get current SaleStatistic of user
-            today = timezone.now().date()
-            first_day_of_month = today.replace(day=1)
-            user_sale_statistic = SaleStatistic.objects.filter(user=user, month=first_day_of_month).first()
-            # When user not have SaleStatistic, create new one
-            if user_sale_statistic is None:
-                user_sale_statistic = update_sale_statistics_for_user(user)
-            print(f"Testing statistic: {user_sale_statistic.total_turnover}")
             # Calculate max box can buy
             number_box_can_buy = user_sale_statistic.available_turnover // special_offer.target
             # Validate each OrderDetail
@@ -166,8 +165,7 @@ class OrderSerializer(BaseRestrictSerializer):
             if number_box_can_buy < total_order_box:
                 raise serializers.ValidationError(
                     {'message': 'Not enough turnover', 'box_can_buy': str(number_box_can_buy)})
-            return user_sale_statistic
-        return None
+        return user_sale_statistic
 
     def calculate_price_and_point(self, order, product_id, quantity):
         try:
