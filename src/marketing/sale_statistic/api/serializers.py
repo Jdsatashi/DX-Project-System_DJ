@@ -14,4 +14,4 @@ class SaleStatisticSerializer(BaseRestrictSerializer):
 class SaleMonthTargetSerializer(serializers.ModelSerializer):
     class Meta:
         model = SaleTarget
-        fields = ('id', 'month')
+        fields = '__all__'

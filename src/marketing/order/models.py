@@ -137,9 +137,9 @@ def update_sale_statistics_for_user(user):
             monthly_sales[order_month] = 0
 
         # Tính toán doanh số cho Order
-        if order.new_special_offer and order.new_special_offer.count_turnover is not False:
-            monthly_sales[order_month] += order.order_price or 0
-        elif not order.new_special_offer:
+        # if order.new_special_offer and order.new_special_offer.count_turnover is not False:
+        #     monthly_sales[order_month] += order.order_price or 0
+        if not order.new_special_offer:
             monthly_sales[order_month] += order.order_price or 0
 
     for month, total_turnover in monthly_sales.items():
