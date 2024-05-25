@@ -104,14 +104,14 @@ class OrderDetail(models.Model):
 
     def save(self, *args, **kwargs):
         # Validate if product order is in price list
-        price_list = self.order_id.price_list_id
-        product = self.product_id
-        product_price = ProductPrice.objects.filter(product_id=product, price_list_id=price_list)
-        if not product_price.exists():
-            raise ValidationError(f"Product ({product.id}) - {product.name} not in PriceList {price_list.name}")
-        so = self.order_id.new_special_offer
-        if so is not None and not SpecialOfferProduct.objects.filter(special_offer=so, product=product).exists():
-            raise ValidationError(f"Product ({product.id}) - {product.name} not in SpecialOffer {so.name}")
+        # price_list = self.order_id.price_list_id
+        # product = self.product_id
+        # product_price = ProductPrice.objects.filter(product_id=product, price_list_id=price_list)
+        # if not product_price.exists():
+        #     raise ValidationError(f"Product ({product.id}) - {product.name} not in PriceList {price_list.name}")
+        # so = self.order_id.new_special_offer
+        # if so is not None and not SpecialOfferProduct.objects.filter(special_offer=so, product=product).exists():
+        #     raise ValidationError(f"Product ({product.id}) - {product.name} not in SpecialOffer {so.name}")
         # Rounded float number
         if self.order_box:
             self.order_box = round(self.order_box, 5)

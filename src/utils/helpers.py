@@ -56,6 +56,45 @@ def table_data(table_name: str, amount='*', options=None):
     return None
 
 
+# Connect to MS SQL Server and get data of specific table
+def table_data_2(table_name: str, amount='*', options=None):
+    # Get env values
+    server = OLD_SQL_HOST
+    db_name = OLD_SQL_DB
+    user = OLD_SQL_USER
+    password = OLD_SQL_PW
+    drivers = ["SQL Server", "ODBC Driver 18 for SQL Server", "ODBC Driver 17 for SQL Server"]
+    for i, driver in enumerate(drivers):
+        try:
+            connection_string = f"DRIVER={{{driver}}};SERVER={server};DATABASE={db_name};UID={user};PWD={password}"
+            if i >= 1:
+                connection_string += ";TrustServerCertificate=yes"
+            print(f"Attempting to connect using driver: {driver}")
+            print(f"Connection string: {connection_string}")
+            con = pyodbc.connect(connection_string)
+            cursor = con.cursor()
+            print(f"\nOptions = {options}")
+            if options is None:
+                query = f"SELECT {amount} FROM {table_name}"
+            else:
+                print(f"Query options")
+                query = f"""
+                SELECT *
+                FROM {table_name}
+                ORDER BY [ngayLap]
+                OFFSET {options.get('start')} ROWS
+                FETCH NEXT {options.get('end')} ROWS ONLY;
+                """
+
+            cursor.execute(query)
+            rows = cursor.fetchall()
+            con.close()
+            return rows
+        except pyodbc.Error as e:
+            print(f"Error with driver '{driver}': {e}")
+    return None
+
+
 def generate_id(ma_nhom):
     # Get last 2 number of year (2024 => get '24')
     current_year = str(datetime.now().year)[-2:]

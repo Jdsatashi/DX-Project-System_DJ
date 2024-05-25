@@ -5,6 +5,7 @@ from django.db import IntegrityError
 from django.utils.timezone import make_aware
 
 from account.models import User
+from app.logs import app_log
 from marketing.company.models import Company
 from marketing.order.models import Order, OrderDetail
 from marketing.price_list.models import PriceList, ProductPrice
@@ -13,7 +14,7 @@ from marketing.product.models import Product, UseObject, UseFor, ProductCategory
 from user_system.client_group.models import ClientGroup
 from user_system.client_profile.models import ClientProfile
 from user_system.employee_profile.models import EmployeeProfile, Position
-from utils.helpers import table_data, normalize_vietnamese
+from utils.helpers import table_data, normalize_vietnamese, table_data_2
 from utils.constants import (old_data, maNhomND as farmerID, tenNhomND as farmerGroupName)
 
 
@@ -57,7 +58,7 @@ def append_kh():
 
 
 def append_nv():
-    type_nv="employee"
+    type_nv = "employee"
     ctx = {'users': [], 'profiles': []}
     data = table_data(old_data['tb_nhanvien'])
     for k, v in enumerate(data):
@@ -294,18 +295,15 @@ tb_toaDetail
 
 
 def insert_order():
-    i = 1
-    y = 5000
     start_time = time.time()
-    for idx in range(7, 25):
-        i = 1 + (5000 * idx)
-        y = 5000 * idx
-        data = table_data(old_data['tb_toa'], '*', {'start': i, 'end': y})
+    for a in range(5, 40):
+        i = 1 + (5000 * a)
+        y = 5000 + (5000 * a)
+        data = table_data_2(old_data['tb_toa'], '*', {'start': i, 'end': y})
         process_order(data)
         print(f"Get data from: {i} - {y}")
     print(f"---------------------- FINISH ------------------------")
-    print(f"Complete time: {time.time() - start_time} seconds")
-
+    app_log.info(f"Complete INSERT ORDER time: {time.time() - start_time} seconds")
 
 
 def process_order(data):
@@ -347,14 +345,14 @@ def process_order(data):
 
 def insert_order_detail():
     start_time = time.time()
-    for a in range(1, 2):
+    for a in range(0, 50):
         i = 1 + (5000 * a)
-        y = 5000 * i
+        y = 5000 + (5000 * a)
+        print(f"--\nGet data from: {i} - {y} \n--\n")
         data = table_data(old_data['tb_toaDetail'], '*', {'start': i, 'end': y})
-        print(f"--\nGet data from: {i} - {y}\n--\n")
         process_order_detail(data)
-    print(f"---------------------- FINISH ------------------------")
-    print(f"Complete time: {time.time() - start_time} seconds")
+    app_log.info(f"---------------------- FINISH ------------------------")
+    app_log.info(f"Complete INSERT ORDER DETAILS time: {time.time() - start_time} seconds")
 
 
 def process_order_detail(data):
@@ -362,28 +360,45 @@ def process_order_detail(data):
         if k == 1:
             print("---")
             print(v)
-        if k < 2:
-            note = ""
-            try:
-                order = Order.objects.get(id=v[1])
-            except Order.DoesNotExist:
-                order = None
-                note += f"order_id: {v[1]} not found"
-            try:
-                product = Product.objects.get(id=v[2])
-            except Product.DoesNotExist:
-                product = None
-                note = "" if note == "" else note + ", "
-                note += f"product_id: {v[2]} not found"
+        note = ""
+        try:
+            order = Order.objects.get(id=v[1])
+        except Order.DoesNotExist:
+            order = None
+            note += f"order_id: {v[1]} not found"
+        try:
+            product = Product.objects.get(id=v[2])
+        except Product.DoesNotExist:
+            product = None
+            note = "" if note == "" else note + ", "
+            note += f"product_id: {v[2]} not found"
 
-            insert = {
-                "order_quantity": v[3],
-                "order_box": v[4],
-                "point_per_box": v[7],
-                "price_list_so": v[8],
-                "note": note
-            }
-            print("")
-            print(f"Inserting: {order} - {product}")
-            order_detail, _ = OrderDetail.objects.get_or_create(product_id=product, order_id=order, defaults=insert)
-            print(order_detail)
+        insert = {
+            "order_quantity": v[3],
+            "order_box": v[4],
+            "point_get": v[7],
+            "price_list_so": v[8],
+            "note": note
+        }
+        print("")
+        app_log.debug(f"Inserting: {order} - {product}")
+        order_detail, _ = OrderDetail.objects.get_or_create(product_id=product, order_id=order, defaults=insert)
+        try:
+            if order.price_list_id is not None:
+                price = ProductPrice.objects.filter(product=product, price_list=order.price_list_id).first()
+                order_detail.product_price = order_detail.order_quantity * price.price
+                order_detail.save()
+        except AttributeError:
+            pass
+        print(order_detail)
+
+
+def insert_old_data():
+    # price_list()
+    # price_list_product()
+    # insert_order()
+    insert_order_detail()
+
+
+if __name__ == '__main__':
+    insert_old_data()
