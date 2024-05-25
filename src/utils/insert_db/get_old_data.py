@@ -303,7 +303,8 @@ def insert_order():
         process_order(data)
         print(f"Get data from: {i} - {y}")
     print(f"---------------------- FINISH ------------------------")
-    app_log.info(f"Complete INSERT ORDER time: {time.time() - start_time} seconds")
+    app_log.debug(f"Complete INSERT ORDER time: {time.time() - start_time} seconds")
+    print(f"Complete INSERT ORDER time: {time.time() - start_time} seconds")
 
 
 def process_order(data):
@@ -351,8 +352,9 @@ def insert_order_detail():
         print(f"--\nGet data from: {i} - {y} \n--\n")
         data = table_data(old_data['tb_toaDetail'], '*', {'start': i, 'end': y})
         process_order_detail(data)
-    app_log.info(f"---------------------- FINISH ------------------------")
-    app_log.info(f"Complete INSERT ORDER DETAILS time: {time.time() - start_time} seconds")
+    app_log.debug(f"---------------------- FINISH ------------------------")
+    app_log.debug(f"Complete INSERT ORDER DETAILS time: {time.time() - start_time} seconds")
+    print(f"Complete INSERT ORDER DETAILS time: {time.time() - start_time} seconds")
 
 
 def process_order_detail(data):
@@ -396,7 +398,7 @@ def process_order_detail(data):
 def insert_old_data():
     # price_list()
     # price_list_product()
-    # insert_order()
+    insert_order()
     insert_order_detail()
 
 
