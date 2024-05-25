@@ -39,7 +39,7 @@ class OrderSerializer(BaseRestrictSerializer):
         # Get order detail data
         order_details_data = data.pop('order_detail', [])
         # Validate product order details
-        user_sale_statistic = self.validate_special_offer(data, order_details_data)
+        user_sale_statistic, is_so = self.validate_special_offer(data, order_details_data)
 
         # Create new Order
         order = Order.objects.create(**data)
@@ -55,8 +55,8 @@ class OrderSerializer(BaseRestrictSerializer):
         order.order_point = total_point
         order.order_price = total_price
         order.save()
-
-        self.update_sale_statistic(order, user_sale_statistic)
+        print(f"Testing user sale statistic: {user_sale_statistic}")
+        self.update_sale_statistic(order, user_sale_statistic, is_so, order.order_price)
 
         # Create perms
         restrict = perm_data.get('restrict')
@@ -70,7 +70,7 @@ class OrderSerializer(BaseRestrictSerializer):
         # Get details data
         order_details_data = data.pop('order_detail', [])
 
-        user_sale_statistic = self.validate_special_offer(data, order_details_data)
+        user_sale_statistic, is_so = self.validate_special_offer(data, order_details_data)
 
         # Update Order fields
         for attr, value in data.items():
@@ -114,8 +114,8 @@ class OrderSerializer(BaseRestrictSerializer):
         instance.order_point = total_point
         instance.order_price = total_price
         instance.save()
-
-        self.update_sale_statistic(instance, user_sale_statistic)
+        print(f"Testing user sale statistic: {user_sale_statistic}")
+        self.update_sale_statistic(instance, user_sale_statistic, is_so, instance.order_price)
 
         restrict = perm_data.get('restrict')
         if restrict:
@@ -131,10 +131,8 @@ class OrderSerializer(BaseRestrictSerializer):
         # Get current SaleStatistic of user
         today = timezone.now().date()
         first_day_of_month = today.replace(day=1)
-        user_sale_statistic = SaleStatistic.objects.filter(user=user, month=first_day_of_month).first()
-        # When user not have SaleStatistic, create new one
-        if user_sale_statistic is None:
-            user_sale_statistic = update_sale_statistics_for_user(user)
+        user_sale_statistic, _ = SaleStatistic.objects.get_or_create(user=user, month=first_day_of_month)
+
         # Validate Order if it was special_offer
         if special_offer:
             phones = PhoneNumber.objects.filter(user=user)
@@ -165,7 +163,8 @@ class OrderSerializer(BaseRestrictSerializer):
             if number_box_can_buy < total_order_box:
                 raise serializers.ValidationError(
                     {'message': 'Not enough turnover', 'box_can_buy': str(number_box_can_buy)})
-        return user_sale_statistic
+            return user_sale_statistic, True
+        return user_sale_statistic, False
 
     def calculate_price_and_point(self, order, product_id, quantity):
         try:
@@ -199,7 +198,7 @@ class OrderSerializer(BaseRestrictSerializer):
         return details
 
     @staticmethod
-    def update_sale_statistic(order, user_sale_statistic):
+    def update_sale_statistic(order, user_sale_statistic, is_so, total_price):
         if user_sale_statistic:
             # Calculate used turnover based on SaleTarget for the month of order.created_at
             order_month = order.created_at.replace(day=1)
@@ -207,122 +206,16 @@ class OrderSerializer(BaseRestrictSerializer):
 
             if not sale_target:
                 raise serializers.ValidationError({'message': f'No SaleTarget found for the month {order_month}'})
-
-            used_turnover = sum(
-                detail.order_box * sale_target.month_target
-                for detail in order.order_detail.all()
-            )
-
+            used_turnover = 0
+            if is_so:
+                used_turnover = sum(
+                    detail.order_box * sale_target.month_target
+                    for detail in order.order_detail.all()
+                )
+            user_sale_statistic.total_turnover += total_price
             user_sale_statistic.used_turnover += used_turnover
             user_sale_statistic.available_turnover = user_sale_statistic.total_turnover - user_sale_statistic.used_turnover
             user_sale_statistic.save()
-
-
-class OldOrderSerializer(BaseRestrictSerializer):
-    order_detail = OrderDetailSerializer(many=True)
-    list_type = serializers.CharField(required=False, allow_blank=True)
-    note = serializers.CharField(required=False, allow_blank=True)
-    status = serializers.CharField(required=False, allow_blank=True)
-
-    class Meta:
-        model = Order
-        fields = '__all__'
-        read_only_fields = ['id', 'created_by', 'created_at',
-                            'updated_at', 'order_point', 'order_price']
-
-    def create(self, validated_data):
-        # Split insert data
-        data, perm_data = self.split_data(validated_data)
-        order_details_data = data.pop('order_detail', [])
-        # Create new Order
-        order = Order.objects.create(**data)
-        total_point = float()
-        total_price = float()
-        # Add product to OrderDetail
-        for detail_data in order_details_data:
-            # Get product price to have ratio point/box and price/item
-            quantity = detail_data.get('order_quantity')
-            product_id = detail_data.get('product_id')
-            try:
-                product_price = ProductPrice.objects.get(price_list=order.price_list_id, product=product_id)
-            except ProductPrice.DoesNotExist:
-                return Response({'message': 'This product not in price list'}, status=status.HTTP_400_BAD_REQUEST)
-            # Calculate price and point
-            prices = float(product_price.price) * float(quantity)
-            point = float(product_price.point) * float(quantity / product_price.quantity_in_box)
-            # Add price and point to detail data
-            detail_data['product_price'] = prices
-            detail_data['point_get'] = point
-            # Create new OrderDetail
-            order_detail = OrderDetail.objects.create(order_id=order, **detail_data)
-            # Add price and point to total
-            total_point += point
-            total_price += prices
-        # Create perm for data
-        order.order_point = total_point
-        order.order_price = total_price
-        order.save()
-
-        restrict = perm_data.get('restrict')
-        if restrict:
-            self.handle_restrict(perm_data, order.id, self.Meta.model)
-        return order
-
-    def update(self, instance, validated_data):
-        # Split insert data
-        data, perm_data = self.split_data(validated_data)
-        order_detail_data = data.pop('order_detail', [])
-        # Update main instance Order
-        for attr, value in data.items():
-            setattr(instance, attr, value)
-        instance.save()
-        # Get current OrderDetails
-        current_details_id = [detail.id for detail in instance.order_detail.all()]
-        update_details_id = []
-        total_point = float(0)
-        total_price = float(0)
-        # Update news OrderDetails
-        for detail_data in order_detail_data:
-            product_id = detail_data.pop('product_id')
-            detail, created = instance.order_detail.get_or_create(product_id=product_id, defaults=detail_data)
-            update_details_id.append(detail.id)
-            if not created:
-                for attr, value in detail_data.items():
-                    setattr(detail, attr, value)
-                detail.save()
-
-            update_details_id.append(detail.id)
-
-            # Calculate price and point for each order detail
-            quantity = detail_data.get('order_quantity')
-            try:
-                product_price = ProductPrice.objects.get(price_list=instance.price_list_id, product=product_id)
-            except ProductPrice.DoesNotExist:
-                return Response({'message': 'This product not in price list'}, status=status.HTTP_400_BAD_REQUEST)
-
-            prices = float(product_price.price) * float(quantity)
-            point = float(product_price.point) * float(quantity / product_price.quantity_in_box)
-
-            # Add price and point to detail data
-            detail.product_price = prices
-            detail.point_get = point
-            detail.save()
-
-            # Add price and point to total
-            total_point += point
-            total_price += prices
-        # Remove current OrderDetails which not in Update OrderDetail
-        for detail_id in current_details_id:
-            if detail_id not in update_details_id:
-                instance.order_detail.filter(id=detail_id).delete()
-        instance.order_point = total_point
-        instance.order_price = total_price
-        instance.save()
-        # Update perm for data
-        restrict = perm_data.get('restrict')
-        if restrict:
-            self.handle_restrict(perm_data, instance.id, self.Meta.model)
-        return instance
 
 
 # class ProductStatisticsSerializer(serializers.Serializer):
