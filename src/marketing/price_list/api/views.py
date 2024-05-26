@@ -70,3 +70,20 @@ class ApiSpecialOffer(viewsets.GenericViewSet, mixins.ListModelMixin, mixins.Cre
     queryset = SpecialOffer.objects.all()
     authentication_classes = [JWTAuthentication, BasicAuthentication]
     # permission_classes = [partial(ValidatePermRest, model=PriceList)]
+
+    def list(self, request, *args, **kwargs):
+        response = filter_data(self, request, ['id', 'name', 'status', 'type_list'],
+                               **kwargs)
+        return Response(response, status.HTTP_200_OK)
+
+
+class ApiSpecialOfferConsider(viewsets.GenericViewSet, mixins.ListModelMixin):
+    serializer_class = SpecialOfferSerializer
+    queryset = SpecialOffer.objects.filter(type_list='consider_offer_user')
+    authentication_classes = [JWTAuthentication, BasicAuthentication]
+    # permission_classes = [partial(ValidatePermRest, model=PriceList)]
+
+    def list(self, request, *args, **kwargs):
+        response = filter_data(self, request, ['id', 'name', 'status'],
+                               **kwargs)
+        return Response(response, status.HTTP_200_OK)
