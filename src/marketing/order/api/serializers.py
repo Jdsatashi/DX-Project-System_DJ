@@ -39,7 +39,7 @@ class OrderSerializer(BaseRestrictSerializer):
         # Get order detail data
         order_details_data = data.pop('order_detail', [])
         # Validate product order details
-        user_sale_statistic, is_so = self.validate_special_offer(data, order_details_data)
+        user_sale_statistic, is_so, is_consider = self.validate_special_offer(data, order_details_data)
 
         # Create new Order
         order = Order.objects.create(**data)
@@ -55,6 +55,12 @@ class OrderSerializer(BaseRestrictSerializer):
         order.order_point = total_point
         order.order_price = total_price
         order.save()
+
+        if is_consider:
+            special_offer = data.get('new_special_offer')
+            special_offer.status = 'deactivate'
+            special_offer.save()
+
         print(f"Testing user sale statistic: {user_sale_statistic}")
         self.update_sale_statistic(order, user_sale_statistic, is_so, order.order_price)
 
@@ -70,7 +76,7 @@ class OrderSerializer(BaseRestrictSerializer):
         # Get details data
         order_details_data = data.pop('order_detail', [])
 
-        user_sale_statistic, is_so = self.validate_special_offer(data, order_details_data)
+        user_sale_statistic, is_so, is_consider = self.validate_special_offer(data, order_details_data)
 
         # Update Order fields
         for attr, value in data.items():
@@ -123,7 +129,8 @@ class OrderSerializer(BaseRestrictSerializer):
 
         return instance
 
-    def validate_special_offer(self, data, order_details_data):
+    @staticmethod
+    def validate_special_offer(data, order_details_data):
         # Get user and phone from token
         user = data.get('client_id')
         # Get special offer
@@ -132,7 +139,8 @@ class OrderSerializer(BaseRestrictSerializer):
         today = timezone.now().date()
         first_day_of_month = today.replace(day=1)
         user_sale_statistic, _ = SaleStatistic.objects.get_or_create(user=user, month=first_day_of_month)
-
+        month_target = SaleTarget.objects.filter(month=first_day_of_month).first()
+        is_consider = False
         # Validate Order if it was special_offer
         if special_offer:
             phones = PhoneNumber.objects.filter(user=user)
@@ -140,8 +148,34 @@ class OrderSerializer(BaseRestrictSerializer):
             if (special_offer.live_stream is not None and
                     not LiveStreamOfferRegister.objects.filter(phone__in=phones, register=True).exists()):
                 raise serializers.ValidationError({'message': 'Phone number not registered for LiveStream offer'})
+
+            if special_offer.status == 'deactivate':
+                raise serializers.ValidationError({'message': 'Special offer is deactivated'})
+
             # Calculate max box can buy
-            number_box_can_buy = user_sale_statistic.available_turnover // special_offer.target
+            if special_offer.type_list == 'consider_offer_user':
+                is_consider = True
+                # When ConsiderOffer, calculate via <SpecialOffer object> 'target' value
+                number_box_can_buy = user_sale_statistic.available_turnover // special_offer.target
+                # Validate if all products in order are belonged to SO consider
+                order_product_ids = {str(detail_data.get('product_id').id) for detail_data in order_details_data}
+                # Get list of product_id from SpecialOfferProduct
+                special_offer_product_ids = set(
+                    SpecialOfferProduct.objects.filter(special_offer=special_offer).values_list('product',
+                                                                                                flat=True))
+                if order_product_ids != special_offer_product_ids:
+                    raise serializers.ValidationError(
+                        {'message': 'Products in OrderDetails do not match SpecialOfferProducts type ConsiderOffer'})
+            else:
+                # Normal SO use default target of SaleTarget by month
+                number_box_can_buy = user_sale_statistic.available_turnover // month_target.month_target
+
+            # Validate turnover can buy number of box in Order
+            total_order_box = sum(item['order_box'] for item in order_details_data)
+            if number_box_can_buy < total_order_box:
+                raise serializers.ValidationError(
+                    {'message': 'Not enough turnover', 'box_can_buy': str(number_box_can_buy)})
+
             # Validate each OrderDetail
             for detail_data in order_details_data:
                 product_id = detail_data.get('product_id')
@@ -155,16 +189,17 @@ class OrderSerializer(BaseRestrictSerializer):
                 # Check if order_box is less than max_order_box
                 special_offer_product = SpecialOfferProduct.objects.get(special_offer=special_offer,
                                                                         product_id=product_id)
-                if special_offer_product.max_order_box and order_box > special_offer_product.max_order_box:
-                    raise serializers.ValidationError({
-                        'message': f'Order box {order_box} exceeds max order box {special_offer_product.max_order_box} for product {product_id}'})
-            total_order_box = sum(item['order_box'] for item in order_details_data)
+                if special_offer.type_list == 'consider_offer_user':
+                    if special_offer_product.max_order_box and order_box != special_offer_product.max_order_box:
+                        raise serializers.ValidationError({
+                            'message': f'Order box {order_box} is not equal to default order box {special_offer_product.max_order_box} for product {product_id}'})
+                else:
+                    if special_offer_product.max_order_box and order_box > special_offer_product.max_order_box:
+                        raise serializers.ValidationError({
+                            'message': f'Order box {order_box} exceeds max order box {special_offer_product.max_order_box} for product {product_id}'})
 
-            if number_box_can_buy < total_order_box:
-                raise serializers.ValidationError(
-                    {'message': 'Not enough turnover', 'box_can_buy': str(number_box_can_buy)})
-            return user_sale_statistic, True
-        return user_sale_statistic, False
+            return user_sale_statistic, True, is_consider
+        return user_sale_statistic, False, is_consider
 
     def calculate_price_and_point(self, order, product_id, quantity):
         try:
