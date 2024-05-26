@@ -62,7 +62,7 @@ class OrderSerializer(BaseRestrictSerializer):
             special_offer.save()
 
         print(f"Testing user sale statistic: {user_sale_statistic}")
-        self.update_sale_statistic(order, user_sale_statistic, is_so, order.order_price)
+        self.update_sale_statistic(order, user_sale_statistic, order.order_price, is_so, is_consider)
 
         # Create perms
         restrict = perm_data.get('restrict')
@@ -121,7 +121,7 @@ class OrderSerializer(BaseRestrictSerializer):
         instance.order_price = total_price
         instance.save()
         print(f"Testing user sale statistic: {user_sale_statistic}")
-        self.update_sale_statistic(instance, user_sale_statistic, is_so, instance.order_price)
+        self.update_sale_statistic(instance, user_sale_statistic, instance.order_price, is_so, is_consider)
 
         restrict = perm_data.get('restrict')
         if restrict:
@@ -233,7 +233,7 @@ class OrderSerializer(BaseRestrictSerializer):
         return details
 
     @staticmethod
-    def update_sale_statistic(order, user_sale_statistic, is_so, total_price):
+    def update_sale_statistic(order, user_sale_statistic, total_price, is_so, is_consider):
         if user_sale_statistic:
             # Calculate used turnover based on SaleTarget for the month of order.created_at
             order_month = order.created_at.replace(day=1)
@@ -242,10 +242,13 @@ class OrderSerializer(BaseRestrictSerializer):
             if not sale_target:
                 raise serializers.ValidationError({'message': f'No SaleTarget found for the month {order_month}'})
             if is_so:
+                target = order.new_special_offer.target if is_consider else sale_target.month_target
+                print(f"TESTING TARGET: {target}")
                 used_turnover = sum(
-                    detail.order_box * sale_target.month_target
+                    detail.order_box * target
                     for detail in order.order_detail.all()
                 )
+
                 user_sale_statistic.used_turnover += used_turnover
                 user_sale_statistic.available_turnover = user_sale_statistic.total_turnover - user_sale_statistic.used_turnover
                 user_sale_statistic.save()
