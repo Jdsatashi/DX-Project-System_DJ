@@ -58,30 +58,14 @@ class BaseRestrictSerializer(serializers.ModelSerializer):
     def handle_restrict(self, data: dict, _id: Union[str, int], model: Type[Model]) -> None:
         """ Handle adding rule Perm for specific Object to created object """
         # Get action for full CRUD perm
-        actions = acquy.get('full')
         user_actions = data.get('allow_actions', [])
-        content = ContentType.objects.get_for_model(model)
-        # Generate string perm name
-        perm_name = f'{content.app_label}_{content.model}_{_id}'
-        list_perm = list()
-        # Processing create perm
-        for action in actions:
-            _perm_name = f"{action}_{perm_name}"
-            Perm.objects.get_or_create(
-                name=_perm_name,
-                note=f"{action.capitalize()} {content.model} - {_id}",
-                object_id=str(_id),
-                content_type=content
-            )
-            # Add perm to list_perm for register user/nhom
-            if action in acquy.get(user_actions[0]):
-                list_perm.append(_perm_name)
+        list_perm = create_full_perm(model, _id, user_actions)
+        print(list_perm)
         # Get users has perm
         existed_user_allow = list_user_has_perm(list_perm, True)
         existed_user_restrict = list_user_has_perm(list_perm, False)
         existed_group_allow = list_group_has_perm(list_perm, True)
         existed_group_restrict = list_group_has_perm(list_perm, False)
-        print("--------- TEST PERMISSIONS ---------")
         # Processing assign perm to user/nhom
         self.add_perm({'type': 'users', 'data': data['allow_users'], 'existed': existed_user_allow}, list_perm,
                       True)
@@ -197,3 +181,26 @@ def list_group_has_perm(perms: list, allow: bool):
     for group in group_perms:
         existed_group.append(group.name)
     return existed_group
+
+
+def create_full_perm(model, _id=None, user_actions=None):
+    content = ContentType.objects.get_for_model(model)
+    # Generate string perm name
+    actions = acquy.get('full')
+    perm_name = f'{content.app_label}_{content.model}'
+    if _id is not None:
+        perm_name = f'{perm_name}_{_id}'
+    list_perm = list()
+    # Processing create perm
+    for action in actions:
+        _perm_name = f"{action}_{perm_name}"
+        Perm.objects.get_or_create(
+            name=_perm_name,
+            note=f"{action.capitalize()} {content.model} - {_id}",
+            object_id=str(_id),
+            content_type=content
+        )
+        # Add perm to list_perm for register user/nhom
+        if len(user_actions) > 0 and user_actions[0] is not '' and action in acquy.get(user_actions[0]):
+            list_perm.append(_perm_name)
+    return list_perm
