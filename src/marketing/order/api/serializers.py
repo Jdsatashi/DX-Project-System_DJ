@@ -56,10 +56,11 @@ class OrderSerializer(BaseRestrictSerializer):
         order.order_price = total_price
         order.save()
 
-        if is_consider:
-            special_offer = data.get('new_special_offer')
-            special_offer.status = 'deactivate'
-            special_offer.save()
+        # Deactivate when user used
+        # if is_consider:
+        #     special_offer = data.get('new_special_offer')
+        #     special_offer.status = 'deactivate'
+        #     special_offer.save()
 
         print(f"Testing user sale statistic: {user_sale_statistic}")
         self.update_sale_statistic(order, user_sale_statistic, order.order_price, is_so, is_consider)
