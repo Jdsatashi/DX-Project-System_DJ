@@ -243,7 +243,7 @@ class OrderSerializer(BaseRestrictSerializer):
             if not sale_target:
                 raise serializers.ValidationError({'message': f'No SaleTarget found for the month {order_month}'})
             if is_so:
-                target = order.new_special_offer.target if is_consider else sale_target.month_target
+                target = order.new_special_offer.target if is_consider or order.new_special_offer.target == 0 else sale_target.month_target
                 print(f"TESTING TARGET: {target}")
                 used_turnover = sum(
                     detail.order_box * target
