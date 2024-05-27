@@ -24,6 +24,7 @@ from app.logs import app_log
 from marketing.price_list.models import PriceList, PointOfSeason
 from utils.constants import status as user_status, maNhomND
 from utils.helpers import generate_digits_code, generate_id, phone_validate
+from utils.insert_db.default_roles_perms import set_user_perm
 from utils.model_filter_paginate import filter_data
 
 
@@ -116,6 +117,7 @@ def otp_verify(request, pk):
             verify.save()
             # Generate new token
             token = get_token_for_user(verify.user)
+            set_user_perm(verify.user)
             # Add data for refresh token
             active_token = RefreshToken.objects.filter(user=verify.user, status="active")
             # Update deactivate other activate token
