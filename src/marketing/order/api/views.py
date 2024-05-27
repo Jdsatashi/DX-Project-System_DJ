@@ -235,11 +235,12 @@ def get_product_statistics_2(user, input_date, type_statistic):
 
         # Calculate total cashback for current period
         for order in orders_1:
+            order_detail = OrderDetail.objects.filter(order_id=order, product_id=product_id).first()
             special_offer = order.new_special_offer
             if special_offer:
                 sop = SpecialOfferProduct.objects.filter(special_offer=special_offer, product_id=product_id).first()
                 if sop and sop.cashback:
-                    total_cashback += sop.cashback * detail['total_box']
+                    total_cashback += sop.cashback * order_detail.order_box
 
         combined_results[product_id] = {
             "product_name": product_name,
@@ -251,7 +252,7 @@ def get_product_statistics_2(user, input_date, type_statistic):
             },
             "total_cashback": total_cashback
         }
-
+        print(f"Test cashback details 1: {total_cashback}")
     for detail in details_2:
         product_id = detail['product_id']
         product_name = detail['product_id__name']
@@ -265,11 +266,12 @@ def get_product_statistics_2(user, input_date, type_statistic):
 
         # Calculate total cashback for previous period
         for order in orders_2:
+            order_detail = OrderDetail.objects.filter(order_id=order, product_id=product_id).first()
             special_offer = order.new_special_offer
             if special_offer:
                 sop = SpecialOfferProduct.objects.filter(special_offer=special_offer, product_id=product_id).first()
                 if sop and sop.cashback:
-                    total_cashback += sop.cashback * detail['total_box']
+                    total_cashback += sop.cashback * order_detail.order_box
 
         combined_results[product_id]["one_year_ago"] = {
             "price": detail['total_price'],
@@ -278,5 +280,6 @@ def get_product_statistics_2(user, input_date, type_statistic):
             "box": detail['total_box']
         }
         combined_results[product_id]["total_cashback"] = total_cashback
+        print(f"Test cashback details 2: {total_cashback}")
 
     return combined_results
