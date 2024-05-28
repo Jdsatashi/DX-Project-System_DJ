@@ -1,5 +1,9 @@
 from django.contrib.contenttypes.models import ContentType
 from django.db import models
+from rest_framework.response import Response
+
+from account.models import Perm
+from utils.constants import acquy
 
 
 def get_action(view, method):
@@ -62,3 +66,38 @@ class DataFKModel:
                 data = {'field': field.name, 'model': field.related_model}
                 foreign_keys.append(data)
         return foreign_keys
+
+
+def perm_queryset(self):
+    user = self.request.user
+    model_class = self.serializer_class.Meta.model
+    pk = self.kwargs.get('pk')
+    if user.is_superuser:
+        return model_class.objects.all()
+    if not user.is_authenticated:
+        return Response({'message': 'User is not authenticate'}, status=status.HTTP_401_UNAUTHORIZED)
+    if not self.permission_classes:
+        return model_class.objects.all()
+    all_permissions = user.get_all_allow_perms()
+    has_perm_id = []
+
+    content = ContentType.objects.get_for_model(model_class)
+    action_perm = acquy.get('list') if not pk else acquy.get('retrieve')
+    perm_name = f'{content.app_label}_{content.model}'
+    if pk:
+        perm_name = f'{perm_name}_{pk}'
+    # Get all price list ids which required permissions
+    perms_content = Perm.objects.filter(name__icontains=perm_name)
+    perm_req_id = {v.object_id for v in perms_content if v.object_id}
+
+    # Get all price list ids which user has permissions
+    for perm in all_permissions:
+        if perm.startswith(action_perm + '_' + perm_name):
+            _, object_id = perm.rsplit('_', 1)
+            has_perm_id.append(object_id)
+    print(f"Require perm: {perm_req_id}")
+    print(f"User has perm: {has_perm_id}")
+    # Exclude item which use not has permission
+    exclude_id = list(perm_req_id - set(has_perm_id))
+    print(f"Query exclude: {exclude_id}")
+    return model_class.objects.exclude(id__in=exclude_id)
