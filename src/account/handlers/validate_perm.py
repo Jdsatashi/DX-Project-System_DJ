@@ -3,6 +3,7 @@ from functools import wraps
 
 from django.shortcuts import render
 from rest_framework import permissions
+from rest_framework.exceptions import PermissionDenied
 
 from account.handlers.perms import get_perm_name, get_action, get_required_permission, DataFKModel
 from utils.perms.check import perm_exist, user_has_perm
@@ -48,6 +49,7 @@ class ValidatePermRest(permissions.BasePermission):
     ValidatePermRest is a custom permission for Rest Framework API, use functools.partial to add attribute.
     Example: partial(ValidatePermRest, model=models.Test)
     """
+    message = {'message': 'user not have permission for this action'}
 
     def __init__(self, model):
         super().__init__()
@@ -55,7 +57,10 @@ class ValidatePermRest(permissions.BasePermission):
 
     def has_permission(self, request, view):
         start_time = time.time()
-        print(f"----- REQUEST PATH: {request.path}")
+        # Pop errors in message
+        msg_err = self.message.get('errors')
+        if msg_err:
+            self.message.pop('errors')
         # Allow showing on api schema
         if request.path == '/api_schema':
             return True
@@ -63,45 +68,13 @@ class ValidatePermRest(permissions.BasePermission):
         user = request.user
         if not user.is_authenticated:
             return False
-        action = get_action(view, request.method)
-
-        print(f"--- Test Permission ---")
-        # Validate FK permission
-        fk_model = DataFKModel(self.model)
-        list_fk = fk_model.get_fk_fields_models()
-        perm_pk = dict()
-        for fk_fields in list_fk:
-            perm_pk[fk_fields['field']] = dict()
-            fk_value = request.data.get(fk_fields['field'], None)
-            perm_pk[fk_fields['field']]['value'] = fk_value
-            if fk_value is not None:
-                perm_name = get_perm_name(fk_fields['model'])
-                required_permission = f"{action}_{perm_name}_{fk_value}"
-                is_perm = perm_exist(required_permission)
-                if not is_perm:
-                    perm_pk[fk_fields['field']]['is_perm'] = True
-                user_perm = user.is_perm(required_permission)
-                if user_perm:
-                    perm_pk[fk_fields['field']]['is_perm'] = user_perm
-                user_group_perm = user.is_group_has_perm(required_permission)
-                if user_group_perm:
-                    perm_pk[fk_fields['field']]['is_perm'] = user_group_perm
-            else:
-                perm_pk[fk_fields['field']]['is_perm'] = True
-        print(perm_pk)
-        result = True
-        messages = dict()
-        for field, details in perm_pk.items():
-            if not details['is_perm']:
-                result = False
-                messages[field] = f"Not have permission at {field}"
-        print(f"Test result_pk: {result}")
-        print(f"message: {messages}")
         object_pk = view.kwargs.get('pk', None)
         # Return True (not required perm) when object with PK doesn't required perm PK
         if object_pk is not None:
             return True
+        action = get_action(view, request.method)
 
+        print(f"--- Test Permission ---")
         perm_name = get_perm_name(self.model)
         # Get full required permission (with action and PK), perm_name (without action and PK)
         required_permission = f"{action}_{perm_name}"
@@ -117,12 +90,16 @@ class ValidatePermRest(permissions.BasePermission):
         user_perm = user.is_perm(required_permission)
         # if action == "create" and 'pk' not in view.kwargs:
         if action == 'list':
-            return user_group_perm or user_perm
+            return True
+            # return user_group_perm or user_perm
 
         has_perm = user_has_perm(user, required_permission)
+        result, messages = self.validate_fk_perm(request, action, user)
+        for message in messages:
+            self.message['errors'] = {message['field']: message['value']}
         print(f"Check permission time: {time.time() - start_time}")
         # If user or nhom user has perm, return True
-        return has_perm
+        return has_perm and result
 
     def has_object_permission(self, request, view, obj):
         print(f"SUPER TESTING FROM HERE")
@@ -132,7 +109,7 @@ class ValidatePermRest(permissions.BasePermission):
         if not user.is_authenticated:
             return False
         object_pk = view.kwargs.get('pk', None)
-        required_permission = get_required_permission(view, request)
+        required_permission = get_required_permission(self.model, view, request)
         # Add PK to string perm
         required_permission = f"{required_permission}_{object_pk}"
         print(f"Test reequired permission {required_permission}")
@@ -150,5 +127,59 @@ class ValidatePermRest(permissions.BasePermission):
         # Check if user has the permission
         return True
 
-    def validate_fk_perm(self, request, action):
-        pass
+    def validate_fk_perm(self, request, action, user):
+        """ Check relation of model with ForeignKey and its perms"""
+        start_time = time.time()
+        # Get list of ForeignKey fields
+        fk_model = DataFKModel(self.model)
+        list_fk = fk_model.get_fk_fields_models()
+        # Create perm_pk store perm and value
+        perm_pk = dict()
+        messages = []
+        # Loop on list FK
+        for fk_fields in list_fk:
+            # Create key - value with fields is key and value is dict
+            field_name = fk_fields['field']
+            perm_pk[field_name] = dict()
+            # Get value of FK from request data
+            fk_value = request.data.get(field_name, None)
+            # Set value to perm_pk[field]
+            perm_pk[field_name]['value'] = fk_value
+            # Check value
+            if fk_value is None:
+                print(f"FK is None, perm is True")
+                perm_pk[field_name]['is_perm'] = True
+                continue
+
+            # Get perm_name from FK model
+            perm_name = get_perm_name(fk_fields['model'])
+            # Concat action with perm_name and fk_value as id
+            required_permission = f"{action}_{perm_name}_{fk_value}"
+            # Validate is require permission exist
+            if not perm_exist(required_permission):
+                print(f"Require permission '{required_permission}' not exist")
+                # If not exist, set perm to True
+                perm_pk[field_name]['is_perm'] = True
+                continue
+            # Validate user has perm
+            if user.is_perm(required_permission):
+                print(f"User has perm {required_permission}")
+                # If user has perm, set perm to True
+                perm_pk[field_name]['is_perm'] = True
+            # Validate user group has perm
+            elif user.is_group_has_perm(required_permission):
+                print(f"User group has perm {required_permission}")
+                # If user group has perm, set perm to True
+                perm_pk[field_name]['is_perm'] = True
+            else:
+                perm_pk[field_name]['is_perm'] = False
+                messages.append({
+                    'field': field_name,
+                    'value': fk_value
+                })
+
+        result = all(result['is_perm'] for result in perm_pk.values())
+
+        print(f"Perm result: {result}")
+        print(f"Time validate FK: {time.time() - start_time}")
+        return result, messages
