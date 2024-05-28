@@ -7,6 +7,7 @@ from django.contrib.contenttypes.fields import GenericForeignKey
 from django.contrib.contenttypes.models import ContentType
 from django.db import models
 from django.utils import timezone
+from pyodbc import IntegrityError
 
 from utils.constants import maNhomND
 
@@ -250,6 +251,10 @@ class UserPerm(models.Model):
     perm = models.ForeignKey(Perm, on_delete=models.CASCADE)
     allow = models.BooleanField(default=True)
     created_at = models.DateTimeField(auto_now_add=True)
+
+    def save(self, *args, **kwargs):
+        if UserPerm.objects.filter(user=self.user, perm=self.perm).exists():
+            raise IntegrityError
 
     class Meta:
         db_table = 'users_user_perm'
