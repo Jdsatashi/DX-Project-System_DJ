@@ -117,7 +117,7 @@ def otp_verify(request, pk):
             verify.save()
             # Generate new token
             token = get_token_for_user(verify.user)
-            set_user_perm(verify.user)
+            set_user_perm(verify.user, True)
             # Add data for refresh token
             active_token = RefreshToken.objects.filter(user=verify.user, status="active")
             # Update deactivate other activate token
