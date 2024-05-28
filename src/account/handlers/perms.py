@@ -22,9 +22,9 @@ def get_perm_name(model):
     return f"{content_type.app_label}_{content_type.model}"
 
 
-def get_required_permission(self, view, request):
-    action = self.get_action(view, request.method)
-    perm_name = self.get_perm_name(self.model)
+def get_required_permission(model, view, request):
+    action = get_action(view, request.method)
+    perm_name = get_perm_name(model)
     return f"{action}_{perm_name}"
 
 
