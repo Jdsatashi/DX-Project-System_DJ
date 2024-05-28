@@ -22,7 +22,7 @@ class GenericApiPriceList(viewsets.GenericViewSet, mixins.ListModelMixin, mixins
     # queryset = PriceList.objects.all()
     authentication_classes = [JWTAuthentication, BasicAuthentication]
 
-    # permission_classes = [partial(ValidatePermRest, model=PriceList)]
+    permission_classes = [partial(ValidatePermRest, model=PriceList)]
 
     def get_queryset(self):
         user = self.request.user
@@ -76,7 +76,7 @@ class ApiSpecialOffer(viewsets.GenericViewSet, mixins.ListModelMixin, mixins.Cre
     serializer_class = SpecialOfferSerializer
     queryset = SpecialOffer.objects.all()
     authentication_classes = [JWTAuthentication, BasicAuthentication]
-    # permission_classes = [partial(ValidatePermRest, model=PriceList)]
+    permission_classes = [partial(ValidatePermRest, model=PriceList)]
 
     def list(self, request, *args, **kwargs):
         response = filter_data(self, request, ['id', 'name', 'status', 'type_list'],
