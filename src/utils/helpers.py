@@ -173,6 +173,20 @@ def get_content(model):
     return ContentType.objects.get_for_model(model)
 
 
+def self_id(prefix: str, models, last_count: int):
+    year_suffix = datetime.now().strftime('%y')
+
+    last_id = models.objects.filter(id__startswith=f'{prefix}{year_suffix}').order_by('id').last()
+    id_prefix = f"{prefix}{year_suffix}"
+    if last_id:
+        last_number = int(last_id[len(f"{prefix}{year_suffix}"):])
+        new_id = f'{last_number + 1:0{last_count}d}'
+    else:
+        new_id = f'{1:0{last_count}d}'
+    _id = f'{id_prefix}{new_id}'
+    return _id
+
+
 if __name__ == '__main__':
     print(f"Test database")
     if table_data(old_data['tb_congty']) is not None:

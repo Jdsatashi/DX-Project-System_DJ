@@ -23,5 +23,6 @@ urlpatterns = [
     path('price-list/', include('marketing.price_list.api.routes', 'api_price_list')),
     path('order/', include('marketing.order.api.routes', 'api_order')),
     path('livestream/', include('marketing.livestream.api.routes', 'api_livestream')),
-    path('sale-statistic/', include('marketing.sale_statistic.api.routes', 'api_sale_statistic'))
+    path('sale-statistic/', include('marketing.sale_statistic.api.routes', 'api_sale_statistic')),
+    path('event-number/', include('marketing.pick_number.api.routes', 'api_pick_number')),
 ]
