@@ -15,6 +15,7 @@ class ApiEventNumber(viewsets.GenericViewSet, mixins.ListModelMixin, mixins.Crea
                      mixins.RetrieveModelMixin, mixins.UpdateModelMixin, mixins.DestroyModelMixin):
     serializer_class = EventNumberSerializer
     queryset = EventNumber.objects.all()
+
     # authentication_classes = [JWTAuthentication, BasicAuthentication]
 
     # permission_classes = [partial(ValidatePermRest, model=EventNumber)]
@@ -29,6 +30,7 @@ class ApiUserJoinEvent(viewsets.GenericViewSet, mixins.ListModelMixin, mixins.Cr
                        mixins.RetrieveModelMixin, mixins.UpdateModelMixin, mixins.DestroyModelMixin):
     serializer_class = UserJoinEventSerializer
     queryset = UserJoinEvent.objects.all()
+
     # authentication_classes = [JWTAuthentication, BasicAuthentication]
 
     # permission_classes = [partial(ValidatePermRest, model=UserJoinEvent)]
@@ -40,14 +42,15 @@ class ApiUserJoinEvent(viewsets.GenericViewSet, mixins.ListModelMixin, mixins.Cr
 
 
 class ApiNumberList(viewsets.GenericViewSet, mixins.ListModelMixin, mixins.CreateModelMixin,
-                       mixins.RetrieveModelMixin, mixins.UpdateModelMixin, mixins.DestroyModelMixin):
+                    mixins.RetrieveModelMixin, mixins.UpdateModelMixin, mixins.DestroyModelMixin):
     serializer_class = NumberListSerializer
     queryset = NumberList.objects.all()
+
     # authentication_classes = [JWTAuthentication, BasicAuthentication]
 
     # permission_classes = [partial(ValidatePermRest, model=NumberList)]
 
     def list(self, request, *args, **kwargs):
-        response = filter_data(self, request, ['id', 'event__id', 'event__name', 'number'],
+        response = filter_data(self, request, ['id', 'event__id', 'event__name'],
                                **kwargs)
         return Response(response, status.HTTP_200_OK)
