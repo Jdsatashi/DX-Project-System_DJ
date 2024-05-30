@@ -64,24 +64,7 @@ class PointOfSeason(models.Model):
             OrderDetail = apps.get_model('order', 'OrderDetail')
             user_orders = Order.objects.filter(client_id=user, price_list_id=pl)
             order_details = OrderDetail.objects.filter(order_id__in=user_orders)
-            point = 0
-            total_point = 0
-            for order_detail in order_details:
-                # if order_detail.point_get == 0:
-                product = order_detail.product_id
-                product_price = ProductPrice.objects.get(price_list=pl, product=product)
-                quantity = order_detail.order_quantity
-                if product_price.point is not None or product_price.point != 0:
-                    order_point = product_price.point * (quantity / product_price.quantity_in_box)
-
-                    if order_detail.point_get == 0 or order_detail.point_get is None:
-                        order_detail.point_get = order_point
-                        order_detail.save()
-                    if order_detail.product_price == 0 or order_detail.product_price is None:
-                        order_detail.product_price = float(quantity) * float(product_price.price)
-                        order_detail.save()
-                    point += order_point
-                    total_point += order_point
+            point, total_point = calculate_point(order_details, pl)
 
             self.point = point
             self.total_point = total_point
@@ -135,3 +118,25 @@ class SpecialOfferProduct(models.Model):
     quantity_in_box = models.IntegerField(default=0)
     cashback = models.BigIntegerField(null=True)
     max_order_box = models.IntegerField(null=True)
+
+
+def calculate_point(order_details, price_list):
+    point = 0
+    total_point = 0
+    for order_detail in order_details:
+        # if order_detail.point_get == 0:
+        product = order_detail.product_id
+        product_price = ProductPrice.objects.get(price_list=price_list, product=product)
+        quantity = order_detail.order_quantity
+        if product_price.point is not None or product_price.point != 0:
+            order_point = product_price.point * (quantity / product_price.quantity_in_box)
+
+            if order_detail.point_get == 0 or order_detail.point_get is None:
+                order_detail.point_get = order_point
+                order_detail.save()
+            if order_detail.product_price == 0 or order_detail.product_price is None:
+                order_detail.product_price = float(quantity) * float(product_price.price)
+                order_detail.save()
+            point += order_point
+            total_point += order_point
+    return point, total_point
