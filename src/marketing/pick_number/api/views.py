@@ -36,7 +36,7 @@ class ApiUserJoinEvent(viewsets.GenericViewSet, mixins.ListModelMixin, mixins.Cr
     # permission_classes = [partial(ValidatePermRest, model=UserJoinEvent)]
 
     def list(self, request, *args, **kwargs):
-        response = filter_data(self, request, ['id', 'event__id', 'event__name', 'user__id', 'user'],
+        response = filter_data(self, request, ['id', 'event__id', 'event__name', 'user__id'],
                                **kwargs)
         return Response(response, status.HTTP_200_OK)
 
