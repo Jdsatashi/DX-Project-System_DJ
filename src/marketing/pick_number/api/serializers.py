@@ -1,8 +1,8 @@
+from rest_framework import serializers
 from rest_framework.response import Response
 
 from account.handlers.restrict_serializer import BaseRestrictSerializer
-from marketing.pick_number.models import UserJoinEvent, NumberList, EventNumber, NumberSelected
-from rest_framework import serializers
+from marketing.pick_number.models import UserJoinEvent, NumberList, EventNumber, NumberSelected, calculate_point_query
 
 
 class ReadNumberSerializer(serializers.ModelSerializer):
@@ -54,16 +54,17 @@ class UserJoinEventSerializer(BaseRestrictSerializer):
     def create(self, validated_data):
         number_selected_data = validated_data.pop('number_selected', [])
         user_join_event = super().create(validated_data)
-        self._update_number_selected(user_join_event, number_selected_data)
+        self.update_number_selected(user_join_event, number_selected_data)
         return user_join_event
 
     def update(self, instance, validated_data):
         number_selected_data = validated_data.pop('number_selected', [])
         user_join_event = super().update(instance, validated_data)
-        self._update_number_selected(user_join_event, number_selected_data)
+        self.update_number_selected(user_join_event, number_selected_data)
         return user_join_event
 
-    def _update_number_selected(self, user_join_event, number_selected_data):
+    @staticmethod
+    def update_number_selected(user_join_event, number_selected_data):
         print(f"Input number: {number_selected_data}")
         current_numbers = set(user_join_event.number_selected.values_list('number__number', flat=True))
         new_numbers = set(number_selected_data)
@@ -76,20 +77,23 @@ class UserJoinEventSerializer(BaseRestrictSerializer):
 
         # Add new numbers and update repeat_count
         for number_id in numbers_to_add:
-            number = NumberList.objects.get(number=number_id)
+            number = NumberList.objects.filter(number=number_id).first()
+            if not number:
+                return Response({'message': f'Số cung cấp không hợp lệ'})
+
             if number.repeat_count > 0:
-                print(f"Testing number: {number}")
+                print(f"Adding...")
                 if not NumberSelected.objects.filter(user_event=user_join_event, number=number).exists():
-                    print(f"Number adding {number.number}")
+                    print(f"Number object existing")
                     NumberSelected.objects.create(user_event=user_join_event, number=number)
                     number.repeat_count -= 1
                     number.save()
                 continue
-            return Response({'message': f'Tem số {number.number} đã hết'})
+            else:
+                return Response({'message': f'Tem số {number.number} đã hết'})
 
         # Remove numbers and update repeat_count
         for number_id in numbers_to_remove:
-            print(f"Testing number remove: {number_id}")
             NumberSelected.objects.filter(user_event=user_join_event, number__number=number_id).delete()
             number = NumberList.objects.get(number=number_id)
             number.repeat_count += 1
@@ -135,10 +139,25 @@ class EventNumberSerializer(BaseRestrictSerializer):
     def _add_users_to_event(event, user_ids):
         current_user_ids = set(UserJoinEvent.objects.filter(event=event).values_list('user_id', flat=True))
         new_user_ids = set(user_ids)
-        print(f"Testing about")
+
         users_to_add = new_user_ids - current_user_ids
         for user_id in users_to_add:
-            UserJoinEvent.objects.create(event=event, user_id=user_id)
-
+            user_join = UserJoinEvent.objects.filter(event=event, user_id=user_id).first()
+            if user_join is None:
+                user_join = UserJoinEvent.objects.create(event=event, user_id=user_id)
+            # analysis_point(event, user_join)
+            total_point = calculate_point_query(user_join.user, event.date_start, event.date_close, event.price_list)
+            user_join.total_point = total_point + user_join.bonus_point
+            user_join.turn_pick = user_join.total_point // event.point_exchange - user_join.turn_selected
+            user_join.save()
         users_to_remove = current_user_ids - new_user_ids
         UserJoinEvent.objects.filter(event=event, user_id__in=users_to_remove).delete()
+        # for user_id in users_to_remove:
+        #     user_join = UserJoinEvent.objects.get(event=event, user_id=user_id)
+        #     numbers_selected = NumberSelected.objects.filter(user_event=user_join)
+        #     for number_sel in numbers_selected:
+        #         number_list = number_sel.number
+        #         number_list.repeat_count += 1
+        #         number_list.save()
+        #     numbers_selected.delete()
+        #     user_join.delete()
