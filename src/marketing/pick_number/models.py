@@ -1,6 +1,9 @@
 from django.db import models
+from django.db.models import F, Sum, FloatField
 
 from account.models import User
+from marketing.order.models import OrderDetail, Order
+from marketing.price_list.models import PriceList
 from utils.helpers import self_id
 
 
@@ -8,6 +11,7 @@ from utils.helpers import self_id
 class EventNumber(models.Model):
     id = models.CharField(max_length=16, primary_key=True, unique=True, editable=False)
     name = models.CharField(max_length=255, null=False)
+    price_list = models.ForeignKey(PriceList, null=True, on_delete=models.CASCADE, related_name='event_number')
     date_start = models.DateField()
     date_close = models.DateField()
     range_number = models.IntegerField()
@@ -58,6 +62,10 @@ class UserJoinEvent(models.Model):
     user = models.ForeignKey(User, on_delete=models.CASCADE, related_name='user_join_event')
     event = models.ForeignKey(EventNumber, on_delete=models.CASCADE, related_name='user_join_event')
 
+    total_point = models.FloatField(default=0)
+    used_point = models.FloatField(default=0)
+    bonus_point = models.FloatField(default=0)
+
     turn_pick = models.IntegerField(default=0)
     turn_selected = models.IntegerField(default=0)
 
@@ -84,3 +92,24 @@ class NumberSelected(models.Model):
     def save(self, *args, **kwargs):
         self.validate_unique(exclude=None)
         super().save(*args, **kwargs)
+
+
+def calculate_point_query(user, date_start, date_end, price_list=None):
+    print(f"Input data: {user, date_start, date_end}")
+    filters = {
+        'order_id__client_id': user,
+        'order_id__date_get__gte': date_start,
+        'order_id__date_get__lte': date_end
+    }
+
+    if price_list:
+        filters['product_id__productprice__price_list'] = price_list
+
+    total_points = OrderDetail.objects.filter(
+        **filters
+    ).annotate(
+        order_point=F('order_quantity') * F('product_id__productprice__point') / F(
+            'product_id__productprice__quantity_in_box')
+    ).aggregate(total_point=Sum('order_point', output_field=FloatField()))['total_point'] or 0
+    print(f"Test total point: {total_points}")
+    return total_points
