@@ -39,10 +39,7 @@ class UserJoinEventSerializer(BaseRestrictSerializer):
     class Meta:
         model = UserJoinEvent
         fields = '__all__'
-        read_only_fields = ('id', 'created_at', 'updated_at')
-        extra_kwargs = {
-            'number_selected_read': {'source': 'number_selected'}
-        }
+        read_only_fields = ('id', 'created_at', 'updated_at', 'total_point', 'turn_pick', 'turn_selected')
 
     def to_representation(self, instance):
         """Convert `number_selected` field from IDs to actual numbers."""
