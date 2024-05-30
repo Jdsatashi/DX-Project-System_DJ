@@ -95,7 +95,7 @@ class UserJoinEventSerializer(BaseRestrictSerializer):
         # Remove numbers and update repeat_count
         for number_id in numbers_to_remove:
             NumberSelected.objects.filter(user_event=user_join_event, number__number=number_id).delete()
-            number = NumberList.objects.get(number=number_id)
+            number = NumberList.objects.get(number=number_id, event=user_join_event.event)
             number.repeat_count += 1
             number.save()
 

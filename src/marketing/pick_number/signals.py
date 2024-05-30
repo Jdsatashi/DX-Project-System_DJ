@@ -26,8 +26,11 @@ def update_user_join_event(sender, instance, created, **kwargs):
 
 @receiver(pre_delete, sender=UserJoinEvent)
 def update_repeat_count(sender, instance, **kwargs):
+    print(f"Auto update repeat_count")
     number_selected = NumberSelected.objects.filter(user_event=instance)
+    print(f"Check number user was selected: {number_selected}")
     for number_sel in number_selected:
+        print(f"Check number user re selected: {number_sel.number.number}")
         number_list = number_sel.number
         number_list.repeat_count += 1
         number_list.save()
