@@ -71,7 +71,7 @@ class UserJoinEventSerializer(BaseRestrictSerializer):
 
         numbers_to_add = new_numbers - current_numbers
         numbers_to_remove = current_numbers - new_numbers
-        if user_join_event.turn_pick < numbers_to_add:
+        if user_join_event.turn_pick < len(numbers_to_add):
             return Response({'message': 'Số đã chọn vượt quá số lượt chọn.'}, status=400)
         print(f"Test number to add: {numbers_to_add}")
         print(f"Test number to remove: {numbers_to_remove}")
