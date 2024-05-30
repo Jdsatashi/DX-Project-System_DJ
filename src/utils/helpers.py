@@ -179,7 +179,9 @@ def self_id(prefix: str, models, last_count: int):
     last_id = models.objects.filter(id__startswith=f'{prefix}{year_suffix}').order_by('id').last()
     id_prefix = f"{prefix}{year_suffix}"
     if last_id:
-        last_number = int(last_id[len(f"{prefix}{year_suffix}"):])
+        last_id = last_id.id
+        test = f"{prefix}{year_suffix}"
+        last_number = int(last_id[len(test):])
         new_id = f'{last_number + 1:0{last_count}d}'
     else:
         new_id = f'{1:0{last_count}d}'
