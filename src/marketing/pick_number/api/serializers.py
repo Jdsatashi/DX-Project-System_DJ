@@ -124,14 +124,14 @@ class UserJoinEventNumberSerializer(serializers.ModelSerializer):
 
         if existing_selection:
             # Unpick the number
-            pus_data = {'type': 'unpick', 'number': int(number_picked)}
+            _type = 'unpick'
             number_list = existing_selection.number
             number_list.repeat_count += 1
             number_list.save()
             existing_selection.delete()
         else:
             # Pick the number
-            pus_data = {'type': 'pick', 'number': int(number_picked)}
+            _type = 'pick'
             number_list = NumberList.objects.filter(number=number_picked, event=instance.event).first()
             if not number_list:
                 return Response({'message': 'Số cung cấp không hợp lệ'}, status=400)
@@ -141,9 +141,10 @@ class UserJoinEventNumberSerializer(serializers.ModelSerializer):
                 number_list.save()
             else:
                 return Response({'message': f'Tem số {number_picked} đã hết'}, status=400)
+        pus_data = {'type': _type, 'number': int(number_picked), 'event_id': instance.event.id}
         try:
             print(f"Test pusher")
-            pusher_client.trigger(f'user_{instance.user.id}', f'pick_number_{instance.event.id}', pus_data)
+            pusher_client.trigger(f'user_{instance.user.id}', f'pick_number', pus_data)
         except Exception as e:
             print(f"Pusher error")
             raise e
