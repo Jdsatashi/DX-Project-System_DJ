@@ -1,7 +1,9 @@
+import pusher
 from rest_framework import serializers
 from rest_framework.response import Response
 
 from account.handlers.restrict_serializer import BaseRestrictSerializer
+from app.settings import pusher_client
 from marketing.pick_number.models import UserJoinEvent, NumberList, EventNumber, NumberSelected, calculate_point_query
 
 
@@ -39,7 +41,7 @@ class UserJoinEventSerializer(BaseRestrictSerializer):
     class Meta:
         model = UserJoinEvent
         fields = '__all__'
-        read_only_fields = ('id', 'created_at', 'updated_at', 'total_point', 'turn_pick', 'turn_selected')
+        read_only_fields = ('id', 'created_at', 'updated_at', 'total_point', 'turn_pick', 'used_point', 'turn_selected')
 
     def to_representation(self, instance):
         """Convert `number_selected` field from IDs to actual numbers."""
@@ -62,7 +64,6 @@ class UserJoinEventSerializer(BaseRestrictSerializer):
 
     @staticmethod
     def update_number_selected(user_join_event, number_selected_data):
-        print(f"Input number: {number_selected_data}")
         current_numbers = set(user_join_event.number_selected.values_list('number__number', flat=True))
         new_numbers = set(number_selected_data)
 
@@ -70,17 +71,15 @@ class UserJoinEventSerializer(BaseRestrictSerializer):
         numbers_to_remove = current_numbers - new_numbers
         if user_join_event.turn_pick < len(numbers_to_add):
             return Response({'message': 'Số đã chọn vượt quá số lượt chọn.'}, status=400)
-        print(f"Test number to add: {numbers_to_add}")
-        print(f"Test number to remove: {numbers_to_remove}")
 
         # Add new numbers and update repeat_count
         for number_id in numbers_to_add:
             number = NumberList.objects.filter(number=number_id).first()
             if not number:
                 return Response({'message': f'Số cung cấp không hợp lệ'})
-
+            # Check if number is available
             if number.repeat_count > 0:
-                print(f"Adding...")
+                # If not exist user selected number, create new one and minus 1 repeat
                 if not NumberSelected.objects.filter(user_event=user_join_event, number=number).exists():
                     print(f"Number object existing")
                     NumberSelected.objects.create(user_event=user_join_event, number=number)
@@ -89,13 +88,72 @@ class UserJoinEventSerializer(BaseRestrictSerializer):
                 continue
             else:
                 return Response({'message': f'Tem số {number.number} đã hết'})
-
+        # Update turn_selected and used_point with new numbers
+        user_join_event.turn_selected = len(numbers_to_add)
+        user_join_event.turn_pick = user_join_event.turn_pick - user_join_event.turn_selected
+        user_join_event.used_point = len(numbers_to_add) * int(user_join_event.event.point_exchange)
+        user_join_event.save()
         # Remove numbers and update repeat_count
         for number_id in numbers_to_remove:
             NumberSelected.objects.filter(user_event=user_join_event, number__number=number_id).delete()
             number = NumberList.objects.get(number=number_id, event=user_join_event.event)
             number.repeat_count += 1
             number.save()
+
+
+class UserJoinEventNumberSerializer(serializers.ModelSerializer):
+    number_picked = serializers.IntegerField(write_only=True)
+
+    class Meta:
+        model = UserJoinEvent
+        fields = ['id', 'event', 'user', 'number_picked', 'total_point', 'turn_pick', 'used_point', 'turn_selected']
+        read_only_fields = ('id', 'event', 'user', 'total_point', 'turn_pick', 'used_point', 'turn_selected')
+
+    def to_representation(self, instance):
+        """Convert `number_selected` field from IDs to actual numbers."""
+        representation = super().to_representation(instance)
+        numbers = instance.number_selected.values_list('number__number', flat=True)
+        representation['number_selected'] = list(numbers)
+        return representation
+
+    def update(self, instance, validated_data):
+        number_picked = validated_data.pop('number_picked')
+
+        # Check if the number is already selected
+        existing_selection = NumberSelected.objects.filter(user_event=instance, number__number=number_picked).first()
+
+        if existing_selection:
+            # Unpick the number
+            pus_data = {'type': 'unpick', 'number': int(number_picked)}
+            number_list = existing_selection.number
+            number_list.repeat_count += 1
+            number_list.save()
+            existing_selection.delete()
+        else:
+            # Pick the number
+            pus_data = {'type': 'pick', 'number': int(number_picked)}
+            number_list = NumberList.objects.filter(number=number_picked, event=instance.event).first()
+            if not number_list:
+                return Response({'message': 'Số cung cấp không hợp lệ'}, status=400)
+            if number_list.repeat_count > 0:
+                NumberSelected.objects.create(user_event=instance, number=number_list)
+                number_list.repeat_count -= 1
+                number_list.save()
+            else:
+                return Response({'message': f'Tem số {number_picked} đã hết'}, status=400)
+        try:
+            print(f"Test pusher")
+            pusher_client.trigger(f'user_{instance.user.id}', f'pick_number_{instance.event.id}', pus_data)
+        except Exception as e:
+            print(f"Pusher error")
+            raise e
+        # Update turn_selected and used_point with new numbers
+        instance.turn_selected = instance.number_selected.count()
+        instance.turn_pick = instance.total_point // instance.event.point_exchange - instance.turn_selected
+        instance.used_point = instance.turn_selected * instance.event.point_exchange
+        instance.save()
+
+        return instance
 
 
 class EventNumberSerializer(BaseRestrictSerializer):

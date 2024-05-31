@@ -6,7 +6,8 @@ from rest_framework.response import Response
 from rest_framework_simplejwt.authentication import JWTAuthentication
 
 from account.handlers.validate_perm import ValidatePermRest
-from marketing.pick_number.api.serializers import UserJoinEventSerializer, EventNumberSerializer, NumberListSerializer
+from marketing.pick_number.api.serializers import UserJoinEventSerializer, EventNumberSerializer, NumberListSerializer, \
+    UserJoinEventNumberSerializer
 from marketing.pick_number.models import UserJoinEvent, EventNumber, NumberList
 from utils.model_filter_paginate import filter_data
 
@@ -54,3 +55,8 @@ class ApiNumberList(viewsets.GenericViewSet, mixins.ListModelMixin, mixins.Creat
         response = filter_data(self, request, ['id', 'event__id', 'event__name'],
                                **kwargs)
         return Response(response, status.HTTP_200_OK)
+
+
+class ApiPickNumber(viewsets.GenericViewSet, mixins.RetrieveModelMixin, mixins.UpdateModelMixin):
+    serializer_class = UserJoinEventNumberSerializer
+    queryset = UserJoinEvent.objects.all()
