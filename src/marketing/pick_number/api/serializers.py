@@ -1,3 +1,5 @@
+import time
+
 import pusher
 from rest_framework import serializers
 from rest_framework.response import Response
@@ -141,13 +143,22 @@ class UserJoinEventNumberSerializer(serializers.ModelSerializer):
                 number_list.save()
             else:
                 return Response({'message': f'Tem số {number_picked} đã hết'}, status=400)
+        start_time_2 = time.time()
         pus_data = {'type': _type, 'number': int(number_picked), 'event_id': instance.event.id}
         try:
-            print(f"Test pusher")
-            pusher_client.trigger(f'user_{instance.user.id}', f'pick_number', pus_data)
+            print(f"-- Test pusher --")
+            pus_event = 'pick_number'
+            print(f"Message: {pus_data}")
+            print(f"Event: {pus_event}")
+            for user in instance.event.user_join_event.all():
+                chanel = f'user_{user.id}'
+                print(f"Chanel: {chanel}")
+                pusher_client.trigger(chanel, pus_event, pus_data)
+
         except Exception as e:
             print(f"Pusher error")
             raise e
+        print(f"Time handle Pusher: {time.time() - start_time_2}")
         # Update turn_selected and used_point with new numbers
         instance.turn_selected = instance.number_selected.count()
         instance.turn_pick = instance.total_point // instance.event.point_exchange - instance.turn_selected
