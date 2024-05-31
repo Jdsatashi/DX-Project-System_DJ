@@ -150,7 +150,9 @@ class UserJoinEventNumberSerializer(serializers.ModelSerializer):
             pus_event = 'pick_number'
             print(f"Message: {pus_data}")
             print(f"Event: {pus_event}")
-            for user in instance.event.user_join_event.all():
+            list_user = instance.event.user_join_event.filter().exclude(user=instance.user)
+            print(f"{list_user}")
+            for user in instance.event.user_join_event.filter().exclude(user=instance.user):
                 chanel = f'user_{user.user.id}'
                 print(f"Chanel: {chanel}")
                 pusher_client.trigger(chanel, pus_event, pus_data)
