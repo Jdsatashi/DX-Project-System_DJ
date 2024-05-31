@@ -73,7 +73,7 @@ INSTALLED_APPS = [
                      'system.status_group',
                  ] + MY_APPS
 
-pusher_client = Pusher(app_id=PUS_ID, key=PUS_KEY, secret=PUS_SECRET, cluster=PUS_CLUSTER)
+pusher_client = Pusher(app_id=PUS_ID, key=PUS_KEY, secret=PUS_SECRET, cluster=PUS_CLUSTER, ssl=True)
 
 # Create log folder
 LOGGING_DIR = os.path.join(PROJECT_DIR, 'logs')
