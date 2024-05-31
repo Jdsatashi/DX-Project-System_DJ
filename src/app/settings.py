@@ -3,6 +3,8 @@ from datetime import timedelta
 from pathlib import Path
 from logging.handlers import TimedRotatingFileHandler
 
+from pusher import Pusher
+
 from utils.env import *
 
 # Build paths inside the project like this: BASE_DIR / 'subdir'.
@@ -70,6 +72,8 @@ INSTALLED_APPS = [
                      'system.file_upload',
                      'system.status_group',
                  ] + MY_APPS
+
+pusher_client = Pusher(app_id=PUS_ID, key=PUS_KEY, secret=PUS_SECRET, cluster=PUS_CLUSTER)
 
 # Create log folder
 LOGGING_DIR = os.path.join(PROJECT_DIR, 'logs')
