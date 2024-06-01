@@ -52,7 +52,15 @@ class ApiNumberList(viewsets.GenericViewSet, mixins.ListModelMixin, mixins.Creat
     # permission_classes = [partial(ValidatePermRest, model=NumberList)]
 
     def list(self, request, *args, **kwargs):
-        response = filter_data(self, request, ['id', 'event__id', 'event__name'],
+        active = request.query_params.get('active', 0)
+        if active == '1':
+            queryset = self.queryset.filter(repeat_count__gt=0)
+        elif active == '0':
+            queryset = self.queryset.filter(repeat_count=0)
+        else:
+            queryset = self.queryset
+        print(queryset)
+        response = filter_data(self, request, ['id', 'event__id', 'event__name'], queryset=queryset,
                                **kwargs)
         return Response(response, status.HTTP_200_OK)
 
