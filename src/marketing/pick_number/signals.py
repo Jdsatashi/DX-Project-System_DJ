@@ -15,13 +15,15 @@ def update_user_join_event(sender, instance, created, **kwargs):
     if events.exists():
         for event in events:
             user_join = UserJoinEvent.objects.filter(event=event, user=instance.client_id).first()
-
-            print(user_join)
-            total_point = calculate_point_query(user_join.user, event.date_start, event.date_close, event.price_list)
-            user_join.total_point = total_point + user_join.bonus_point
-            user_join.turn_pick = user_join.total_point // event.point_exchange - user_join.turn_selected
-            print(f"Testing turn pick: {user_join.turn_pick}")
-            user_join.save()
+            if user_join:
+                print(user_join)
+                total_point = calculate_point_query(user_join.user, event.date_start, event.date_close, event.price_list)
+                user_join.total_point = total_point + user_join.bonus_point
+                user_join.turn_pick = user_join.total_point // event.point_exchange - user_join.turn_selected
+                print(f"Testing turn pick: {user_join.turn_pick}")
+                user_join.save()
+            else:
+                continue
 
 
 @receiver(pre_delete, sender=UserJoinEvent)
