@@ -7,6 +7,7 @@ from rest_framework_simplejwt.authentication import JWTAuthentication
 from account.models import User
 from marketing.sale_statistic.api.serializers import SaleStatisticSerializer, SaleMonthTargetSerializer
 from marketing.sale_statistic.models import SaleStatistic, SaleTarget
+from utils.helpers import local_time
 from utils.model_filter_paginate import filter_data
 
 
@@ -70,6 +71,9 @@ class ApiSaleMonthTarget(viewsets.GenericViewSet, mixins.ListModelMixin,
     # permission_classes = [partial(ValidatePermRest, model=SaleTarget)]
 
     def list(self, request, *args, **kwargs):
+        today = local_time().date()
+        sale_target, _ = SaleTarget.objects.get_or_create(month=today)
+        print(f"{sale_target}")
         response = filter_data(self, request, ['month'],
                                **kwargs)
         return Response(response, status=status.HTTP_200_OK)
