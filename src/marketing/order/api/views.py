@@ -106,6 +106,7 @@ class ProductStatisticsView(APIView):
         except ValueError as e:
             return Response({"error": str(e)}, status=status.HTTP_400_BAD_REQUEST)
         except Exception as e:
+            raise e
             return Response({"error": str(e)}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
 
 
@@ -229,17 +230,24 @@ def get_product_statistics_2(user, input_date, type_statistic):
     # Combine results into a single dictionary
     combined_results = {}
     for detail in details_1:
+        print("- - - - - ")
+        print(f"Test detail: {detail}")
         product_id = detail['product_id']
         product_name = detail['product_id__name']
         total_cashback = 0
 
         # Calculate total cashback for current period
         for order in orders_1:
+            print("----------")
+            print(f"Test product_id: {product_id}")
             order_detail = OrderDetail.objects.filter(order_id=order, product_id=product_id).first()
             special_offer = order.new_special_offer
-            if special_offer:
+            print(f"Test order: {order}")
+            if special_offer and order_detail:
                 sop = SpecialOfferProduct.objects.filter(special_offer=special_offer, product_id=product_id).first()
                 if sop and sop.cashback:
+                    print(f"Test sop: {sop}")
+                    print(f"Test order_detail: {order_detail}")
                     total_cashback += sop.cashback * order_detail.order_box
 
         combined_results[product_id] = {
@@ -268,7 +276,7 @@ def get_product_statistics_2(user, input_date, type_statistic):
         for order in orders_2:
             order_detail = OrderDetail.objects.filter(order_id=order, product_id=product_id).first()
             special_offer = order.new_special_offer
-            if special_offer:
+            if special_offer and order_detail:
                 sop = SpecialOfferProduct.objects.filter(special_offer=special_offer, product_id=product_id).first()
                 if sop and sop.cashback:
                     total_cashback += sop.cashback * order_detail.order_box
