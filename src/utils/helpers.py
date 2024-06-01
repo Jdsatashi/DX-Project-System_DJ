@@ -6,6 +6,7 @@ from datetime import datetime
 from django.contrib.contenttypes.models import ContentType
 from django.core.exceptions import ValidationError
 from django.core.validators import RegexValidator
+from django.utils import timezone
 from rest_framework import serializers
 
 from account.models import User
@@ -187,6 +188,10 @@ def self_id(prefix: str, models, last_count: int):
         new_id = f'{1:0{last_count}d}'
     _id = f'{id_prefix}{new_id}'
     return _id
+
+
+def local_time():
+    return timezone.localtime(timezone.now())
 
 
 if __name__ == '__main__':

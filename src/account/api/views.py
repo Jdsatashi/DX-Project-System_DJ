@@ -21,9 +21,10 @@ from account.handlers.validate_perm import ValidatePermRest
 from account.models import User, Verify, PhoneNumber, RefreshToken, TokenMapping
 from app.api_routes.handlers import get_token_for_user, remove_token_blacklist
 from app.logs import app_log
+from app.settings import pusher_client
 from marketing.price_list.models import PriceList, PointOfSeason
 from utils.constants import status as user_status, maNhomND
-from utils.helpers import generate_digits_code, generate_id, phone_validate
+from utils.helpers import generate_digits_code, generate_id, phone_validate, local_time
 from utils.insert_db.default_roles_perms import set_user_perm
 from utils.model_filter_paginate import filter_data
 
@@ -109,7 +110,7 @@ def otp_verify(request, pk):
         if verify.is_verify_valid():
             # Update verify
             verify.is_verify = True
-            verify.verify_time = timezone.now()
+            verify.verify_time = local_time()
             # Activate user
             verify.user.status = user_status[0]
             verify.user.is_active = True
@@ -141,6 +142,7 @@ def otp_verify(request, pk):
             verify.save()
             # Add response data
             serializer = UserSerializer(verify.user)
+            pusher_login(verify.user)
             response = {'message': 'Successful verify phone number', 'user': serializer.data, 'phone_number': pk,
                         'token': {
                             'refresh': str(refresh_token),
@@ -196,6 +198,7 @@ def phone_login_2(request):
             except TokenError:
                 # If get new token error, refresh_token error
                 return Response({'message': 'Phiên đăng nhập đã hết hạn, vui lòng đăng nhập lại'}, status=status.HTTP_401_UNAUTHORIZED)
+            pusher_login(user)
             # Return token when not error
             return Response({'refresh': refresh_token, 'access': new_token}, status.HTTP_200_OK)
         else:
@@ -262,18 +265,14 @@ def check_token(request):
             return Response({"error": "Access token not provided"}, status=status.HTTP_400_BAD_REQUEST)
         try:
             token = AccessToken(str(access_token))
-            print(f"Decode token: {token['user_id']}")
             user = get_user_model().objects.get(id=token['user_id'])
-            print(f"Test exp: {token.check_exp()}")
             app_log.info(f"Access token of user {user.id}: {access_token}")
-            current_time = timezone.now()
+            current_time = local_time()
             expiration_time = datetime.datetime.fromtimestamp(token['exp'], pytz.UTC)
             if current_time < expiration_time:
-                print(f"Come to here")
                 today = current_time.date()
                 main_pl = PriceList.objects.filter(id='SPTN000015', date_start__lte=today, date_end__gte=today).first()
                 point, _ = PointOfSeason.objects.get_or_create(user=user, price_list=main_pl)
-                print(f"Come to there")
                 response = UserSerializer(user).data
                 response['point'] = point.point
                 return Response({'user': response}, status=status.HTTP_200_OK)
@@ -337,6 +336,17 @@ def create_access_token_from_refresh(refresh_token_str, phone_number):
 
     return str(access_token)
 
+
+def pusher_login(user):
+    channel = f"user_{user.id}"
+    event = f"login"
+    login_at = local_time()
+    try:
+        print(f"Input pusher: \n{channel}\n{event}\n{str(login_at)}")
+        pusher_client.trigger(channel, event, {'login_time': str(login_at)})
+    except Exception as e:
+        print(e)
+        raise e
 
 
 """
