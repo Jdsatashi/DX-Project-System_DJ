@@ -1,12 +1,15 @@
 import time
 
+from django.db import transaction
 from django.db.models import Sum
 from django.utils import timezone
 from rest_framework import serializers, status
+from rest_framework.exceptions import ValidationError
 from rest_framework.response import Response
 
 from account.handlers.restrict_serializer import BaseRestrictSerializer
 from account.models import PhoneNumber
+from app.logs import app_log
 from marketing.livestream.api.serializers import get_phone_from_token
 from marketing.livestream.models import LiveStreamOfferRegister
 from marketing.order.models import Order, OrderDetail, update_sale_statistics_for_user
@@ -40,93 +43,109 @@ class OrderSerializer(BaseRestrictSerializer):
         order_details_data = data.pop('order_detail', [])
         # Validate product order details
         user_sale_statistic, is_so, is_consider = self.validate_special_offer(data, order_details_data)
+        with transaction.atomic():
+            order = Order.objects.create(**data)
 
-        # Create new Order
-        order = Order.objects.create(**data)
+            # Calculate total price and point
+            details = self.calculate_total_price_and_point(order, order_details_data)
+            if details:
+                OrderDetail.objects.bulk_create(details)
+                # Check if order details were created
+                created_details_count = OrderDetail.objects.filter(order_id=order).count()
+                if created_details_count == 0:
+                    order.delete()
+                    raise ValidationError(
+                        {'message': 'Order require OrderDetail with product_id, order_quantity, order_box'}
+                    )
 
-        # Calculate total price and point
-        details = self.calculate_total_price_and_point(order, order_details_data)
-        OrderDetail.objects.bulk_create(details)
-        # Get total point and price from query
-        total_price = OrderDetail.objects.filter(order_id=order).aggregate(total_price=Sum('product_price'))[
-            'total_price']
-        total_point = OrderDetail.objects.filter(order_id=order).aggregate(total_point=Sum('point_get'))['total_point']
-        # Add to order
-        order.order_point = total_point
-        order.order_price = total_price
-        order.save()
+                # Get total point and price from query
+                total_price = OrderDetail.objects.filter(order_id=order).aggregate(total_price=Sum('product_price'))[
+                    'total_price']
+                total_point = OrderDetail.objects.filter(order_id=order).aggregate(total_point=Sum('point_get'))[
+                    'total_point']
+                # Add to order
+                order.order_point = total_point
+                order.order_price = total_price
+                order.save()
 
-        # Deactivate when user used
-        # if is_consider:
-        #     special_offer = data.get('new_special_offer')
-        #     special_offer.status = 'deactivate'
-        #     special_offer.save()
+                # Deactivate when user used
+                # if is_consider:
+                #     special_offer = data.get('new_special_offer')
+                #     special_offer.status = 'deactivate'
+                #     special_offer.save()
 
-        print(f"Testing user sale statistic: {user_sale_statistic}")
-        self.update_sale_statistic(order, user_sale_statistic, order.order_price, is_so, is_consider)
+                print(f"Testing user sale statistic: {user_sale_statistic}")
+                self.update_sale_statistic(order, user_sale_statistic, order.order_price, is_so, is_consider)
 
-        # Create perms
-        restrict = perm_data.get('restrict')
-        if restrict:
-            self.handle_restrict(perm_data, order.id, self.Meta.model)
+                # Create perms
+                restrict = perm_data.get('restrict')
+                if restrict:
+                    self.handle_restrict(perm_data, order.id, self.Meta.model)
+            else:
+                order.delete()
+                raise ValidationError(
+                    {'message': 'Order required OrderDetail with product_id, order_quantity, order_box'},
+                )
+
         return order
 
     def update(self, instance, validated_data):
         # Split insert data
         data, perm_data = self.split_data(validated_data)
-        # Get details data
+        # Get order detail data
         order_details_data = data.pop('order_detail', [])
 
         user_sale_statistic, is_so, is_consider = self.validate_special_offer(data, order_details_data)
 
-        # Update Order fields
-        for attr, value in data.items():
-            setattr(instance, attr, value)
-        instance.save()
+        with transaction.atomic():
+            # Update Order fields
+            for attr, value in data.items():
+                setattr(instance, attr, value)
+            instance.save()
 
-        # Update OrderDetail
-        current_details_id = [detail.id for detail in instance.order_detail.all()]
-        new_details_id = []
-        total_point = float(0)
-        total_price = float(0)
+            # Update OrderDetail
+            current_details_id = [detail.id for detail in instance.order_detail.all()]
+            new_details_id = []
+            total_point = float(0)
+            total_price = float(0)
 
-        for detail_data in order_details_data:
-            detail_id = detail_data.get('id')
-            product_id = detail_data.get('product_id')
-            quantity = detail_data.get('order_quantity')
+            for detail_data in order_details_data:
+                detail_id = detail_data.get('id')
+                product_id = detail_data.get('product_id')
+                quantity = detail_data.get('order_quantity')
 
-            if detail_id:
-                detail = OrderDetail.objects.get(id=detail_id, order_id=instance)
-                for attr, value in detail_data.items():
-                    setattr(detail, attr, value)
-                detail.save()
-            else:
-                prices, point = self.calculate_price_and_point(instance, product_id, quantity)
-                detail_data['product_price'] = prices
-                detail_data['point_get'] = point
-                detail = OrderDetail(order_id=instance, **detail_data)
-                detail.save()
-                detail_id = detail.id
+                if detail_id:
+                    detail = OrderDetail.objects.get(id=detail_id, order_id=instance)
+                    for attr, value in detail_data.items():
+                        setattr(detail, attr, value)
+                    detail.save()
+                else:
+                    prices, point = self.calculate_price_and_point(instance, product_id, quantity)
+                    detail_data['product_price'] = prices
+                    detail_data['point_get'] = point
+                    detail = OrderDetail(order_id=instance, **detail_data)
+                    detail.save()
+                    detail_id = detail.id
 
-            new_details_id.append(detail_id)
-            total_point += detail.point_get
-            total_price += detail.product_price
+                new_details_id.append(detail_id)
+                total_point += detail.point_get
+                total_price += detail.product_price
 
-        # Remove OrderDetails not included in the update
-        for detail_id in current_details_id:
-            if detail_id not in new_details_id:
-                OrderDetail.objects.filter(id=detail_id).delete()
+            # Remove OrderDetails not included in the update
+            for detail_id in current_details_id:
+                if detail_id not in new_details_id:
+                    OrderDetail.objects.filter(id=detail_id).delete()
 
-        # Update order point and price
-        instance.order_point = total_point
-        instance.order_price = total_price
-        instance.save()
-        print(f"Testing user sale statistic: {user_sale_statistic}")
-        self.update_sale_statistic(instance, user_sale_statistic, instance.order_price, is_so, is_consider)
+            # Update order point and price
+            instance.order_point = total_point
+            instance.order_price = total_price
+            instance.save()
+            print(f"Testing user sale statistic: {user_sale_statistic}")
+            self.update_sale_statistic(instance, user_sale_statistic, instance.order_price, is_so, is_consider)
 
-        restrict = perm_data.get('restrict')
-        if restrict:
-            self.handle_restrict(perm_data, instance.id, self.Meta.model)
+            restrict = perm_data.get('restrict')
+            if restrict:
+                self.handle_restrict(perm_data, instance.id, self.Meta.model)
 
         return instance
 
@@ -227,8 +246,14 @@ class OrderSerializer(BaseRestrictSerializer):
 
             prices, point = self.calculate_price_and_point(order, product_id, quantity)
 
+            # Add result calculate to detail_data
             detail_data['product_price'] = prices
             detail_data['point_get'] = point
+
+            # Prin logs
+            app_log.info(f"Order details data: {detail_data}")
+
+            # Assign temporary OrderDetail
             detail = OrderDetail(order_id=order, product_id=product_id, **detail_data)
             details.append(detail)
         return details
