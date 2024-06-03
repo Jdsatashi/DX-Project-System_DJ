@@ -1,9 +1,9 @@
 import time
 from datetime import datetime
 
-from django.core.exceptions import ValidationError
 from django.db import models
 from django.db.models import Sum
+from rest_framework.exceptions import ValidationError
 
 from account.models import User
 from marketing.price_list.models import ProductPrice, PriceList, PointOfSeason, SpecialOffer, SpecialOfferProduct
@@ -44,8 +44,12 @@ class Order(models.Model):
             if not (self.price_list_id.date_start <= self.created_at.date() <= self.price_list_id.date_end):
                 raise ValidationError(
                     f"Order date {self.created_at.date()} must be within the PriceList's date range from {self.price_list_id.date_start} to {self.price_list_id.date_end}.")
+            if not (self.price_list_id.date_start <= self.date_get <= self.price_list_id.date_end):
+                raise ValidationError(
+                    f"Order date {self.date_get} must be between the PriceList's date range from {self.price_list_id.date_start} to {self.price_list_id.date_end}.")
 
     def save(self, *args, **kwargs):
+        self.clean()
         is_new = self._state.adding
         if not self.pk:
             self.id = self.generate_pk()
