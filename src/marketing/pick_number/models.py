@@ -27,7 +27,11 @@ class EventNumber(models.Model):
     def save(self, *args, **kwargs):
         start_time = time.time()
         is_new = self._state.adding
+        old_limit_repeat = None
         if not is_new:
+            # Lưu giá trị limit_repeat cũ trước khi cập nhật
+            old_event = EventNumber.objects.get(id=self.id)
+            old_limit_repeat = old_event.limit_repeat
             # Validate before updating existing EventNumber
             self.validate_update()
 
@@ -36,47 +40,84 @@ class EventNumber(models.Model):
         if is_new:
             self.create_number_list()
         else:
-            self.update_number_list()
+            self.update_number_list(old_limit_repeat)
         print(f"Time complete EventNumber: {time.time() - start_time}")
 
     def create_number_list(self):
         start_time = time.time()
-        for num in range(1, self.range_number + 1):
-            NumberList.objects.create(
+        number_list = [
+            NumberList(
                 number=num,
                 repeat_count=self.limit_repeat,
                 event=self
             )
+            for num in range(1, self.range_number + 1)
+        ]
+        NumberList.objects.bulk_create(number_list)
         print(f"Time complete create new NumberList: {time.time() - start_time}")
 
-    def update_number_list(self):
+    def update_number_list(self, old_limit_repeat):
         start_time = time.time()
-        current_numbers = set(NumberList.objects.filter(event=self).values_list('number', flat=True))
+        current_numbers = NumberList.objects.filter(event=self).values_list('number', 'id', 'repeat_count')
         new_numbers = set(range(1, self.range_number + 1))
 
-        numbers_to_add = new_numbers - current_numbers
-        numbers_to_remove = current_numbers - new_numbers
+        current_numbers_dict = {num: {'id': nid, 'repeat_count': rcount} for num, nid, rcount in current_numbers}
+        current_numbers_set = set(current_numbers_dict.keys())
+
+        numbers_to_add = new_numbers - current_numbers_set
+        numbers_to_remove = current_numbers_set - new_numbers
+
+        print(f"Test number to add: {numbers_to_add}")
+        print(f"Test number to remove: {numbers_to_remove}")
+        start_time2 = time.time()
 
         # Add new numbers
-        for num in numbers_to_add:
-            NumberList.objects.create(
+        number_list_to_add = [
+            NumberList(
                 number=num,
                 repeat_count=self.limit_repeat,
                 event=self
             )
+            for num in numbers_to_add
+        ]
+        NumberList.objects.bulk_create(number_list_to_add)
+        print(f"Time For loop 1: {time.time() - start_time2}")
+
+        # Calculate the difference in limit_repeat
+        result_repeat = old_limit_repeat - self.limit_repeat
+
+        start_time2 = time.time()
+        # Prepare list for bulk update
+        number_list_to_update = []
 
         # Update existing numbers' repeat_count
-        for num in current_numbers:
-            number_list = NumberList.objects.get(event=self, number=num)
-            number_list.repeat_count = self.limit_repeat
-            number_list.save()
+        for num in current_numbers_set:
+            number_list = NumberList.objects.get(id=current_numbers_dict[num]['id'])
+            number_selected_count = NumberSelected.objects.filter(number=number_list).count()
+            new_repeat_count = current_numbers_dict[num]['repeat_count'] - result_repeat
+            new_repeat_count = new_repeat_count if new_repeat_count < self.limit_repeat else self.limit_repeat
+
+            # Ensure repeat_count does not go below the number of times it has been selected
+            if new_repeat_count < number_selected_count:
+                raise ValueError(
+                    f"Cannot reduce repeat_count below the number of times number {num} has been selected.")
+
+            number_list.repeat_count = new_repeat_count
+            number_list_to_update.append(number_list)
+
+        # Bulk update existing numbers
+        NumberList.objects.bulk_update(number_list_to_update, ['repeat_count'])
+        print(f"Time For loop 2: {time.time() - start_time2}")
 
         # Validate and possibly remove numbers
+        start_time2 = time.time()
         for num in numbers_to_remove:
             number_list = NumberList.objects.get(event=self, number=num)
             if NumberSelected.objects.filter(number=number_list).exists():
                 raise ValueError(f"Cannot reduce range_number, number {num} is already selected.")
             number_list.delete()
+        print(f"Time For loop 3: {time.time() - start_time2}")
+
         print(f"Time complete update NumberList: {time.time() - start_time}")
 
     def validate_update(self):
