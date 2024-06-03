@@ -231,6 +231,8 @@ class Perm(models.Model):
 # GroupPerm as a Permissions Group or Roles User
 class GroupPerm(models.Model):
     name = models.CharField(max_length=255, primary_key=True)
+    description = models.CharField(max_length=255, null=True, blank=True)
+    parent_group = models.ForeignKey('self', null=True, blank=True, on_delete=models.SET_NULL)
     note = models.TextField(null=True, default=None, blank=True)
     perm = models.ManyToManyField(Perm, blank=True)
     allow = models.BooleanField(default=True)
