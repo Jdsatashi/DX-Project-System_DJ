@@ -2,6 +2,7 @@ import time
 
 from django.db import models
 from django.db.models import F, Sum, FloatField
+from rest_framework.exceptions import ValidationError
 
 from account.models import User
 from app.logs import app_log
@@ -26,6 +27,7 @@ class EventNumber(models.Model):
 
     def save(self, *args, **kwargs):
         start_time = time.time()
+        app_log.debug(f"Start saving EventNumber")
         is_new = self._state.adding
         old_limit_repeat = None
         if not is_new:
@@ -33,7 +35,7 @@ class EventNumber(models.Model):
             old_event = EventNumber.objects.get(id=self.id)
             old_limit_repeat = old_event.limit_repeat
             # Validate before updating existing EventNumber
-            self.validate_update()
+            self.validate_update(old_limit_repeat)
 
         super().save(*args, **kwargs)
 
@@ -82,9 +84,7 @@ class EventNumber(models.Model):
         ]
         NumberList.objects.bulk_create(number_list_to_add)
         app_log.info(f"Time For loop 1: {time.time() - start_time2}")
-
-        # Calculate the difference in limit_repeat
-        result_repeat = old_limit_repeat - self.limit_repeat
+        app_log.info(f"Test old: {old_limit_repeat}")
 
         start_time2 = time.time()
         # Prepare list for bulk update
@@ -94,13 +94,18 @@ class EventNumber(models.Model):
         for num in current_numbers_set:
             number_list = NumberList.objects.get(id=current_numbers_dict[num]['id'])
             number_selected_count = NumberSelected.objects.filter(number=number_list).count()
-            new_repeat_count = current_numbers_dict[num]['repeat_count'] - result_repeat
-            new_repeat_count = new_repeat_count if new_repeat_count < self.limit_repeat else self.limit_repeat
 
+            new_repeat_count = self.limit_repeat
             # Ensure repeat_count does not go below the number of times it has been selected
-            if new_repeat_count < number_selected_count:
-                raise ValueError(
-                    f"Cannot reduce repeat_count below the number of times number {num} has been selected.")
+            if number_selected_count != 0:
+                app_log.info(f'New repeat count 1: {new_repeat_count}')
+                new_repeat_count = new_repeat_count - number_selected_count
+                app_log.info(f"\nDebug number: {num}")
+                app_log.info(f"Number selected count: {number_selected_count}")
+                app_log.info(f"New repeat count: {new_repeat_count} | Old: {old_limit_repeat}")
+            # if new_repeat_count + number_selected_count > old_limit_repeat:
+            #     raise ValueError(
+            #         f"Cannot reduce repeat_count below the number of times number {num} has been selected.")
 
             number_list.repeat_count = new_repeat_count
             number_list_to_update.append(number_list)
@@ -120,7 +125,7 @@ class EventNumber(models.Model):
 
         app_log.info(f"Time complete update NumberList: {time.time() - start_time}")
 
-    def validate_update(self):
+    def validate_update(self, old_limit_repeat):
         start_time = time.time()
         current_numbers = set(NumberList.objects.filter(event=self).values_list('number', flat=True))
         new_numbers = set(range(1, self.range_number + 1))
@@ -131,7 +136,7 @@ class EventNumber(models.Model):
         for num in numbers_to_remove:
             number_list = NumberList.objects.get(event=self, number=num)
             if NumberSelected.objects.filter(number=number_list).exists():
-                raise ValueError(f"Cannot reduce range_number, number {num} is already selected.")
+                raise ValidationError(f"Cannot reduce range_number, number {num} is already selected.")
 
         # Validate limit_repeat
         number_selected = NumberSelected.objects.filter(user_event__event=self).values_list('number__number', flat=True)
@@ -139,8 +144,13 @@ class EventNumber(models.Model):
             event=self,
             number__in=list(number_selected)
         ).order_by('repeat_count').first()
-        if smallest_repeat and self.limit_repeat < smallest_repeat.repeat_count:
-            raise ValueError(f"Cannot reduce limit_repeat, some numbers have higher repeat count than the new limit.")
+        app_log.info(f"Test smallest repeat: {smallest_repeat.repeat_count}")
+        if smallest_repeat:
+            result_reduce_limit = (self.limit_repeat - (old_limit_repeat - smallest_repeat.repeat_count))
+            app_log.info(f"Result reduce limit: {result_reduce_limit}")
+            if result_reduce_limit < 0:
+                raise ValidationError(f"Cannot reduce limit_repeat, "
+                                      f"numbers {smallest_repeat.number} have higher repeat count than the new limit.")
         app_log.info(f"Time complete Validate before update: {time.time() - start_time}")
 
 
