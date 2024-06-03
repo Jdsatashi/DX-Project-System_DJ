@@ -85,7 +85,7 @@ LOGGING = {
     'disable_existing_loggers': False,
     'formatters': {
         'verbose': {
-            'format': '[{asctime}] | [{levelname}] - {module} {message}',
+            'format': '[{asctime}] | [{levelname}] - {message}',
             'style': '{',
         },
         'simple': {
@@ -100,19 +100,18 @@ LOGGING = {
             'filename': os.path.join(LOGGING_DIR, 'app.log'),
             'when': 'midnight',  # Log rotation at midnight
             'interval': 1,  # Rotate daily
-            'backupCount': 30,  # Keep last 10 log files
+            'backupCount': 10,  # Keep last 10 log files
             'formatter': 'verbose',
             'encoding': 'utf-8',
             'delay': True,
         },
         'system_log_file': {
-            'level': 'DEBUG',
+            'level': 'INFO',
             'class': 'logging.handlers.TimedRotatingFileHandler',
             'filename': os.path.join(LOGGING_DIR, 'system.log'),
-
             'when': 'midnight',  # Log rotation at midnight
             'interval': 1,  # Rotate daily
-            'backupCount': 30,  # Keep last 10 log files
+            'backupCount': 10,  # Keep last 10 log files
             'formatter': 'verbose',
             'encoding': 'utf-8',
             'delay': True,
@@ -125,17 +124,32 @@ LOGGING = {
     },
     'loggers': {
         'django': {
-            'handlers': ['system_log_file', 'console'],
-            'level': 'DEBUG',
-            'propagate': True,
+            'handlers': ['console'],
+            'level': 'INFO',
+            'propagate': False,
         },
-        'my_app': {
+        'django.request': {
+            'handlers': ['system_log_file', 'console'],
+            'level': 'INFO',
+            'propagate': False,
+        },
+        'django.server': {
+            'handlers': ['system_log_file', 'console'],
+            'level': 'INFO',
+            'propagate': False,
+        },
+        'app_log': {
             'handlers': ['app_log_file'],
             'level': 'DEBUG',
             'propagate': False,
         },
     },
+    'root': {
+        'handlers': ['console'],
+        'level': 'INFO',
+    },
 }
+
 SIMPLE_JWT = {
     "ACCESS_TOKEN_LIFETIME": timedelta(hours=int(TOKEN_LT)),
     "REFRESH_TOKEN_LIFETIME": timedelta(days=int(REF_TOKEN_LT)),
