@@ -139,7 +139,7 @@ LOGGING = {
             'propagate': False,
         },
         'app_log': {
-            'handlers': ['app_log_file'],
+            'handlers': ['app_log_file', 'system_log_file', 'console'],
             'level': 'DEBUG',
             'propagate': False,
         },
