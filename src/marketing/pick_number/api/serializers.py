@@ -4,6 +4,7 @@ from rest_framework import serializers
 from rest_framework.response import Response
 
 from account.handlers.restrict_serializer import BaseRestrictSerializer
+from app.logs import app_log
 from app.settings import pusher_client
 from marketing.pick_number.models import UserJoinEvent, NumberList, EventNumber, NumberSelected, calculate_point_query
 
@@ -82,7 +83,7 @@ class UserJoinEventSerializer(BaseRestrictSerializer):
             if number.repeat_count > 0:
                 # If not exist user selected number, create new one and minus 1 repeat
                 if not NumberSelected.objects.filter(user_event=user_join_event, number=number).exists():
-                    print(f"Number object existing")
+                    app_log.info(f"Number object existing")
                     NumberSelected.objects.create(user_event=user_join_event, number=number)
                     number.repeat_count -= 1
                     number.save()
@@ -145,21 +146,21 @@ class UserJoinEventNumberSerializer(serializers.ModelSerializer):
         start_time_2 = time.time()
         pus_data = {'type': _type, 'number': int(number_picked), 'event_id': instance.event.id}
         try:
-            print(f"-- Test pusher --")
+            app_log.info(f"-- Test pusher --")
             pus_event = 'pick_number'
-            print(f"Message: {pus_data}")
-            print(f"Event: {pus_event}")
+            app_log.info(f"Message: {pus_data}")
+            app_log.info(f"Event: {pus_event}")
             list_user = instance.event.user_join_event.filter().exclude(user=instance.user)
-            print(f"{list_user}")
+            app_log.info(f"{list_user}")
             for user in instance.event.user_join_event.filter().exclude(user=instance.user):
                 chanel = f'user_{user.user.id}'
-                print(f"Chanel: {chanel}")
+                app_log.info(f"Chanel: {chanel}")
                 pusher_client.trigger(chanel, pus_event, pus_data)
 
         except Exception as e:
-            print(f"Pusher error")
+            app_log.info(f"Pusher error")
             raise e
-        print(f"Time handle Pusher: {time.time() - start_time_2}")
+        app_log.info(f"Time handle Pusher: {time.time() - start_time_2}")
         # Update turn_selected and used_point with new numbers
         instance.turn_selected = instance.number_selected.count()
         instance.turn_pick = instance.total_point // instance.event.point_exchange - instance.turn_selected
@@ -196,7 +197,7 @@ class EventNumberSerializer(BaseRestrictSerializer):
 
     def update(self, instance, validated_data):
         user_ids = validated_data.pop('users', [])
-        print(f"Test user id: {user_ids}")
+        app_log.info(f"Test user id: {user_ids}")
         event_number = super().update(instance, validated_data)
 
         # Add users to UserJoinEvent

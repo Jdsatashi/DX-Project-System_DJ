@@ -3,6 +3,7 @@ from django.db.models import F
 from django.utils import timezone
 
 from account.models import User
+from app.logs import app_log
 
 
 class SaleStatisticManager(models.Manager):
@@ -24,7 +25,7 @@ class SaleStatisticManager(models.Manager):
         )
 
     def update_from_order_2(self, order):
-        print("Looping")
+        app_log.info("Looping")
         today = timezone.now().date()
         first_day_of_month = today.replace(day=1)
 

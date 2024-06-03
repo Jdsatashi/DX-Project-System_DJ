@@ -6,6 +6,7 @@ from django.db.models import Model, Q
 from rest_framework import serializers
 
 from account.models import User, GroupPerm, Perm, UserPerm, UserGroupPerm, PhoneNumber
+from app.logs import app_log
 from utils.constants import acquy
 from utils.helpers import phone_validate
 
@@ -60,7 +61,7 @@ class BaseRestrictSerializer(serializers.ModelSerializer):
         # Get action for full CRUD perm
         user_actions = data.get('allow_actions', [])
         list_perm = create_full_perm(model, _id, user_actions)
-        print(list_perm)
+        app_log.info(list_perm)
         # Get users has perm
         existed_user_allow = list_user_has_perm(list_perm, True)
         existed_user_restrict = list_user_has_perm(list_perm, False)
@@ -88,7 +89,7 @@ class BaseRestrictSerializer(serializers.ModelSerializer):
         if exited and len(exited) > 0:
             # Return users/groups that would be removed permissions
             items['existed'] = list(set(exited) - set(items_data))
-            print(f"'{field}_{items['type']}' item existeed: {items['existed']}")
+            app_log.info(f"'{field}_{items['type']}' item existeed: {items['existed']}")
             for item_data in items['existed']:
                 if items['type'] == 'users':
                     update_user_perm(item_data, perms, items, allow, exited)
@@ -125,14 +126,14 @@ def update_user_perm(item_data, perms, items, allow, exited):
         is_perm = user.is_perm(perm)
         # Remove when permission is existed and User not in Updated list
         if exited is not None and is_perm and user.id in items['existed']:
-            print(f"Remove permissions '{user.id}' - '{perm}'")
+            app_log.info(f"Remove permissions '{user.id}' - '{perm}'")
             user.perm_user.remove(perm)
         elif is_perm:
-            print(f"Continue '{user.id}' - '{perm}'")
+            app_log.info(f"Continue '{user.id}' - '{perm}'")
             continue
         # Adding permissions to user
         else:
-            print(f"Add permissions '{user.id}' - '{perm}'")
+            app_log.info(f"Add permissions '{user.id}' - '{perm}'")
             user.perm_user.add(perm, through_defaults={'allow': allow})
 
 
@@ -149,14 +150,14 @@ def update_group_perm(item_data, perms, items, allow, exited):
         is_perm = group.group_has_perm(perm)
         # Remove when permission is existed and Group not in Updated list
         if exited is not None and is_perm and group.name in items['existed']:
-            print(f"Remove permissions '{group.name}' - '{perm}'")
+            app_log.info(f"Remove permissions '{group.name}' - '{perm}'")
             group.perm.remove(perm)
         elif is_perm:
-            print(f"Continue '{group.name}' - '{perm}'")
+            app_log.info(f"Continue '{group.name}' - '{perm}'")
             continue
         # Adding permissions to group
         elif allow:
-            print(f"Add permissions '{group.name}' - '{perm}'")
+            app_log.info(f"Add permissions '{group.name}' - '{perm}'")
             group.perm.add(perm, through_defaults={'allow': allow})
 
 

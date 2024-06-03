@@ -3,9 +3,9 @@ from functools import wraps
 
 from django.shortcuts import render
 from rest_framework import permissions
-from rest_framework.exceptions import PermissionDenied
 
 from account.handlers.perms import get_perm_name, get_action, get_required_permission, DataFKModel
+from app.logs import app_log
 from utils.perms.check import perm_exist, user_has_perm
 
 
@@ -74,7 +74,7 @@ class ValidatePermRest(permissions.BasePermission):
             return True
         action = get_action(view, request.method)
 
-        print(f"--- Test Permission ---")
+        app_log.info(f"--- Test Permission ---")
         perm_name = get_perm_name(self.model)
         # Get full required permission (with action and PK), perm_name (without action and PK)
         required_permission = f"{action}_{perm_name}"
@@ -97,12 +97,12 @@ class ValidatePermRest(permissions.BasePermission):
         result, messages = self.validate_fk_perm(request, action, user)
         for message in messages:
             self.message['errors'] = {message['field']: message['value']}
-        print(f"Check permission time: {time.time() - start_time}")
+        app_log.info(f"Check permission time: {time.time() - start_time}")
         # If user or nhom user has perm, return True
         return has_perm and result
 
     def has_object_permission(self, request, view, obj):
-        print(f"SUPER TESTING FROM HERE")
+        app_log.info(f"SUPER TESTING FROM HERE")
         start_time = time.time()
         # Authenticate
         user = request.user
@@ -112,10 +112,10 @@ class ValidatePermRest(permissions.BasePermission):
         required_permission = get_required_permission(self.model, view, request)
         # Add PK to string perm
         required_permission = f"{required_permission}_{object_pk}"
-        print(f"Test reequired permission {required_permission}")
+        app_log.info(f"Test reequired permission {required_permission}")
         # Checking perm with PK is exist
         perm = perm_exist(required_permission)
-        print(f"Check perm exist time: {perm}")
+        app_log.info(f"Check perm exist time: {perm}")
         # If perm PK exist, handling validate perm user
         if perm is not None:
             # Check if user or user_nhom has perm PK
@@ -123,7 +123,7 @@ class ValidatePermRest(permissions.BasePermission):
             user_nhom_perm = user.is_group_has_perm(required_permission)
             # If user or nhom user has perm, return True
             return user_nhom_perm or user_perm
-        print(f"Check objects permission time: {time.time() - start_time}")
+        app_log.info(f"Check objects permission time: {time.time() - start_time}")
         # Check if user has the permission
         return True
 
@@ -147,7 +147,7 @@ class ValidatePermRest(permissions.BasePermission):
             perm_pk[field_name]['value'] = fk_value
             # Check value
             if fk_value is None:
-                print(f"FK is None, perm is True")
+                app_log.info(f"FK is None, perm is True")
                 perm_pk[field_name]['is_perm'] = True
                 continue
 
@@ -157,18 +157,18 @@ class ValidatePermRest(permissions.BasePermission):
             required_permission = f"{action}_{perm_name}_{fk_value}"
             # Validate is require permission exist
             if not perm_exist(required_permission):
-                print(f"Require permission '{required_permission}' not exist")
+                app_log.info(f"Require permission '{required_permission}' not exist")
                 # If not exist, set perm to True
                 perm_pk[field_name]['is_perm'] = True
                 continue
             # Validate user has perm
             if user.is_perm(required_permission):
-                print(f"User has perm {required_permission}")
+                app_log.info(f"User has perm {required_permission}")
                 # If user has perm, set perm to True
                 perm_pk[field_name]['is_perm'] = True
             # Validate user group has perm
             elif user.is_group_has_perm(required_permission):
-                print(f"User group has perm {required_permission}")
+                app_log.info(f"User group has perm {required_permission}")
                 # If user group has perm, set perm to True
                 perm_pk[field_name]['is_perm'] = True
             else:
@@ -180,6 +180,6 @@ class ValidatePermRest(permissions.BasePermission):
 
         result = all(result['is_perm'] for result in perm_pk.values())
 
-        print(f"Perm result: {result}")
-        print(f"Time validate FK: {time.time() - start_time}")
+        app_log.info(f"Perm result: {result}")
+        app_log.info(f"Time validate FK: {time.time() - start_time}")
         return result, messages

@@ -6,12 +6,12 @@ from django.db.models import Sum, Q
 from django.utils import timezone
 from rest_framework import viewsets, mixins, status
 from rest_framework.authentication import BasicAuthentication
-from rest_framework.pagination import PageNumberPagination
 from rest_framework.response import Response
 from rest_framework.views import APIView
 from rest_framework_simplejwt.authentication import JWTAuthentication
 
 from account.handlers.validate_perm import ValidatePermRest
+from app.logs import app_log
 from marketing.order.api.serializers import OrderSerializer, ProductStatisticsSerializer
 from marketing.order.models import Order, OrderDetail
 from marketing.price_list.models import SpecialOfferProduct
@@ -33,7 +33,7 @@ class GenericApiOrder(viewsets.GenericViewSet, mixins.ListModelMixin, mixins.Cre
 
     def users_order(self, request, *args, **kwargs):
         user = self.request.user
-        print(f"User test: {user}")
+        app_log.info(f"User test: {user}")
         orders = Order.objects.filter(client_id=user)
         response = filter_data(self, request, ['id', 'date_get', 'date_company_get', 'client_id'], queryset=orders,
                                **kwargs)
@@ -230,24 +230,24 @@ def get_product_statistics_2(user, input_date, type_statistic):
     # Combine results into a single dictionary
     combined_results = {}
     for detail in details_1:
-        print("- - - - - ")
-        print(f"Test detail: {detail}")
+        app_log.info("- - - - - ")
+        app_log.info(f"Test detail: {detail}")
         product_id = detail['product_id']
         product_name = detail['product_id__name']
         total_cashback = 0
 
         # Calculate total cashback for current period
         for order in orders_1:
-            print("----------")
-            print(f"Test product_id: {product_id}")
+            app_log.info("----------")
+            app_log.info(f"Test product_id: {product_id}")
             order_detail = OrderDetail.objects.filter(order_id=order, product_id=product_id).first()
             special_offer = order.new_special_offer
-            print(f"Test order: {order}")
+            app_log.info(f"Test order: {order}")
             if special_offer and order_detail:
                 sop = SpecialOfferProduct.objects.filter(special_offer=special_offer, product_id=product_id).first()
                 if sop and sop.cashback:
-                    print(f"Test sop: {sop}")
-                    print(f"Test order_detail: {order_detail}")
+                    app_log.info(f"Test sop: {sop}")
+                    app_log.info(f"Test order_detail: {order_detail}")
                     total_cashback += sop.cashback * order_detail.order_box
 
         combined_results[product_id] = {
@@ -260,7 +260,7 @@ def get_product_statistics_2(user, input_date, type_statistic):
             },
             "total_cashback": total_cashback
         }
-        print(f"Test cashback details 1: {total_cashback}")
+        app_log.info(f"Test cashback details 1: {total_cashback}")
     for detail in details_2:
         product_id = detail['product_id']
         product_name = detail['product_id__name']
@@ -288,6 +288,6 @@ def get_product_statistics_2(user, input_date, type_statistic):
             "box": detail['total_box']
         }
         combined_results[product_id]["total_cashback"] = total_cashback
-        print(f"Test cashback details 2: {total_cashback}")
+        app_log.info(f"Test cashback details 2: {total_cashback}")
 
     return combined_results

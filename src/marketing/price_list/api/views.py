@@ -1,19 +1,17 @@
 from functools import partial
 
-from django.contrib.contenttypes.models import ContentType
 from django.utils import timezone
 from rest_framework import viewsets, mixins, status
 from rest_framework.authentication import BasicAuthentication
-from rest_framework.decorators import api_view, action
+from rest_framework.decorators import action
 from rest_framework.response import Response
 from rest_framework_simplejwt.authentication import JWTAuthentication
 
 from account.handlers.perms import perm_queryset
 from account.handlers.validate_perm import ValidatePermRest
-from account.models import User, UserPerm, Perm
+from app.logs import app_log
 from marketing.price_list.api.serializers import PriceListSerializer, SpecialOfferSerializer
 from marketing.price_list.models import PriceList, SpecialOffer
-from utils.constants import acquy
 from utils.model_filter_paginate import filter_data
 
 
@@ -26,7 +24,7 @@ class GenericApiPriceList(viewsets.GenericViewSet, mixins.ListModelMixin, mixins
     permission_classes = [partial(ValidatePermRest, model=PriceList)]
 
     def get_queryset(self):
-        print(f"Getting query set")
+        app_log.info(f"Getting query set")
         return perm_queryset(self)
 
     def list(self, request, *args, **kwargs):

@@ -1,5 +1,6 @@
 from django.db import migrations
 
+from app.logs import app_log
 from utils.insert_db.get_old_data import old_product_type, old_product, old_product_category, old_cate_detail
 
 
@@ -10,9 +11,9 @@ def add_old_product(apps, schema_editor):
         old_product()
         old_cate_detail()
     except Exception as e:
-        print(f"----- ERROR -----")
-        print(f"Message: Error when adding product.")
-        print(e)
+        app_log.info(f"----- ERROR -----")
+        app_log.info(f"Message: Error when adding product.")
+        app_log.info(e)
         raise Exception(e)
 
 

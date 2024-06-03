@@ -5,6 +5,7 @@ from rest_framework.response import Response
 from rest_framework_simplejwt.authentication import JWTAuthentication
 
 from account.models import User
+from app.logs import app_log
 from marketing.sale_statistic.api.serializers import SaleStatisticSerializer, SaleMonthTargetSerializer
 from marketing.sale_statistic.models import SaleStatistic, SaleTarget
 from utils.helpers import local_time
@@ -73,7 +74,7 @@ class ApiSaleMonthTarget(viewsets.GenericViewSet, mixins.ListModelMixin,
     def list(self, request, *args, **kwargs):
         today = local_time().date()
         sale_target, _ = SaleTarget.objects.get_or_create(month=today)
-        print(f"{sale_target}")
+        app_log.info(f"{sale_target}")
         response = filter_data(self, request, ['month'],
                                **kwargs)
         return Response(response, status=status.HTTP_200_OK)

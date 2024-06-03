@@ -1,6 +1,7 @@
 from rest_framework import serializers
 
 from account.handlers.restrict_serializer import BaseRestrictSerializer
+from app.logs import app_log
 from marketing.company.models import Company
 from marketing.product.models import ProductCategory, RegistrationUnit, Producer, RegistrationCert, ProductType, \
     Product, CategoryDetail, UseObject, UseFor
@@ -120,7 +121,7 @@ class ProductCateSerializer(BaseRestrictSerializer):
         registration_cert = RegistrationCertSerializer().create(registration_data)
         # Process create ProductCategory
         product_category = ProductCategory.objects.create(registration=registration_cert, **insert_data)
-        print(registration_cert)
+        app_log.info(registration_cert)
         # Create permissions if get restrict
         restrict = perm_data.get('restrict')
         if restrict:

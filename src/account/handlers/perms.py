@@ -4,6 +4,7 @@ from rest_framework import status
 from rest_framework.response import Response
 
 from account.models import Perm
+from app.logs import app_log
 from utils.constants import acquy
 
 
@@ -96,9 +97,9 @@ def perm_queryset(self):
         if perm.startswith(action_perm + '_' + perm_name):
             _, object_id = perm.rsplit('_', 1)
             has_perm_id.append(object_id)
-    print(f"Require perm: {perm_req_id}")
-    print(f"User has perm: {has_perm_id}")
+    app_log.info(f"Require perm: {perm_req_id}")
+    app_log.info(f"User has perm: {has_perm_id}")
     # Exclude item which use not has permission
     exclude_id = list(perm_req_id - set(has_perm_id))
-    print(f"Query exclude: {exclude_id}")
+    app_log.info(f"Query exclude: {exclude_id}")
     return model_class.objects.exclude(id__in=exclude_id)

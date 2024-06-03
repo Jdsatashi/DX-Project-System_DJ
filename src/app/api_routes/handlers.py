@@ -8,12 +8,14 @@ from rest_framework.response import Response
 from rest_framework.views import APIView
 from rest_framework_simplejwt.exceptions import TokenError
 from rest_framework_simplejwt.serializers import TokenObtainPairSerializer, TokenRefreshSerializer
+from rest_framework_simplejwt.token_blacklist.models import BlacklistedToken, OutstandingToken
 from rest_framework_simplejwt.tokens import RefreshToken as RestRefreshToken
 from rest_framework_simplejwt.views import TokenObtainPairView, TokenBlacklistView, TokenRefreshView
-from rest_framework_simplejwt.token_blacklist.models import BlacklistedToken, OutstandingToken
+
 from account.api.serializers import UserSerializer, PhoneNumberSerializer
 from account.models import User, Verify, PhoneNumber, RefreshToken, TokenMapping
-from utils.constants import user_type, status
+from app.logs import app_log
+from utils.constants import status
 from utils.env import TOKEN_LT
 from utils.helpers import phone_validate
 
@@ -25,11 +27,11 @@ class CustomTokenObtainPairSerializer(TokenObtainPairSerializer):
         is_phone, username = phone_validate(username)
         type_client = 'client'
         if not is_phone:
-            print(f"Employee")
+            app_log.info(f"Employee")
             type_emp = 'employee'
             user = User.objects.filter(id=username).first()
         else:
-            print(f"Client")
+            app_log.info(f"Client")
             user = User.objects.filter(phone_numbers__phone_number__exact=username, user_type=type_client).first()
 
         # Validating login request
@@ -64,7 +66,7 @@ class CustomTokenObtainPairSerializer(TokenObtainPairSerializer):
                     deactivate_token = RestRefreshToken(deactive_token.refresh_token)
                     deactivate_token.blacklist()
                 except TokenError:
-                    print("Token error")
+                    app_log.info("Token error")
             access_token['phone_number'] = phone.phone_number
             token_save = RefreshToken.objects.create(user=user, phone_number=phone, refresh_token=str(refresh_token), status="active")
 
@@ -141,7 +143,7 @@ class CustomTokenBlacklistView(TokenBlacklistView):
     def post(self, request, *args, **kwargs):
         response = super().post(request, *args, **kwargs)
 
-        print("Token has been blacklisted")
+        app_log.info("Token has been blacklisted")
         return response
 
 

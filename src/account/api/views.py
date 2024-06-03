@@ -4,7 +4,6 @@ from functools import partial
 import pytz
 from django.contrib.auth import get_user_model
 from django.http import HttpResponse
-from django.utils import timezone
 from drf_spectacular.utils import extend_schema
 from rest_framework import mixins, viewsets, status
 from rest_framework.authentication import BasicAuthentication
@@ -19,7 +18,7 @@ from rest_framework_simplejwt.tokens import RefreshToken as RestRefreshToken, Ac
 from account.api.serializers import UserSerializer, RegisterSerializer, response_verify_code, UserUpdateSerializer
 from account.handlers.validate_perm import ValidatePermRest
 from account.models import User, Verify, PhoneNumber, RefreshToken, TokenMapping
-from app.api_routes.handlers import get_token_for_user, remove_token_blacklist
+from app.api_routes.handlers import get_token_for_user
 from app.logs import app_log
 from app.settings import pusher_client
 from marketing.price_list.models import PriceList, PointOfSeason
@@ -131,9 +130,9 @@ def otp_verify(request, pk):
             try:
                 refresh_token = token['refresh']
             except TokenError:
-                print(TokenError)
+                app_log.info(TokenError)
                 refresh_token = token
-            print(f"Test refresh token: {str(refresh_token)}")
+            app_log.info(f"Test refresh token: {str(refresh_token)}")
             access_token = create_access_token_from_refresh(str(refresh_token), pk)
             # Create new and save active token
             ref_token = RefreshToken.objects.create(user=verify.user, phone_number=phone,
@@ -149,7 +148,7 @@ def otp_verify(request, pk):
                             'access': str(access_token)
                         }}
             return Response(response, status=status.HTTP_200_OK)
-        print("OTP code is expired")
+        app_log.info("OTP code is expired")
         return Response({'message': 'Mã otp đã hết hạn'}, status=status.HTTP_200_OK)
 
     return Response({'message': 'GET method not supported'}, status=status.HTTP_405_METHOD_NOT_ALLOWED)
@@ -189,7 +188,7 @@ def phone_login_2(request):
             return Response(response_data)
         # Get user from phone object
         user = phone.user
-        print(f"Test token: {refresh_token}")
+        app_log.info(f"Test token: {refresh_token}")
         app_log.debug(f"Test token: {refresh_token}")
         if refresh_token:
             # Get new token
@@ -342,10 +341,10 @@ def pusher_login(user):
     event = f"login"
     login_at = local_time()
     try:
-        print(f"Input pusher: \n{channel}\n{event}\n{str(login_at)}")
+        app_log.info(f"Input pusher: \n{channel}\n{event}\n{str(login_at)}")
         pusher_client.trigger(channel, event, {'login_time': str(login_at)})
     except Exception as e:
-        print(e)
+        app_log.info(e)
         raise e
 
 
@@ -397,7 +396,7 @@ def phone_login(request):
                     deactivate_token = RestRefreshToken(deactive_token.refresh_token)
                     deactivate_token.blacklist()
                 except TokenError:
-                    print("Ok here")
+                    app_log.info("Ok here")
             # Get current token if exist
             ref_token = RefreshToken.objects.filter(refresh_token=refresh_token, phone_number=phone)
             if ref_token.exists():
@@ -418,7 +417,7 @@ def phone_login(request):
             # If not found token return 404
             # return Response({'message': 'Token không tồn tại'}, status.HTTP_404_NOT_FOUND)
         else:
-            print("test 2")
+            app_log.info("test 2")
             verify_code = generate_digits_code()
             new_verify = Verify.objects.create(user=user, phone_verify=phone, verify_code=verify_code,
                                                verify_type="SMS OTP")

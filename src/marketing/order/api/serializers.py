@@ -1,18 +1,14 @@
-import time
-
 from django.db import transaction
 from django.db.models import Sum
 from django.utils import timezone
-from rest_framework import serializers, status
+from rest_framework import serializers
 from rest_framework.exceptions import ValidationError
-from rest_framework.response import Response
 
 from account.handlers.restrict_serializer import BaseRestrictSerializer
 from account.models import PhoneNumber
 from app.logs import app_log
-from marketing.livestream.api.serializers import get_phone_from_token
 from marketing.livestream.models import LiveStreamOfferRegister
-from marketing.order.models import Order, OrderDetail, update_sale_statistics_for_user
+from marketing.order.models import Order, OrderDetail
 from marketing.price_list.models import ProductPrice, SpecialOfferProduct
 from marketing.sale_statistic.models import SaleStatistic, SaleTarget
 
@@ -74,7 +70,7 @@ class OrderSerializer(BaseRestrictSerializer):
                 #     special_offer.status = 'deactivate'
                 #     special_offer.save()
 
-                print(f"Testing user sale statistic: {user_sale_statistic}")
+                app_log.info(f"Testing user sale statistic: {user_sale_statistic}")
                 self.update_sale_statistic(order, user_sale_statistic, order.order_price, is_so, is_consider)
 
                 # Create perms
@@ -140,7 +136,7 @@ class OrderSerializer(BaseRestrictSerializer):
             instance.order_point = total_point
             instance.order_price = total_price
             instance.save()
-            print(f"Testing user sale statistic: {user_sale_statistic}")
+            app_log.info(f"Testing user sale statistic: {user_sale_statistic}")
             self.update_sale_statistic(instance, user_sale_statistic, instance.order_price, is_so, is_consider)
 
             restrict = perm_data.get('restrict')
@@ -262,14 +258,14 @@ class OrderSerializer(BaseRestrictSerializer):
     def update_sale_statistic(order, user_sale_statistic, total_price, is_so, is_consider):
         if user_sale_statistic:
             # Calculate used turnover based on SaleTarget for the month of order.created_at
-            order_month = order.created_at.replace(day=1)
+            order_month = order.date_get.replace(day=1)
             sale_target = SaleTarget.objects.filter(month=order_month).first()
 
             if not sale_target:
                 raise serializers.ValidationError({'message': f'No SaleTarget found for the month {order_month}'})
             if is_so:
                 target = order.new_special_offer.target if is_consider or order.new_special_offer.target == 0 else sale_target.month_target
-                print(f"TESTING TARGET: {target}")
+                app_log.info(f"TESTING TARGET: {target}")
                 used_turnover = sum(
                     detail.order_box * target
                     for detail in order.order_detail.all()

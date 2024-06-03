@@ -1,10 +1,9 @@
-from datetime import datetime
-
 from django.contrib.auth import authenticate
 from django.contrib.auth.hashers import make_password
 
 from account.forms import CreateUserForm, RegisterForm
 from account.models import User
+from app.logs import app_log
 from user_system.client_group.models import ClientGroup
 from user_system.client_profile.models import ClientProfile
 from utils.constants import maNhomND
@@ -63,9 +62,9 @@ def handle_login_acc(req):
         user = None
         try:
             user = authenticate(req, id=user_id.upper(), password=password)
-            print(user)
-            print("logged in")
+            app_log.info(user)
+            app_log.info("logged in")
         except Exception as e:
-            print(e)
+            app_log.info(e)
         ctx['user'] = user
     return ctx

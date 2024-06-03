@@ -4,9 +4,9 @@ from django.db import models
 from django.db.models import F, Sum, FloatField
 
 from account.models import User
+from app.logs import app_log
 from marketing.order.models import OrderDetail, Order
 from marketing.price_list.models import PriceList
-from utils.helpers import self_id
 
 
 # Create your models here.
@@ -41,7 +41,7 @@ class EventNumber(models.Model):
             self.create_number_list()
         else:
             self.update_number_list(old_limit_repeat)
-        print(f"Time complete EventNumber: {time.time() - start_time}")
+        app_log.info(f"Time complete EventNumber: {time.time() - start_time}")
 
     def create_number_list(self):
         start_time = time.time()
@@ -54,7 +54,7 @@ class EventNumber(models.Model):
             for num in range(1, self.range_number + 1)
         ]
         NumberList.objects.bulk_create(number_list)
-        print(f"Time complete create new NumberList: {time.time() - start_time}")
+        app_log.info(f"Time complete create new NumberList: {time.time() - start_time}")
 
     def update_number_list(self, old_limit_repeat):
         start_time = time.time()
@@ -67,8 +67,8 @@ class EventNumber(models.Model):
         numbers_to_add = new_numbers - current_numbers_set
         numbers_to_remove = current_numbers_set - new_numbers
 
-        print(f"Test number to add: {numbers_to_add}")
-        print(f"Test number to remove: {numbers_to_remove}")
+        app_log.info(f"Test number to add: {numbers_to_add}")
+        app_log.info(f"Test number to remove: {numbers_to_remove}")
         start_time2 = time.time()
 
         # Add new numbers
@@ -81,7 +81,7 @@ class EventNumber(models.Model):
             for num in numbers_to_add
         ]
         NumberList.objects.bulk_create(number_list_to_add)
-        print(f"Time For loop 1: {time.time() - start_time2}")
+        app_log.info(f"Time For loop 1: {time.time() - start_time2}")
 
         # Calculate the difference in limit_repeat
         result_repeat = old_limit_repeat - self.limit_repeat
@@ -107,7 +107,7 @@ class EventNumber(models.Model):
 
         # Bulk update existing numbers
         NumberList.objects.bulk_update(number_list_to_update, ['repeat_count'])
-        print(f"Time For loop 2: {time.time() - start_time2}")
+        app_log.info(f"Time For loop 2: {time.time() - start_time2}")
 
         # Validate and possibly remove numbers
         start_time2 = time.time()
@@ -116,9 +116,9 @@ class EventNumber(models.Model):
             if NumberSelected.objects.filter(number=number_list).exists():
                 raise ValueError(f"Cannot reduce range_number, number {num} is already selected.")
             number_list.delete()
-        print(f"Time For loop 3: {time.time() - start_time2}")
+        app_log.info(f"Time For loop 3: {time.time() - start_time2}")
 
-        print(f"Time complete update NumberList: {time.time() - start_time}")
+        app_log.info(f"Time complete update NumberList: {time.time() - start_time}")
 
     def validate_update(self):
         start_time = time.time()
@@ -141,7 +141,7 @@ class EventNumber(models.Model):
         ).order_by('repeat_count').first()
         if smallest_repeat and self.limit_repeat < smallest_repeat.repeat_count:
             raise ValueError(f"Cannot reduce limit_repeat, some numbers have higher repeat count than the new limit.")
-        print(f"Time complete Validate before update: {time.time() - start_time}")
+        app_log.info(f"Time complete Validate before update: {time.time() - start_time}")
 
 
 class NumberList(models.Model):
@@ -199,7 +199,7 @@ class NumberSelected(models.Model):
 
 
 def calculate_point_query(user, date_start, date_end, price_list=None):
-    print(f"Input data: {user, date_start, date_end}")
+    app_log.info(f"Input data: {user, date_start, date_end}")
     filters = {
         'order_id__client_id': user,
         'order_id__date_get__gte': date_start,
@@ -215,5 +215,5 @@ def calculate_point_query(user, date_start, date_end, price_list=None):
         order_point=F('order_quantity') * F('product_id__productprice__point') / F(
             'product_id__productprice__quantity_in_box')
     ).aggregate(total_point=Sum('order_point', output_field=FloatField()))['total_point'] or 0
-    print(f"Test total point: {total_points}")
+    app_log.info(f"Test total point: {total_points}")
     return total_points

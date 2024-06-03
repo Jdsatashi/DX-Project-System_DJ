@@ -10,6 +10,7 @@ from rest_framework_simplejwt.authentication import JWTAuthentication
 
 from account.handlers.validate_perm import ValidatePermRest
 from account.models import PhoneNumber
+from app.logs import app_log
 from marketing.livestream.api.serializers import LiveStreamSerializer, LiveStreamCommentSerializer, \
     LiveStatistic, LiveTracking, LiveStreamDetailCommentSerializer, PeekViewSerializer, LiveOfferRegisterSerializer
 from marketing.livestream.models import LiveStream, LiveStreamComment, LiveStreamTracking, LiveStreamStatistic, \
@@ -157,9 +158,9 @@ class JoinPeekView(APIView):
     def post(self, request, *args, **kwargs):
         live_stream_id = request.data.get('live_stream_id')
         livestream = LiveStream.objects.filter(id=live_stream_id).first()
-        print(livestream)
+        app_log.info(livestream)
         peek_view = LiveStreamPeekView.objects.filter(live_stream=livestream).first()
-        print(peek_view)
+        app_log.info(peek_view)
         peek_view.in_livestream += 1
         peek_view.save()
         return Response(PeekViewSerializer(peek_view).data, status=status.HTTP_200_OK)
@@ -170,7 +171,7 @@ class LeavePeekView(APIView):
         live_stream_id = request.data.get('live_stream_id')
         livestream = LiveStream.objects.filter(id=live_stream_id).first()
         peek_view = LiveStreamPeekView.objects.filter(live_stream=livestream).first()
-        print(peek_view)
+        app_log.info(peek_view)
         peek_view.out_livestream += 1
         peek_view.save()
         return Response(PeekViewSerializer(peek_view).data, status=status.HTTP_200_OK)

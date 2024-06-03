@@ -5,6 +5,7 @@ from django.contrib.contenttypes.models import ContentType
 from django.db import models
 from django.utils.timezone import now
 
+from app.logs import app_log
 from marketing.product.models import ProductCategory, Product, RegistrationCert
 
 
@@ -12,7 +13,7 @@ def upload_location(filename):
     now_time = now()
     year = str(now_time.year)
     month = '{:02d}'.format(now_time.month)
-    print(f"Expect path: \"uploads/{year}/{month}/{filename}\"")
+    app_log.info(f"Expect path: \"uploads/{year}/{month}/{filename}\"")
     # return f"uploads/{model_name}/{now_time.year}/{now_time.month}/{filename}"
     return os.path.join('uploads', year, month, filename)
 

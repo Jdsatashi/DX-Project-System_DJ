@@ -10,6 +10,7 @@ from django.utils import timezone
 from rest_framework import serializers
 
 from account.models import User
+from app.logs import app_log
 from utils.env import OLD_SQL_HOST, OLD_SQL_DB, OLD_SQL_USER, OLD_SQL_PW
 from .constants import *
 
@@ -31,15 +32,15 @@ def table_data(table_name: str, amount='*', options=None):
             connection_string = f"DRIVER={{{driver}}};SERVER={server};DATABASE={db_name};UID={user};PWD={password}"
             if i >= 1:
                 connection_string += ";TrustServerCertificate=yes"
-            print(f"Attempting to connect using driver: {driver}")
-            print(f"Connection string: {connection_string}")
+            app_log.info(f"Attempting to connect using driver: {driver}")
+            app_log.info(f"Connection string: {connection_string}")
             con = pyodbc.connect(connection_string)
             cursor = con.cursor()
-            print(f"\nOptions = {options}")
+            app_log.info(f"\nOptions = {options}")
             if options is None:
                 query = f"SELECT {amount} FROM {table_name}"
             else:
-                print(f"Query options")
+                app_log.info(f"Query options")
                 query = f"""
                 SELECT *
                 FROM {table_name}
@@ -53,7 +54,7 @@ def table_data(table_name: str, amount='*', options=None):
             con.close()
             return rows
         except pyodbc.Error as e:
-            print(f"Error with driver '{driver}': {e}")
+            app_log.info(f"Error with driver '{driver}': {e}")
     return None
 
 
@@ -70,15 +71,15 @@ def table_data_2(table_name: str, amount='*', options=None):
             connection_string = f"DRIVER={{{driver}}};SERVER={server};DATABASE={db_name};UID={user};PWD={password}"
             if i >= 1:
                 connection_string += ";TrustServerCertificate=yes"
-            print(f"Attempting to connect using driver: {driver}")
-            print(f"Connection string: {connection_string}")
+            app_log.info(f"Attempting to connect using driver: {driver}")
+            app_log.info(f"Connection string: {connection_string}")
             con = pyodbc.connect(connection_string)
             cursor = con.cursor()
-            print(f"\nOptions = {options}")
+            app_log.info(f"\nOptions = {options}")
             if options is None:
                 query = f"SELECT {amount} FROM {table_name}"
             else:
-                print(f"Query options")
+                app_log.info(f"Query options")
                 query = f"""
                 SELECT *
                 FROM {table_name}
@@ -92,7 +93,7 @@ def table_data_2(table_name: str, amount='*', options=None):
             con.close()
             return rows
         except pyodbc.Error as e:
-            print(f"Error with driver '{driver}': {e}")
+            app_log.info(f"Error with driver '{driver}': {e}")
     return None
 
 
@@ -137,10 +138,10 @@ def phone_validate(phone):
     )
     try:
         phone_regex(phone)
-        print(f"Phone valid")
+        app_log.info(f"Phone valid")
         return True, origin_phone
     except ValidationError:
-        print(f"Phone error")
+        app_log.info(f"Phone error")
         return False, origin_phone
 
 
@@ -195,7 +196,7 @@ def local_time():
 
 
 if __name__ == '__main__':
-    print(f"Test database")
+    app_log.info(f"Test database")
     if table_data(old_data['tb_congty']) is not None:
-        print(f"Connect ok!")
-    print(f"Fail to connect")
+        app_log.info(f"Connect ok!")
+    app_log.info(f"Fail to connect")

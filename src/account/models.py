@@ -9,6 +9,7 @@ from django.db import models
 from django.utils import timezone
 from pyodbc import IntegrityError
 
+from app.logs import app_log
 from utils.constants import maNhomND
 
 
@@ -90,7 +91,7 @@ class User(AbstractBaseUser, PermissionsMixin):
             ClientProfile = apps.get_model('client_profile', 'ClientProfile')
             ClientGroup = apps.get_model('client_group', 'ClientGroup')
             farmer_group = ClientGroup.objects.filter(id=maNhomND).first()
-            print(f"testing: {farmer_group}")
+            app_log.info(f"testing: {farmer_group}")
             profile = ClientProfile.objects.filter(client_id=self).first()
             if not profile:
                 ClientProfile.objects.create(client_id=self, client_group_id=farmer_group, register_name=f"Nông dân {self.id}")
@@ -152,7 +153,7 @@ class RefreshToken(models.Model):
             # ).exclude(
             #     id=self.id
             # ).delete()
-            # print(f"Model set expired")
+            # app_log.info(f"Model set expired")
             # RefreshToken.objects.filter(
             #     user=self.user,
             # ).exclude(

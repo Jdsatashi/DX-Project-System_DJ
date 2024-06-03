@@ -1,6 +1,7 @@
 from rest_framework_simplejwt.tokens import AccessToken
 
 from account.models import Perm, UserPerm, User
+from app.logs import app_log
 
 
 def perm_exist(perm_name: str):
@@ -16,7 +17,7 @@ def user_has_perm(user, perm_name: str):
     # Check if user
     has_obj_perm = user.perm_user.filter(name__icontains=perm_name)
     if has_obj_perm.exists():
-        print(f"Perm in user name is {perm_name}")
+        app_log.info(f"Perm in user name is {perm_name}")
         for perm in has_obj_perm:
             check = user.is_allow(perm.name)
             if check:
@@ -39,7 +40,7 @@ def user_id_from_token(token):
         user_id = decoded_data['user_id']
         return user_id
     except Exception as e:
-        print(f"Error decoding token: {str(e)}")
+        app_log.info(f"Error decoding token: {str(e)}")
         return None
 
 
@@ -49,7 +50,7 @@ def get_user_by_token(access_tokne):
         try:
             return User.objects.get(id=user_id)
         except User.DoesNotExist:
-            print("User does not exist.")
+            app_log.info("User does not exist.")
             raise ValueError({"message": "User from Token does not exist."})
     raise ValueError({"message": "Token is invalid."})
 
@@ -60,7 +61,7 @@ def get_user_by_token(access_tokne):
 #
 #     # Get all price list ids which required permissions
 #     perms_content = Perm.objects.filter(name__icontains=perm)
-#     print(f"Check perm content: {perms_content}")
+#     app_log.info(f"Check perm content: {perms_content}")
 #     perm_list_ids = {v.object_id for v in perms_content if v.object_id}
 #
 #     # Get all price list ids which user has permissions
@@ -68,7 +69,7 @@ def get_user_by_token(access_tokne):
 #         if perm.startswith('list' + '_' + perm):
 #             _, object_id = perm.rsplit('_', 1)
 #             allow_list_id.append(object_id)
-#     print(f"allow_list_id: {allow_list_id}")
-#     print(f"perm_list_ids: {perm_list_ids}")
+#     app_log.info(f"allow_list_id: {allow_list_id}")
+#     app_log.info(f"perm_list_ids: {perm_list_ids}")
 #     allow_list_id = list(perm_list_ids - set(allow_list_id))
 #     return len(allow_list_id) > 0

@@ -1,9 +1,9 @@
-from account.handlers.restrict_serializer import BaseRestrictSerializer
-from marketing.price_list.models import PriceList, ProductPrice, PointOfSeason, SpecialOfferProduct, SpecialOffer
 from rest_framework import serializers
 
-from marketing.product.api.serializers import ViewProductTypeSerializer
-from marketing.product.models import Product, ProductType
+from account.handlers.restrict_serializer import BaseRestrictSerializer
+from app.logs import app_log
+from marketing.price_list.models import PriceList, ProductPrice, PointOfSeason, SpecialOfferProduct, SpecialOffer
+from marketing.product.models import Product
 
 
 class ProductPriceSerializer(serializers.ModelSerializer):
@@ -163,7 +163,7 @@ class SpecialOfferSerializer(BaseRestrictSerializer):
     def create(self, validated_data):
         # Split insert data
         data, perm_data = self.split_data(validated_data)
-        print(f"Test SpecialOfferSerializer ---------------")
+        app_log.info(f"Test SpecialOfferSerializer ---------------")
 
         products_data = data.pop('special_offers')
         # Create new SpecialOffer
@@ -172,7 +172,7 @@ class SpecialOfferSerializer(BaseRestrictSerializer):
         for product_data in products_data:
             self.check_product_in_price_list(special_offer, product_data['product'])
             self.set_default_values(special_offer, product_data)
-            print(f"Check product_data: {product_data}")
+            app_log.info(f"Check product_data: {product_data}")
             SpecialOfferProduct.objects.create(special_offer=special_offer, **product_data)
 
         # Create perm for data
@@ -221,12 +221,12 @@ class SpecialOfferSerializer(BaseRestrictSerializer):
     @staticmethod
     def set_default_values(special_offer, product_data):
         """Set default values for price, point, and quantity_in_box from ProductPrice"""
-        print(f"set_default_values")
+        app_log.info(f"set_default_values")
         if 'price' not in product_data or product_data['price'] is None:
-            print(f"When not have price")
+            app_log.info(f"When not have price")
             product_price = ProductPrice.objects.filter(price_list=special_offer.price_list,
                                                         product=product_data['product']).first()
-            print(f"Test product price: {product_price}")
+            app_log.info(f"Test product price: {product_price}")
             if product_price:
                 product_data['price'] = product_price.price
                 product_data['point'] = product_price.point

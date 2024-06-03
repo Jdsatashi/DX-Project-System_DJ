@@ -24,7 +24,7 @@ def append_kh():
     data = table_data(old_data['tb_kh'])
     for k, v in enumerate(data):
         if k == 1:
-            print(v)
+            app_log.info(v)
         client_group_id = ClientGroup.objects.filter(id=v[3]).first()
         code_client_lv1 = v[11] if v[11] != '' else None
         data_profile = {"register_name": v[1], "organization": v[2], "client_group_id": client_group_id,
@@ -44,16 +44,16 @@ def append_kh():
             pass
 
         if created:
-            print(f"User {v[0]} was created successfully.")
+            app_log.info(f"User {v[0]} was created successfully.")
         else:
-            print(f"User {v[0]} was existed, skipping...")
+            app_log.info(f"User {v[0]} was existed, skipping...")
         obj, created = ClientProfile.objects.get_or_create(client_id=obj, defaults=data_profile)
         if created:
-            print(f"User profile {v[0]} was created successfully.")
+            app_log.info(f"User profile {v[0]} was created successfully.")
             obj.created_at = created_time
             obj.save()
         else:
-            print(f"User profile {v[0]} was existed, skipping...")
+            app_log.info(f"User profile {v[0]} was existed, skipping...")
     return ctx
 
 
@@ -63,9 +63,9 @@ def append_nv():
     data = table_data(old_data['tb_nhanvien'])
     for k, v in enumerate(data):
         created_time = make_aware(v[65])
-        print(created_time)
+        app_log.info(created_time)
         if k == 1:
-            print(v)
+            app_log.info(v)
         phone = v[28] if v[28] != '' else None
         email = v[51] if v[51] != '' else None
         pw_hash = make_password(v[0].lower())
@@ -79,18 +79,18 @@ def append_nv():
         except IntegrityError:
             pass
         if created:
-            print(f"User {v[0]} was created successfully.")
+            app_log.info(f"User {v[0]} was created successfully.")
         else:
-            print(f"User {v[0]} was existed, skipping...")
+            app_log.info(f"User {v[0]} was existed, skipping...")
 
         obj, created = EmployeeProfile.objects.get_or_create(employee_id=obj,
                                                              defaults={'fullname': f"{v[2]} {v[3]}", 'gender': v[5]})
         obj.created_at = created_time
         obj.save()
         if created:
-            print(f"User profile {v[0]} was created successfully.")
+            app_log.info(f"User profile {v[0]} was created successfully.")
         else:
-            print(f"User profile {v[0]} was existed, skipping...")
+            app_log.info(f"User profile {v[0]} was existed, skipping...")
     return ctx
 
 
@@ -99,9 +99,9 @@ def create_position():
     for k, v in enumerate(data):
         obj, created = Position.objects.get_or_create(id=v[0], defaults={'name': v[1], 'note': v[2]})
         if created:
-            print(f"Created new Position: {v[1]}")
+            app_log.info(f"Created new Position: {v[1]}")
         else:
-            print(f"Position {v[1]} already existed, passing...")
+            app_log.info(f"Position {v[1]} already existed, passing...")
 
 
 def create_client_group_id():
@@ -112,14 +112,14 @@ def create_client_group_id():
         obj, created = ClientGroup.objects.get_or_create(id=v[0], defaults={'parent_id': parentGroup, 'name': v[2]})
         obj.created_at = make_aware(v[4])
         if created:
-            print(f"Created new Group id: {v[2]}")
+            app_log.info(f"Created new Group id: {v[2]}")
         else:
-            print(f"Group id {v[2]} already existed, passing...")
+            app_log.info(f"Group id {v[2]} already existed, passing...")
     obj, created = ClientGroup.objects.get_or_create(id=farmerID, defaults={'name': farmerGroupName})
     if created:
-        print(f"Created new Group id: {farmerID}")
+        app_log.info(f"Created new Group id: {farmerID}")
     else:
-        print(f"Group id {farmerID} already existed, passing...")
+        app_log.info(f"Group id {farmerID} already existed, passing...")
 
 
 # Get old company
@@ -128,28 +128,28 @@ def add_old_company(apps, schema_editor):
     for k, v in enumerate(data):
         try:
             company = Company.objects.create(id=v[0], name=v[1], note=v[2], color_code=v[5])
-            print(f"Added company {v[1]} - {v[0]}")
+            app_log.info(f"Added company {v[1]} - {v[0]}")
             company.created_at = make_aware(v[3])
             company.save()
         except Exception as e:
-            print(f"----- ERROR -----")
-            print(f"Message: Error when adding company.")
-            print(e)
+            app_log.info(f"----- ERROR -----")
+            app_log.info(f"Message: Error when adding company.")
+            app_log.info(e)
             raise Exception(e)
 
 
 # Adding old Product
 def old_product_type():
     data = table_data(old_data['tb_loaiThuoc'])
-    print(f"--------------- ADDING PRODUCT TYPE --------------")
+    app_log.info(f"--------------- ADDING PRODUCT TYPE --------------")
     for i, k in enumerate(data):
-        print(f"Adding product type: {k[1]}")
+        app_log.info(f"Adding product type: {k[1]}")
         _type, _ = ProductType.objects.get_or_create(id=k[0], name=k[1])
 
 
 def old_product_category():
     data = table_data(old_data['tb_thuoc'])
-    print(f"---------- ADDING PRODUCT CATEGORY ----------")
+    app_log.info(f"---------- ADDING PRODUCT CATEGORY ----------")
     for i, v in enumerate(data):
         v = [item.strip() if isinstance(item, str) else item for item in v]
         product_type = ProductType.objects.get(id=v[2])
@@ -175,7 +175,7 @@ def old_product_category():
             'amount_warning': int(v[17]),
             'status': 'active' if v[15] == 1 else 'deactivate'
         }
-        print(f"Adding product category: {v[0]} - {v[1]}")
+        app_log.info(f"Adding product category: {v[0]} - {v[1]}")
         product_cate, _ = ProductCategory.objects.get_or_create(id=v[0], defaults=insert_data)
         product_cate.created_at = make_aware(v[3])
         product_cate.save()
@@ -183,7 +183,7 @@ def old_product_category():
 
 def old_product():
     data = table_data(old_data['tb_sanpham'])
-    print(f"---------- ADDING PRODUCT ----------")
+    app_log.info(f"---------- ADDING PRODUCT ----------")
     try:
         for i, v in enumerate(data):
             insert = {
@@ -197,21 +197,21 @@ def old_product():
                 insert['product_type'] = category.product_type
                 if note:
                     insert['note'] = "Not valid Category, borrow another category."
-            print(f"Adding product: {v[0]} - {v[1]}")
+            app_log.info(f"Adding product: {v[0]} - {v[1]}")
             product, _ = Product.objects.get_or_create(id=v[0], defaults=insert)
             product.created_at = make_aware(v[5])
             product.save()
     except Exception as e:
-        print(f"----- ERROR -----")
-        print(f"Message: Error when adding data to product.")
-        print(e)
+        app_log.info(f"----- ERROR -----")
+        app_log.info(f"Message: Error when adding data to product.")
+        app_log.info(e)
         raise e
 
 
 def old_cate_detail():
     data = table_data(old_data['tb_thuocChitiet'])
     norm_vn = normalize_vietnamese
-    print(f"--------------- ADDING CATEGORY DETAIL --------------")
+    app_log.info(f"--------------- ADDING CATEGORY DETAIL --------------")
     for i, v in enumerate(data):
         use_on, _ = UseObject.objects.get_or_create(id=norm_vn(v[2]), defaults={'name': v[2]})
         use_for, _ = UseFor.objects.get_or_create(id=norm_vn(v[3]), defaults={'name': v[3]})
@@ -225,8 +225,8 @@ def old_cate_detail():
         }
         if category is not None:
             insert['cate_id'] = category
-        print(f"Adding category detail: {v[1]}")
-        # print(insert)
+        app_log.info(f"Adding category detail: {v[1]}")
+        # app_log.info(insert)
         cate_data = CategoryDetail.objects.get_or_create(**insert)
 
 
@@ -238,7 +238,7 @@ def check_filter(data, i=0):
     else:
         category = ProductCategory.objects.filter(id__icontains=data)
         note = True
-    print(f"Data: {data}")
+    app_log.info(f"Data: {data}")
     if len(data) <= 1:
         return None, note
     elif not category.exists():
@@ -252,7 +252,7 @@ def price_list():
     data = table_data(old_data['tb_bangGia'])
     for k, v in enumerate(data):
         if k == 1:
-            print(v)
+            app_log.info(v)
             insert = {
                 "id": v[0],
                 "name": v[1],
@@ -261,7 +261,7 @@ def price_list():
                 "created_by": v[8],
                 "created_at": v[7]
             }
-            print(insert)
+            app_log.info(insert)
         prl = PriceList.objects.create(id=v[0], name=v[1], date_start=v[2],
                                        date_end=v[3], created_by=v[8])
         prl.created_at = make_aware(v[7])
@@ -272,7 +272,7 @@ def price_list_product():
     data = table_data(old_data['tb_bangGiaSanPham'])
     for k, v in enumerate(data):
         if k <= 3:
-            print(v)
+            app_log.info(v)
         insert = {
             "price_list": v[1],
             "product": v[2],
@@ -280,11 +280,11 @@ def price_list_product():
             "quantity_in_box": v[6],
             "point": v[7],
         }
-        print(v)
-        print(insert)
+        app_log.info(v)
+        app_log.info(insert)
         pl = PriceList.objects.get(id=v[1])
         prod = Product.objects.get(id=v[2])
-        print(f"{pl} - {v[2]}")
+        app_log.info(f"{pl} - {v[2]}")
         ProductPrice.objects.create(price_list=pl, product=prod, price=v[5], quantity_in_box=v[6], point=v[7])
 
 
@@ -301,17 +301,17 @@ def insert_order():
         y = 5000 + (5000 * a)
         data = table_data_2(old_data['tb_toa'], '*', {'start': i, 'end': y})
         process_order(data)
-        print(f"Get data from: {i} - {y}")
-    print(f"---------------------- FINISH ------------------------")
+        app_log.info(f"Get data from: {i} - {y}")
+    app_log.info(f"---------------------- FINISH ------------------------")
     app_log.debug(f"Complete INSERT ORDER time: {time.time() - start_time} seconds")
-    print(f"Complete INSERT ORDER time: {time.time() - start_time} seconds")
+    app_log.info(f"Complete INSERT ORDER time: {time.time() - start_time} seconds")
 
 
 def process_order(data):
     for k, v in enumerate(data):
         if k == 1:
-            print(v)
-        print(f"Client_id: {v[3]}")
+            app_log.info(v)
+        app_log.info(f"Client_id: {v[3]}")
         try:
             client = User.objects.get(id=v[3])
         except User.DoesNotExist:
@@ -333,7 +333,7 @@ def process_order(data):
         }
         create_at = make_aware(v[8])
         order, _ = Order.objects.get_or_create(id=v[0], defaults=insert)
-        print(f"Inserting order: {order}")
+        app_log.info(f"Inserting order: {order}")
         order.created_at = create_at
         order.save()
         check_date = make_aware(v[8]).date()
@@ -341,7 +341,7 @@ def process_order(data):
         if price_lists.exists():
             order.price_list_id = price_lists.first()
             order.save()
-            print(price_lists.first())
+            app_log.info(price_lists.first())
 
 
 def insert_order_detail():
@@ -349,19 +349,19 @@ def insert_order_detail():
     for a in range(0, 50):
         i = 1 + (5000 * a)
         y = 5000 + (5000 * a)
-        print(f"--\nGet data from: {i} - {y} \n--\n")
+        app_log.info(f"--\nGet data from: {i} - {y} \n--\n")
         data = table_data(old_data['tb_toaDetail'], '*', {'start': i, 'end': y})
         process_order_detail(data)
     app_log.debug(f"---------------------- FINISH ------------------------")
     app_log.debug(f"Complete INSERT ORDER DETAILS time: {time.time() - start_time} seconds")
-    print(f"Complete INSERT ORDER DETAILS time: {time.time() - start_time} seconds")
+    app_log.info(f"Complete INSERT ORDER DETAILS time: {time.time() - start_time} seconds")
 
 
 def process_order_detail(data):
     for k, v in enumerate(data):
         if k == 1:
-            print("---")
-            print(v)
+            app_log.info("---")
+            app_log.info(v)
         note = ""
         try:
             order = Order.objects.get(id=v[1])
@@ -382,7 +382,7 @@ def process_order_detail(data):
             "price_list_so": v[8],
             "note": note
         }
-        print("")
+        app_log.info("")
         app_log.debug(f"Inserting: {order} - {product}")
         order_detail, _ = OrderDetail.objects.get_or_create(product_id=product, order_id=order, defaults=insert)
         try:
@@ -392,7 +392,7 @@ def process_order_detail(data):
                 order_detail.save()
         except AttributeError:
             pass
-        print(order_detail)
+        app_log.info(order_detail)
 
 
 def insert_old_data():

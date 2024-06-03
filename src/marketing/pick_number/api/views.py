@@ -59,7 +59,6 @@ class ApiNumberList(viewsets.GenericViewSet, mixins.ListModelMixin, mixins.Creat
             queryset = self.queryset.filter(repeat_count=0)
         else:
             queryset = self.queryset
-        print(queryset)
         response = filter_data(self, request, ['id', 'event__id', 'event__name'], queryset=queryset,
                                **kwargs)
         return Response(response, status.HTTP_200_OK)
