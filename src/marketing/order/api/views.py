@@ -200,8 +200,8 @@ def get_product_statistics_2(user, input_date, type_statistic):
         timezone.get_current_timezone())
 
     # Get orders for each date range
-    orders_1 = Order.objects.filter(client_id=user, created_at__gte=start_date_1, created_at__lte=end_date_1)
-    orders_2 = Order.objects.filter(client_id=user, created_at__gte=start_date_2, created_at__lte=end_date_2)
+    orders_1 = Order.objects.filter(client_id=user, date_get__gte=start_date_1, date_get__lte=end_date_1)
+    orders_2 = Order.objects.filter(client_id=user, date_get__gte=start_date_2, date_get__lte=end_date_2)
 
     # Get orders for each date range with type_statistic
     match type_statistic:
