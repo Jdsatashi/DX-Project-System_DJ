@@ -15,9 +15,10 @@ from rest_framework_simplejwt.authentication import JWTAuthentication
 from rest_framework_simplejwt.exceptions import TokenError
 from rest_framework_simplejwt.tokens import RefreshToken as RestRefreshToken, AccessToken
 
-from account.api.serializers import UserSerializer, RegisterSerializer, response_verify_code, UserUpdateSerializer
+from account.api.serializers import UserSerializer, RegisterSerializer, response_verify_code, UserUpdateSerializer, \
+    UserWithPerm, PermSerializer, GroupPermSerializer
 from account.handlers.validate_perm import ValidatePermRest
-from account.models import User, Verify, PhoneNumber, RefreshToken, TokenMapping
+from account.models import User, Verify, PhoneNumber, RefreshToken, TokenMapping, GroupPerm, Perm
 from app.api_routes.handlers import get_token_for_user
 from app.logs import app_log
 from app.settings import pusher_client
@@ -31,10 +32,11 @@ from utils.model_filter_paginate import filter_data
 # Register api view
 class ApiAccount(viewsets.GenericViewSet, mixins.ListModelMixin, mixins.CreateModelMixin,
                  mixins.RetrieveModelMixin, mixins.UpdateModelMixin, mixins.DestroyModelMixin):
-    serializer_class = UserSerializer
+    serializer_class = UserWithPerm
     queryset = User.objects.all()
-    authentication_classes = [JWTAuthentication, BasicAuthentication]
-    permission_classes = [partial(ValidatePermRest, model=User)]
+
+    # authentication_classes = [JWTAuthentication, BasicAuthentication]
+    # permission_classes = [partial(ValidatePermRest, model=User)]
 
     def list(self, request, *args, **kwargs):
         response = filter_data(self, request, ['id', 'username', 'email', 'phone_numbers__phone_number'], *args,
@@ -51,6 +53,7 @@ class ApiUpdateUserProfile(viewsets.GenericViewSet, mixins.RetrieveModelMixin, m
 
 class RegisterSMS(APIView):
     authentication_classes = [JWTAuthentication, BasicAuthentication]
+
     # permission_classes = [partial(ValidatePermRest, model=User)]
 
     def get_serializer(self, *args, **kwargs):
@@ -97,7 +100,8 @@ def otp_verify(request, pk):
         check_verify = Verify.objects.filter(phone_verify=phone)
         # Check if Phone has assign for verify object
         if not check_verify.exists():
-            return Response({'message': 'Số điện thoại không tồn tại trên hệ thống.'}, status=status.HTTP_400_BAD_REQUEST)
+            return Response({'message': 'Số điện thoại không tồn tại trên hệ thống.'},
+                            status=status.HTTP_400_BAD_REQUEST)
         verify = check_verify.latest('created_at')
         # When verify was verified
         if verify.is_verify:
@@ -196,7 +200,8 @@ def phone_login_2(request):
                 new_token = create_access_token_from_refresh(refresh_token, phone_number)
             except TokenError:
                 # If get new token error, refresh_token error
-                return Response({'message': 'Phiên đăng nhập đã hết hạn, vui lòng đăng nhập lại'}, status=status.HTTP_401_UNAUTHORIZED)
+                return Response({'message': 'Phiên đăng nhập đã hết hạn, vui lòng đăng nhập lại'},
+                                status=status.HTTP_401_UNAUTHORIZED)
             pusher_login(user)
             # Return token when not error
             return Response({'refresh': refresh_token, 'access': new_token}, status.HTTP_200_OK)
@@ -280,7 +285,8 @@ def check_token(request):
 
         except Exception as e:
             # raise e
-            return Response({'error': 'Invalid token or Token was expired', 'details': str(e)}, status=status.HTTP_401_UNAUTHORIZED)
+            return Response({'error': 'Invalid token or Token was expired', 'details': str(e)},
+                            status=status.HTTP_401_UNAUTHORIZED)
     return Response({'message': 'GET method not supported'}, status=status.HTTP_405_METHOD_NOT_ALLOWED)
 
 
@@ -346,6 +352,22 @@ def pusher_login(user):
     except Exception as e:
         app_log.info(e)
         raise e
+
+
+class ApiGroupPerm(viewsets.GenericViewSet, mixins.ListModelMixin, mixins.CreateModelMixin,
+                   mixins.RetrieveModelMixin, mixins.UpdateModelMixin, mixins.DestroyModelMixin):
+    serializer_class = GroupPermSerializer
+    queryset = GroupPerm.objects.all()
+    # authentication_classes = [JWTAuthentication, BasicAuthentication]
+    # permission_classes = [partial(ValidatePermRest, model=User)]
+
+
+class ApiPerm(viewsets.GenericViewSet, mixins.ListModelMixin,
+              mixins.RetrieveModelMixin, mixins.UpdateModelMixin, mixins.DestroyModelMixin):
+    serializer_class = PermSerializer
+    queryset = Perm.objects.all()
+    # authentication_classes = [JWTAuthentication, BasicAuthentication]
+    # permission_classes = [partial(ValidatePermRest, model=User)]
 
 
 """
