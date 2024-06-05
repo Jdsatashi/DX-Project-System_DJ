@@ -2,6 +2,7 @@
 import datetime
 
 from django.apps import apps
+from django.contrib.auth.hashers import is_password_usable, make_password
 from django.contrib.auth.models import AbstractBaseUser, BaseUserManager, PermissionsMixin
 from django.contrib.contenttypes.fields import GenericForeignKey
 from django.contrib.contenttypes.models import ContentType
@@ -78,8 +79,12 @@ class User(AbstractBaseUser, PermissionsMixin):
     def save(self, *args, **kwargs):
         self.id = self.id.upper()
         self.username = self.username if self.username and self.username != '' else self.id
-        # if self.password is None or self.password == '':
-        #     self.password = make_password(self.id.lower())
+        if self.password is None or self.password == '':
+            self.password = self.id.lower()
+        if is_password_usable(self.password):
+            self.password = make_password(self.password)
+        if self.email == '':
+            self.email = None
         self.clean()
         super().save(*args, **kwargs)
         if self.user_type == 'employee':
