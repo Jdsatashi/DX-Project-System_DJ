@@ -1,6 +1,6 @@
 import requests
 from django.contrib.auth.hashers import make_password
-from django.db import transaction
+from django.db import transaction, IntegrityError
 from rest_framework import serializers
 
 from account.handlers.restrict_serializer import BaseRestrictSerializer
@@ -31,18 +31,6 @@ class UserSerializer(serializers.ModelSerializer):
             'email': {'required': False},
             'password': {'write_only': True}
         }
-
-    def create(self, validated_data):
-        # Set fields = None/Null when it's blank
-        validated_data['username'] = value_or_none(validated_data['username'], '', None)
-        validated_data['email'] = value_or_none(validated_data['email'], '', None)
-        phone_number = validated_data.pop(validated_data['phone_number'], '', None)
-        # Get password and encrypting
-        pw = validated_data.get('password', validated_data['id'].lower())
-        pw_hash = make_password(pw)
-        validated_data['password'] = pw_hash
-
-        return super().create(validated_data)
 
 
 class ClientInfo(serializers.ModelSerializer):
@@ -141,6 +129,7 @@ class PermSerializer(serializers.ModelSerializer):
 class UserWithPerm(serializers.ModelSerializer):
     group = serializers.ListField(child=serializers.CharField(), write_only=True, required=False, allow_null=True)
     perm = serializers.ListField(child=serializers.CharField(), write_only=True, required=False, allow_null=True)
+    phone = serializers.ListField(child=serializers.CharField(), read_only=True, required=False, allow_null=True)
 
     class Meta:
         model = User
@@ -152,29 +141,56 @@ class UserWithPerm(serializers.ModelSerializer):
             'password': {'write_only': True}
         }
 
+    def to_representation(self, instance):
+        representation = super().to_representation(instance)
+        representation['phone'] = [phone.phone_number for phone in instance.phone_numbers.all()]
+        return representation
+
     def create(self, validated_data):
         app_log.info(f"{validated_data}")
         group_data = validated_data.pop('group', None)
         perm_data = validated_data.pop('perm', None)
-        user = super().create(validated_data)
+        phone_data = validated_data.pop('phone', None)
 
-        # Create group
-        if group_data:
-            for group in group_data:
-                try:
-                    group_obj = GroupPerm.objects.get(name=group)
-                except GroupPerm.DoesNotExist:
-                    raise serializers.ValidationError({'group': f'Group id "{group}" does not existed'})
-                user.group_user.add(group_obj, through_defaults={'allow': True})
+        try:
+            with transaction.atomic():
+                user = super().create(validated_data)
 
-        # Create perm
-        if perm_data:
-            for perm in perm_data:
-                try:
-                    perm_obj = Perm.objects.get(name=perm)
-                except Perm.DoesNotExist:
-                    raise serializers.ValidationError({'perm': f'Perm id "{perm}" does not existed'})
-                user.perm_user.add(perm_obj, through_defaults={'allow': True})
+                # Add group to user
+                if group_data:
+                    for group in group_data:
+                        try:
+                            group_obj = GroupPerm.objects.get(name=group)
+                        except GroupPerm.DoesNotExist:
+                            raise serializers.ValidationError({'group': f'Group id "{group}" does not exist'})
+                        user.group_user.add(group_obj, through_defaults={'allow': True})
+
+                # Add perm to user
+                if perm_data:
+                    for perm in perm_data:
+                        try:
+                            perm_obj = Perm.objects.get(name=perm)
+                        except Perm.DoesNotExist:
+                            raise serializers.ValidationError({'perm': f'Perm id "{perm}" does not exist'})
+                        user.perm_user.add(perm_obj, through_defaults={'allow': True})
+
+                # Create phone
+                if phone_data:
+                    for phone_number in phone_data:
+                        is_valid, phone_number = phone_validate(phone_number)
+                        if not is_valid:
+                            raise serializers.ValidationError({'phone': f'Phone number "{phone_number}" is not valid'})
+                        try:
+                            PhoneNumber.objects.create(phone=phone_number, user=user)
+                        except IntegrityError:
+                            raise serializers.ValidationError(
+                                {'phone': f'Phone number "{phone_number}" already exists'})
+
+        except Exception as e:
+            # Log the exception if needed
+            app_log.error(f"Error creating user: {e}")
+            # Rollback transaction and re-raise the exception
+            raise e
 
         return user
 
