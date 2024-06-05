@@ -1,8 +1,9 @@
 import datetime
-from functools import partial
+import time
 
 import pytz
 from django.contrib.auth import get_user_model
+from django.contrib.auth.hashers import check_password
 from django.http import HttpResponse
 from drf_spectacular.utils import extend_schema
 from rest_framework import mixins, viewsets, status
@@ -17,14 +18,14 @@ from rest_framework_simplejwt.tokens import RefreshToken as RestRefreshToken, Ac
 
 from account.api.serializers import UserSerializer, RegisterSerializer, response_verify_code, UserUpdateSerializer, \
     UserWithPerm, PermSerializer, GroupPermSerializer
-from account.handlers.validate_perm import ValidatePermRest
 from account.models import User, Verify, PhoneNumber, RefreshToken, TokenMapping, GroupPerm, Perm
 from app.api_routes.handlers import get_token_for_user
 from app.logs import app_log
 from app.settings import pusher_client
 from marketing.price_list.models import PriceList, PointOfSeason
-from utils.constants import status as user_status, maNhomND
-from utils.helpers import generate_digits_code, generate_id, phone_validate, local_time
+from utils.constants import status as user_status, maNhomND, admin_role
+from utils.env import TOKEN_LT
+from utils.helpers import generate_digits_code, generate_id, phone_validate, local_time, check_email
 from utils.insert_db.default_roles_perms import set_user_perm
 from utils.model_filter_paginate import filter_data
 
@@ -123,14 +124,7 @@ def otp_verify(request, pk):
             token = get_token_for_user(verify.user)
             set_user_perm(verify.user, True)
             # Add data for refresh token
-            active_token = RefreshToken.objects.filter(user=verify.user, status="active")
-            # Update deactivate other activate token
-            if active_token.exists():
-                token_obj = active_token.first()
-                token_obj.status = "expired"
-                token_obj.save()
-                _token = RestRefreshToken(token_obj.refresh_token)
-                _token.blacklist()
+            deactivate_user_token(verify.user)
             try:
                 refresh_token = token['refresh']
             except TokenError:
@@ -211,6 +205,59 @@ def phone_login_2(request):
                                                verify_type="SMS OTP")
             response = response_verify_code(new_verify)
             return Response(response, status.HTTP_200_OK)
+    return Response({'message': 'method not allowed'}, status=status.HTTP_405_METHOD_NOT_ALLOWED)
+
+
+@extend_schema(
+    methods=['POST'],  # chỉ áp dụng cho POST
+    description='Login user admin',
+    request={
+        'application/json': {
+            'example': {
+                'email': 'adminaccount',
+                'password': '123456'
+            }
+        }
+    },
+    responses={
+        200: "Success",
+    }
+)
+@api_view(['POST'])
+def admin_login(request):
+    if request.method == 'POST':
+        # username = request.data.get('username', None)
+        email = request.data.get('email', '')
+        password = request.data.get('password', None)
+
+        if not check_email(email):
+            return Response({'message': 'invalid email'}, status=status.HTTP_400_BAD_REQUEST)
+        user = User.objects.filter(email=email).first()
+        # Validating user
+        if user is None:
+            return Response({'message': 'email is not found in system'}, status=status.HTTP_400_BAD_REQUEST)
+        if not check_password(password, user.password):
+            return Response({'message': 'wrong password'}, status=status.HTTP_400_BAD_REQUEST)
+        # Check if user is admin
+        if not user.is_superuser or not user.group_user.filter(name=admin_role).exists():
+            return Response({'message': 'user not allow to access this page'}, status=status.HTTP_406_NOT_ACCEPTABLE)
+        # Generate new token for user
+        refresh = RestRefreshToken.for_user(user)
+        access_token = refresh.access_token
+        # Get active token
+        deactivate_user_token(user)
+        # Save current token
+        RefreshToken.objects.create(user=user, refresh_token=str(refresh), status="active")
+        # Create TokenMapping for verifying
+        TokenMapping.objects.create(
+            user=user,
+            access_jti=access_token['jti'],
+            refresh_jti=refresh['jti']
+        )
+        pusher_login(user)
+        return Response({'refresh': str(refresh), 'access': str(access_token)}, status=status.HTTP_200_OK)
+
+    return Response({'message': 'method not allowed'}, status=status.HTTP_405_METHOD_NOT_ALLOWED)
 
 
 @extend_schema(
@@ -336,7 +383,8 @@ def create_access_token_from_refresh(refresh_token_str, phone_number):
     TokenMapping.objects.create(
         user=user,
         access_jti=access_token['jti'],
-        refresh_jti=refresh_token['jti']
+        refresh_jti=refresh_token['jti'],
+        expired_at=local_time() + datetime.timedelta(hours=int(TOKEN_LT))
     )
 
     return str(access_token)
@@ -346,28 +394,51 @@ def pusher_login(user):
     channel = f"user_{user.id}"
     event = f"login"
     login_at = local_time()
+    data = {'chanel': channel, 'event': event, 'login_at': str(login_at)}
     try:
-        app_log.info(f"Input pusher: \n{channel}\n{event}\n{str(login_at)}")
+        app_log.info(f"Input pusher: {data}")
         pusher_client.trigger(channel, event, {'login_time': str(login_at)})
     except Exception as e:
         app_log.info(e)
         raise e
 
 
+def deactivate_user_token(user):
+    token_obj = RefreshToken.objects.filter(user=user, status="active").first()
+    # Update deactivate other activate token
+    if token_obj:
+        token_obj.status = "expired"
+        token_obj.save()
+        _token = RestRefreshToken(token_obj.refresh_token)
+        _token.blacklist()
+
+
 class ApiGroupPerm(viewsets.GenericViewSet, mixins.ListModelMixin, mixins.CreateModelMixin,
                    mixins.RetrieveModelMixin, mixins.UpdateModelMixin, mixins.DestroyModelMixin):
     serializer_class = GroupPermSerializer
     queryset = GroupPerm.objects.all()
-    # authentication_classes = [JWTAuthentication, BasicAuthentication]
+    authentication_classes = [JWTAuthentication, BasicAuthentication]
+
     # permission_classes = [partial(ValidatePermRest, model=User)]
+
+    def list(self, request, *args, **kwargs):
+        response = filter_data(self, request, ['name'],
+                               **kwargs)
+        return Response(response, status.HTTP_200_OK)
 
 
 class ApiPerm(viewsets.GenericViewSet, mixins.ListModelMixin,
               mixins.RetrieveModelMixin, mixins.UpdateModelMixin, mixins.DestroyModelMixin):
     serializer_class = PermSerializer
     queryset = Perm.objects.all()
-    # authentication_classes = [JWTAuthentication, BasicAuthentication]
+    authentication_classes = [JWTAuthentication, BasicAuthentication]
+
     # permission_classes = [partial(ValidatePermRest, model=User)]
+
+    def list(self, request, *args, **kwargs):
+        response = filter_data(self, request, ['name'],
+                               **kwargs)
+        return Response(response, status.HTTP_200_OK)
 
 
 """
