@@ -1,7 +1,6 @@
 old_data = {
     "tb_kh": "tbl_QLTT_KhachHang",
     "tb_nhanvien": "Sys_NhanVien",
-    "tb_chucdanh": "Sys_ChucDanh",
     "tb_nhomKH": "tbl_QLTT_DanhMucNhomKhachHang",
     "tb_congty": "tbl_QLTT_DanhMucCongTy",
     "tb_loaiThuoc": "tbl_QLTT_DanhMucLoaiThuoc",
@@ -11,7 +10,11 @@ old_data = {
     "tb_bangGia": "tbl_QLTT_SanPhamTheoNam",
     "tb_bangGiaSanPham": "tbl_QLTT_SanPhamTheoNam_SanPham",
     "tb_toa": "tbl_QLTT_DanhSachToa",
-    "tb_toaDetail": "tbl_QLTT_DanhSachToa_ChiTiet"
+    "tb_toaDetail": "tbl_QLTT_DanhSachToa_ChiTiet",
+    "tb_chucDanh": "Sys_ChucDanh",
+    "tb_chucDanhUser": "Sys_ChucDanhNhanVien",
+    "tb_phongBan": "Sys_PhongBan",
+    "tb_phongBanUser": "Sys_PhongBanNhanVien"
 }
 maNhomND = 'DMNKH000005'
 tenNhomND = 'Khách hàng Nông dân'
