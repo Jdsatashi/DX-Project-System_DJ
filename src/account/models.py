@@ -81,8 +81,10 @@ class User(AbstractBaseUser, PermissionsMixin):
         self.username = self.username if self.username and self.username != '' else self.id
         if self.password is None or self.password == '':
             self.password = self.id.lower()
-        if is_password_usable(self.password):
+
+        if not is_password_usable(self.password):
             self.password = make_password(self.password)
+
         if self.email == '':
             self.email = None
         self.clean()

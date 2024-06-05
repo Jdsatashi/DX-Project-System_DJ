@@ -239,7 +239,8 @@ def admin_login(request):
         if not check_password(password, user.password):
             return Response({'message': 'wrong password'}, status=status.HTTP_400_BAD_REQUEST)
         # Check if user is admin
-        if not user.is_superuser or not user.group_user.filter(name=admin_role).exists():
+        app_log.info(f"Test role exist: {user.group_user.filter(name=admin_role).exists()}")
+        if not user.is_superuser and not user.group_user.filter(name=admin_role).exists():
             return Response({'message': 'user not allow to access this page'}, status=status.HTTP_406_NOT_ACCEPTABLE)
         # Generate new token for user
         refresh = RestRefreshToken.for_user(user)
