@@ -50,7 +50,7 @@ class User(AbstractBaseUser, PermissionsMixin):
     region = models.CharField(max_length=100, null=True, blank=True, default=None)
     status = models.CharField(max_length=40, null=True, default=None)
     user_type = models.CharField(max_length=24, default='client', choices=(
-        ('employee', 'employee'), ('client', 'client')))
+        ('employee', 'employee'), ('client', 'client'), ('farmer', 'farmer')))
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
     group_user = models.ManyToManyField('GroupPerm', through='UserGroupPerm', blank=True, related_name='users_rela')
