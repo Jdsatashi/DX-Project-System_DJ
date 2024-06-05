@@ -13,7 +13,7 @@ from marketing.product.models import Product, UseObject, UseFor, ProductCategory
     Producer, RegistrationUnit, ProductType
 from user_system.client_group.models import ClientGroup
 from user_system.client_profile.models import ClientProfile
-from user_system.employee_profile.models import EmployeeProfile, Position
+from user_system.employee_profile.models import EmployeeProfile, Position, Department
 from utils.helpers import table_data, normalize_vietnamese, table_data_2
 from utils.constants import (old_data, maNhomND as farmerID, tenNhomND as farmerGroupName)
 
@@ -95,13 +95,54 @@ def append_nv():
 
 
 def create_position():
-    data = table_data(old_data['tb_chucdanh'])
+    data = table_data(old_data['tb_chucDanh'])
     for k, v in enumerate(data):
         obj, created = Position.objects.get_or_create(id=v[0], defaults={'name': v[1], 'note': v[2]})
         if created:
             app_log.info(f"Created new Position: {v[1]}")
         else:
             app_log.info(f"Position {v[1]} already existed, passing...")
+
+
+def add_user_position():
+    data = table_data(old_data['tb_chucDanhUser'])
+    for k, v in enumerate(data):
+        app_log.info(f"Test data: {v}")
+        employee = EmployeeProfile.objects.filter(employee_id=v[1]).first()
+        position = Position.objects.filter(id=v[2]).first()
+        app_log.info(f"Test user: {employee}")
+        app_log.info(f"Test position: {position}")
+        try:
+            employee.position.add(position)
+        except Exception as e:
+            raise e
+
+
+def add_department():
+    data = table_data(old_data['tb_phongBan'])
+    for k, v in enumerate(data):
+        app_log.info(f"Test data full: {v}")
+        input_data = {
+            'name': v[1],
+            'note': v[2]
+        }
+        try:
+            obj, created = Department.objects.get_or_create(id=v[6], defaults=input_data)
+        except Exception as e:
+            raise e
+
+        app_log.info(f"Test data 2: {obj}")
+
+
+def add_user_department():
+    data = table_data(old_data['tb_phongBanUser'])
+    for k, v in enumerate(data):
+        app_log.info(f"Test data full: {v}")
+        employee = EmployeeProfile.objects.filter(employee_id=v[1]).first()
+        department = Department.objects.filter(id=v[3]).first()
+        if employee and department:
+            app_log.info(f"Added")
+            employee.department.add(department)
 
 
 def create_client_group_id():
