@@ -4,6 +4,7 @@ import time
 import pytz
 from django.contrib.auth import get_user_model
 from django.contrib.auth.hashers import check_password
+from django.db.models import Q
 from django.http import HttpResponse
 from drf_spectacular.utils import extend_schema
 from rest_framework import mixins, viewsets, status
@@ -23,6 +24,7 @@ from app.api_routes.handlers import get_token_for_user
 from app.logs import app_log
 from app.settings import pusher_client
 from marketing.price_list.models import PriceList, PointOfSeason
+from user_system.employee_profile.models import EmployeeProfile
 from utils.constants import status as user_status, maNhomND, admin_role
 from utils.env import TOKEN_LT
 from utils.helpers import generate_digits_code, generate_id, phone_validate, local_time, check_email
@@ -36,12 +38,22 @@ class ApiAccount(viewsets.GenericViewSet, mixins.ListModelMixin, mixins.CreateMo
     serializer_class = UserWithPerm
     queryset = User.objects.all()
 
-    # authentication_classes = [JWTAuthentication, BasicAuthentication]
+    authentication_classes = [JWTAuthentication, BasicAuthentication]
     # permission_classes = [partial(ValidatePermRest, model=User)]
 
     def list(self, request, *args, **kwargs):
-        response = filter_data(self, request, ['id', 'username', 'email', 'phone_numbers__phone_number'], *args,
-                               **kwargs)
+        queryset = self.get_queryset()
+
+        get_user = self.request.query_params.get('get_user', None)
+        match get_user:
+            case 'nvtt':
+                queryset = User.objects.filter(
+                    Q(employeeprofile__position__id='NVTT')
+                ).select_related('employeeprofile').prefetch_related('employeeprofile__position').distinct()
+            case _:
+                pass
+        response = filter_data(self, request, ['id', 'username', 'email', 'phone_numbers__phone_number'],
+                               queryset=queryset, **kwargs)
         return Response(response, status.HTTP_200_OK)
 
 
@@ -356,7 +368,7 @@ def call_api_register(phone_number):
         verify.get_new_code(verify_code)
     else:
         # Handle create user
-        type_kh = "client"
+        type_kh = 'farmer'
         # Generate default id for user client Farmer
         _id = generate_id(maNhomND)
         # Create new user
