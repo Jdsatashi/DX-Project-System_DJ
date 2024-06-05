@@ -4,7 +4,7 @@ from django.db import migrations
 from account.models import Perm, GroupPerm
 from app.logs import app_log
 from app.settings import MY_APPS
-from utils.constants import acquy
+from utils.constants import acquy, admin_role
 
 
 def create_initial_permission(apps, schema_editor):
@@ -32,7 +32,6 @@ def create_draft_perm(apps, schema_editor):
 
 
 def create_admin_perm(apps, schema_editor):
-    admin_role = "admin"
     matching_perms = Perm.objects.all()
     list_perms = list(matching_perms)
     group_perm, _ = GroupPerm.objects.get_or_create(name=admin_role)
