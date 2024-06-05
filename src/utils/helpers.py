@@ -1,4 +1,6 @@
 import random
+import re
+
 import pyodbc
 import unicodedata
 from datetime import datetime
@@ -189,6 +191,13 @@ def self_id(prefix: str, models, last_count: int):
         new_id = f'{1:0{last_count}d}'
     _id = f'{id_prefix}{new_id}'
     return _id
+
+
+def check_email(email):
+    email_regex = r'^[a-zA-Z0-9_.+-]+@[a-zA-Z0-9-]+\.[a-zA-Z0-9-.]+$'
+    if re.match(email_regex, email):
+        return True
+    return False
 
 
 def local_time():
