@@ -1,7 +1,10 @@
 from datetime import datetime, timedelta
 
+from django.core.exceptions import FieldError
 from django.core.paginator import Paginator
 from django.db.models import Q
+
+from app.logs import app_log
 
 
 def get_query_parameters(request):
@@ -19,11 +22,14 @@ def get_query_parameters(request):
     return query, strict_mode, limit, page, order_by, from_date, to_date
 
 
-def dynamic_q(query, fields, strict_mode):
+def dynamic_q(queries, fields, strict_mode):
     dynamic_query = Q()
     query_type = '__icontains' if not strict_mode else '__exact'
-    for field in fields:
-        dynamic_query |= Q(**{f'{field}{query_type}': query})
+    for query in queries:
+        sub_query = Q()
+        for field in fields:
+            sub_query |= Q(**{f'{field}{query_type}': query})
+        dynamic_query &= sub_query
     return dynamic_query
 
 
@@ -34,7 +40,8 @@ def filter_data(self, request, query_fields, **kwargs):
     query, strict_mode, limit, page, order_by, from_date, to_date = get_query_parameters(request)
     # If query exists, filter queryset
     if query != '':
-        query_filter = dynamic_q(query, query_fields, strict_mode)
+        queries = query.split(',')
+        query_filter = dynamic_q(queries, query_fields, strict_mode)
         queryset = queryset.filter(query_filter)
     if from_date or to_date:
         try:
@@ -49,8 +56,19 @@ def filter_data(self, request, query_fields, **kwargs):
     # Get fields in models
     valid_fields = [f.name for f in self.serializer_class.Meta.model._meta.get_fields()]
     # Check field order_by exists, then order queryset
-    if order_by in valid_fields or order_by.lstrip('-') in valid_fields:
-        queryset = queryset.order_by(order_by)
+    try:
+        if order_by in valid_fields or order_by.lstrip('-') in valid_fields:
+            queryset = queryset.order_by(order_by)
+        else:
+            try:
+                queryset = queryset.order_by('created_at')
+            except FieldError:
+                queryset = queryset.order_by('id')
+            except Exception as e:
+                app_log.error(f"Error order_by fields")
+                raise e
+    except FieldError:
+        pass
     # Check when limit is 0, return all data
     if limit == 0:
         serializer = self.serializer_class(queryset, many=True)
