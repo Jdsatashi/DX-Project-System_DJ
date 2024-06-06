@@ -24,7 +24,7 @@ from app.api_routes.handlers import get_token_for_user
 from app.logs import app_log
 from app.settings import pusher_client
 from marketing.price_list.models import PriceList, PointOfSeason
-from user_system.employee_profile.models import EmployeeProfile
+from user_system.employee_profile.api.serializers import EmployeeProfileSerializer
 from utils.constants import status as user_status, maNhomND, admin_role
 from utils.env import TOKEN_LT
 from utils.helpers import generate_digits_code, generate_id, phone_validate, local_time, check_email
@@ -42,6 +42,7 @@ class ApiAccount(viewsets.GenericViewSet, mixins.ListModelMixin, mixins.CreateMo
     # permission_classes = [partial(ValidatePermRest, model=User)]
 
     def list(self, request, *args, **kwargs):
+        start_time = time.time()
         queryset = self.get_queryset()
 
         get_user = self.request.query_params.get('get_user', None)
@@ -50,10 +51,17 @@ class ApiAccount(viewsets.GenericViewSet, mixins.ListModelMixin, mixins.CreateMo
                 queryset = User.objects.filter(
                     Q(employeeprofile__position__id='NVTT')
                 ).select_related('employeeprofile').prefetch_related('employeeprofile__position').distinct()
+            case 'client':
+                queryset = queryset.filter(user_type='client')
+            case 'employee':
+                queryset = queryset.filter(user_type='employee')
+            case 'farmer':
+                queryset = queryset.filter(user_type='farmer')
             case _:
                 pass
         response = filter_data(self, request, ['id', 'username', 'email', 'phone_numbers__phone_number'],
                                queryset=queryset, **kwargs)
+        app_log.info(f"Query time: {time.time() - start_time}")
         return Response(response, status.HTTP_200_OK)
 
 
@@ -334,12 +342,19 @@ def check_token(request):
             current_time = local_time()
             expiration_time = datetime.datetime.fromtimestamp(token['exp'], pytz.UTC)
             if current_time < expiration_time:
-                today = current_time.date()
-                main_pl = PriceList.objects.filter(id='SPTN000015', date_start__lte=today, date_end__gte=today).first()
-                point, _ = PointOfSeason.objects.get_or_create(user=user, price_list=main_pl)
-                response = UserSerializer(user).data
-                response['point'] = point.point
-                return Response({'user': response}, status=status.HTTP_200_OK)
+                if not user.is_superuser and not user.group_user.filter(name=admin_role).exists():
+                    today = current_time.date()
+                    main_pl = PriceList.objects.filter(id='SPTN000015', date_start__lte=today,
+                                                       date_end__gte=today).first()
+                    point, _ = PointOfSeason.objects.get_or_create(user=user, price_list=main_pl)
+                    response = UserSerializer(user).data
+                    response['point'] = point.point
+                    return Response({'user': response}, status=status.HTTP_200_OK)
+                else:
+                    response = UserSerializer(user).data
+                    if user.user_type == 'employee':
+                        profile = EmployeeProfileSerializer(user.employeeprofile)
+                    return Response({'is_admin': True, 'user': response}, status=status.HTTP_200_OK)
             else:
                 return Response({'error': 'Token expired'}, status=status.HTTP_401_UNAUTHORIZED)
 
