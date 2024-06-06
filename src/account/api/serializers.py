@@ -1,17 +1,18 @@
 import requests
-from django.contrib.auth.hashers import make_password
 from django.db import transaction, IntegrityError
+from django.db.models import Q
 from rest_framework import serializers
 
-from account.handlers.restrict_serializer import BaseRestrictSerializer
 from account.models import User, GroupPerm, Perm, Verify, PhoneNumber
 from app.logs import app_log
 from app.settings import SMS_SERVICE
 from user_system.client_group.models import ClientGroup
+from user_system.client_profile.api.serializers import ClientProfileUserSerializer
 from user_system.client_profile.models import ClientProfile
+from user_system.employee_profile.api.serializers import EmployeeProfileUserSerializer
 from user_system.employee_profile.models import EmployeeProfile
 from utils.constants import maNhomND, status
-from utils.helpers import value_or_none, phone_validate, generate_id, generate_digits_code
+from utils.helpers import phone_validate, generate_id, generate_digits_code
 
 
 class PhoneNumberSerializer(serializers.ModelSerializer):
@@ -130,6 +131,7 @@ class UserWithPerm(serializers.ModelSerializer):
     group = serializers.ListField(child=serializers.CharField(), write_only=True, required=False, allow_null=True)
     perm = serializers.ListField(child=serializers.CharField(), write_only=True, required=False, allow_null=True)
     phone = serializers.ListField(child=serializers.CharField(), read_only=True, required=False, allow_null=True)
+    profile = serializers.JSONField(write_only=True, required=False, allow_null=True)
 
     class Meta:
         model = User
@@ -144,39 +146,31 @@ class UserWithPerm(serializers.ModelSerializer):
     def to_representation(self, instance):
         representation = super().to_representation(instance)
         representation['phone'] = [phone.phone_number for phone in instance.phone_numbers.all()]
+        # Add profile data to representation
+        if instance.user_type == 'employee':
+            profile = EmployeeProfile.objects.filter(employee_id=instance).first()
+            if profile:
+                representation['profile'] = EmployeeProfileUserSerializer(profile).data
+        elif instance.user_type == 'client' or instance.user_type == 'farmer':
+            profile = ClientProfile.objects.filter(client_id=instance).first()
+            if profile:
+                representation['profile'] = ClientProfileUserSerializer(profile).data
         return representation
 
     def create(self, validated_data):
-        app_log.info(f"{validated_data}")
         group_data = validated_data.pop('group', None)
         perm_data = validated_data.pop('perm', None)
         phone_data = validated_data.pop('phone', None)
+        profile_data = validated_data.pop('profile', None)
 
         try:
             with transaction.atomic():
                 user = super().create(validated_data)
 
-                # Add group to user
-                if group_data:
-                    for group in group_data:
-                        try:
-                            group_obj = GroupPerm.objects.get(name=group)
-                        except GroupPerm.DoesNotExist:
-                            raise serializers.ValidationError({'group': f'Group id "{group}" does not exist'})
-                        user.group_user.add(group_obj, through_defaults={'allow': True})
-
-                # Add perm to user
-                if perm_data:
-                    for perm in perm_data:
-                        try:
-                            perm_obj = Perm.objects.get(name=perm)
-                        except Perm.DoesNotExist:
-                            raise serializers.ValidationError({'perm': f'Perm id "{perm}" does not exist'})
-                        user.perm_user.add(perm_obj, through_defaults={'allow': True})
-
                 # Create phone
                 if phone_data:
                     for phone_number in phone_data:
+                        # Validate phone number
                         is_valid, phone_number = phone_validate(phone_number)
                         if not is_valid:
                             raise serializers.ValidationError({'phone': f'Phone number "{phone_number}" is not valid'})
@@ -185,6 +179,7 @@ class UserWithPerm(serializers.ModelSerializer):
                         except IntegrityError:
                             raise serializers.ValidationError(
                                 {'phone': f'Phone number "{phone_number}" already exists'})
+                handle_user(user, group_data, perm_data, profile_data)
 
         except Exception as e:
             # Log the exception if needed
@@ -197,35 +192,90 @@ class UserWithPerm(serializers.ModelSerializer):
     def update(self, instance, validated_data):
         group_data = validated_data.pop('group', None)
         perm_data = validated_data.pop('perm', None)
+        phone_data = validated_data.pop('phone', None)
+        profile_data = validated_data.pop('profile', None)
 
-        for attr, value in validated_data.items():
-            setattr(instance, attr, value)
-        instance.save()
+        try:
+            with transaction.atomic():
+                # Update user fields
+                for attr, value in validated_data.items():
+                    setattr(instance, attr, value)
+                instance.save()
 
-        with transaction.atomic():
-            if group_data is not None:
-                instance.group_user.clear()
-                for group in group_data:
-                    try:
-                        group_obj = GroupPerm.objects.get(name=group)
-                    except GroupPerm.DoesNotExist:
-                        raise serializers.ValidationError({'group': f'Group id "{group}" does not exist'})
-                    instance.group_user.add(group_obj, through_defaults={'allow': True})
-            else:
-                instance.group_user.clear()
+                # Update phone
+                if phone_data is not None:
+                    instance.phone_numbers.all().delete()  # Clear existing phone numbers
+                    for phone_number in phone_data:
+                        is_valid, phone_number = phone_validate(phone_number)
+                        if not is_valid:
+                            raise serializers.ValidationError({'phone': f'Phone number "{phone_number}" is not valid'})
+                        try:
+                            PhoneNumber.objects.create(phone=phone_number, user=instance)
+                        except IntegrityError:
+                            raise serializers.ValidationError(
+                                {'phone': f'Phone number "{phone_number}" already exists'})
 
-            if perm_data is not None:
-                instance.perm_user.clear()
-                for perm in perm_data:
-                    try:
-                        perm_obj = Perm.objects.get(name=perm)
-                    except Perm.DoesNotExist:
-                        raise serializers.ValidationError({'perm': f'Perm id "{perm}" does not exist'})
-                    instance.perm_user.add(perm_obj, through_defaults={'allow': True})
-            else:
-                instance.perm_user.clear()
+                handle_user(instance, group_data, perm_data, profile_data)
+
+        except Exception as e:
+            # Log the exception if needed
+            app_log.error(f"Error updating user: {e}")
+            # Rollback transaction and re-raise the exception
+            raise e
 
         return instance
+
+
+def handle_user(user, group_data, perm_data, profile_data):
+    # Add group to user
+    if group_data:
+        group_objs = GroupPerm.objects.filter(name__in=group_data)
+        missing_groups = list(set(group_data) - set(group_objs.values_list('name', flat=True)))
+        if missing_groups:
+            raise serializers.ValidationError({'group': f'These group ids do not exist: {missing_groups}'})
+        user.group_user.set(group_objs, through_defaults={'allow': True})
+
+    # Add perm to user
+    if perm_data:
+        perm_objs = Perm.objects.filter(name__in=perm_data)
+        missing_perms = list(set(perm_data) - set(perm_objs.values_list('name', flat=True)))
+        if missing_perms:
+            raise serializers.ValidationError({'perm': f'These perm ids do not exist: {missing_perms}'})
+        user.perm_user.set(perm_objs, through_defaults={'allow': True})
+
+    # Handle when user is employee
+    if user.user_type == 'employee':
+        department_data = profile_data.pop('department', [])
+        position_data = profile_data.pop('position', [])
+        profile, created = EmployeeProfile.objects.update_or_create(employee_id=user,
+                                                                    defaults=profile_data)
+        profile.department.set(department_data)
+        profile.position.set(position_data)
+    # Handle if user is client
+    elif user.user_type == 'client':
+        # Get client group id
+        client_group_id = profile_data.pop('client_group_id', '')
+        # Get client group object
+        try:
+            client_group = ClientGroup.objects.get(id=client_group_id)
+        except ClientGroup.DoesNotExist:
+            raise serializers.ValidationError({'client_group_id': 'not found client group with id'})
+        # Get nvtt id
+        nvtt_id = profile_data.pop('nvtt_id', '')
+        # Get user as nvtt object
+        nvtt = User.objects.filter(
+            Q(id=nvtt_id) &
+            Q(user_type='employee') &
+            Q(employeeprofile__position__id='NVTT')
+        ).select_related('employeeprofile').prefetch_related('employeeprofile__position').distinct().first()
+        if nvtt is None:
+            raise serializers.ValidationError({'nvtt_id': 'not found nvtt with id'})
+        # Get profile was created with user
+        profile, created = ClientProfile.objects.update_or_create(client_id=user, defaults=profile_data)
+        # Update profile with data
+        profile.client_group_id = client_group
+        profile.nvtt_id = nvtt.id
+        profile.save()
 
 
 # Create return response with verify code
