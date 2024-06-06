@@ -24,6 +24,7 @@ from app.api_routes.handlers import get_token_for_user
 from app.logs import app_log
 from app.settings import pusher_client
 from marketing.price_list.models import PriceList, PointOfSeason
+from user_system.client_profile.api.serializers import ClientProfileSerializer
 from user_system.employee_profile.api.serializers import EmployeeProfileSerializer
 from utils.constants import status as user_status, maNhomND, admin_role
 from utils.env import TOKEN_LT
@@ -68,7 +69,7 @@ class ApiAccount(viewsets.GenericViewSet, mixins.ListModelMixin, mixins.CreateMo
 class ApiUpdateUserProfile(viewsets.GenericViewSet, mixins.RetrieveModelMixin, mixins.UpdateModelMixin):
     serializer_class = UserUpdateSerializer
     queryset = User.objects.all()
-    # authentication_classes = [JWTAuthentication, BasicAuthentication]
+    authentication_classes = [JWTAuthentication, BasicAuthentication]
     # permission_classes = [partial(ValidatePermRest, model=User)]
 
 
@@ -330,30 +331,41 @@ def logout(request):
 @api_view(['POST'])
 def check_token(request):
     if request.method == 'POST':
+        # Get authentication headers
         auth_header = request.headers.get('Authorization')
         if auth_header and auth_header.startswith('Bearer '):
+            # Get access token from headers
             access_token = auth_header.split(' ')[1]
         else:
             return Response({"error": "Access token not provided"}, status=status.HTTP_400_BAD_REQUEST)
         try:
+            # Decode access token
             token = AccessToken(str(access_token))
+            # Get user object from user id in access token
             user = get_user_model().objects.get(id=token['user_id'])
-            app_log.info(f"Access token of user {user.id}: {access_token}")
+            app_log.info(f"Access token of user {user.id}")
+            # Get time to verify lifetime
             current_time = local_time()
             expiration_time = datetime.datetime.fromtimestamp(token['exp'], pytz.UTC)
+            # When in lifetime
             if current_time < expiration_time:
+                # Check user is admin
                 if not user.is_superuser and not user.group_user.filter(name=admin_role).exists():
-                    today = current_time.date()
-                    main_pl = PriceList.objects.filter(id='SPTN000015', date_start__lte=today,
-                                                       date_end__gte=today).first()
+                    # If not admin calculate point
+                    main_pl = PriceList.get_main_pl()
                     point, _ = PointOfSeason.objects.get_or_create(user=user, price_list=main_pl)
+                    # Create json response data of user
                     response = UserSerializer(user).data
                     response['point'] = point.point
                     return Response({'user': response}, status=status.HTTP_200_OK)
                 else:
+                    # Create json response data of user
                     response = UserSerializer(user).data
                     if user.user_type == 'employee':
-                        profile = EmployeeProfileSerializer(user.employeeprofile)
+                        profile = EmployeeProfileSerializer(user.employeeprofile).data
+                    else:
+                        profile = ClientProfileSerializer(user.clientprofile).data
+                    response['profile'] = profile
                     return Response({'is_admin': True, 'user': response}, status=status.HTTP_200_OK)
             else:
                 return Response({'error': 'Token expired'}, status=status.HTTP_401_UNAUTHORIZED)
