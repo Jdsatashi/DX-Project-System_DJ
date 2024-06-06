@@ -65,7 +65,7 @@ def set_farmer_role():
 def set_client_role():
     client_group, _ = GroupPerm.objects.get_or_create(name='client', defaults={'allow': True})
     view_group = [ProductType, RegistrationUnit, Producer, RegistrationCert, UseObject, UseFor, CategoryDetail,
-                  ProductCategory]
+                  ProductCategory, Product, ProductPrice]
     add_group_perm(client_group, acquy['view'], view_group)
 
     create_group = [Order, OrderDetail]
@@ -75,7 +75,7 @@ def set_client_role():
 def set_NVTT_role():
     nvt_group, _ = GroupPerm.objects.get_or_create(name='nvtt', defaults={'allow': True})
     view_group = [ProductType, RegistrationUnit, Producer, RegistrationCert, UseObject, UseFor, CategoryDetail,
-                  ProductCategory]
+                  ProductCategory, Product, ProductPrice]
     add_group_perm(nvt_group, acquy['view'], view_group)
 
     view_special_group = [Product, PriceList, ProductPrice, SpecialOffer, SpecialOfferProduct]
@@ -85,11 +85,11 @@ def set_NVTT_role():
 def set_NPP_role():
     npp_group, _ = GroupPerm.objects.get_or_create(name='npp', defaults={'allow': True})
     view_group = [ProductType, RegistrationUnit, Producer, RegistrationCert, UseObject, UseFor, CategoryDetail,
-                  ProductCategory]
+                  ProductCategory, Product, ProductPrice]
     add_group_perm(npp_group, acquy['view'], view_group)
 
-    view_special_group = [Product, PriceList, ProductPrice, SpecialOffer, SpecialOfferProduct]
-    add_group_perm(npp_group, acquy['view'], view_special_group)
+    create_group = [Order, OrderDetail]
+    add_group_perm(npp_group, [acquy['create']], create_group)
 
 
 def set_client_default():
