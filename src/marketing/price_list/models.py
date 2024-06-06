@@ -1,4 +1,4 @@
-from datetime import datetime
+from datetime import datetime, date
 
 from django.apps import apps
 from django.db import models
@@ -16,6 +16,8 @@ class PriceList(models.Model):
     date_end = models.DateField(null=False, blank=False)
     note = models.CharField(max_length=255, null=True, blank=True)
     products = models.ManyToManyField(Product, through='ProductPrice')
+    type = models.CharField(max_length=64, null=False, default='sub',
+                            choices=(('main', 'main'), ('sub', 'sub')))
 
     status = models.CharField(null=True, max_length=24)
 
@@ -36,6 +38,16 @@ class PriceList(models.Model):
             _id = f"{char_id}{two_digit_year}{i:04d}"
             self.id = _id
         return super().save(*args, **kwargs)
+
+    @staticmethod
+    def get_main_pl():
+        today = date.today()
+        price_list = PriceList.objects.filter(
+            date_start__lte=today,
+            date_end__gte=today,
+            type='main'
+        ).first()
+        return price_list
 
     def __str__(self):
         return f"{self.id} - {self.name}"
@@ -71,7 +83,7 @@ class PointOfSeason(models.Model):
 
 
 class SpecialOffer(models.Model):
-    id = models.CharField(max_length=64,  primary_key=True)
+    id = models.CharField(max_length=64, primary_key=True)
     name = models.CharField(max_length=255)
     time_start = models.DateTimeField(null=True)
     time_end = models.DateTimeField(null=True)
@@ -79,10 +91,10 @@ class SpecialOffer(models.Model):
     price_list = models.ForeignKey(PriceList, null=True, on_delete=models.CASCADE, related_name='offers')
     product = models.ManyToManyField(Product, through='SpecialOfferProduct')
 
-    type_list = models.CharField(max_length=24, null=False, default='manual')   # Chọn giữa ['manual',
+    type_list = models.CharField(max_length=24, null=False, default='manual')  # Chọn giữa ['manual',
     # 'consider_offer_user']
     live_stream = models.ForeignKey(LiveStream, null=True, on_delete=models.SET_NULL, related_name='offers')
-    count_turnover = models.BooleanField(default=False)     # Khuyến mãi sẽ tính doanh số hay không
+    count_turnover = models.BooleanField(default=False)  # Khuyến mãi sẽ tính doanh số hay không
 
     target = models.BigIntegerField(null=False, default=0)
     quantity_can_use = models.FloatField(null=True)
