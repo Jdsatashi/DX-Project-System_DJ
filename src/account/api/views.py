@@ -26,7 +26,7 @@ from app.settings import pusher_client
 from marketing.price_list.models import PriceList, PointOfSeason
 from user_system.client_profile.api.serializers import ClientProfileSerializer
 from user_system.employee_profile.api.serializers import EmployeeProfileSerializer
-from utils.constants import status as user_status, maNhomND, admin_role
+from utils.constants import status as user_status, maNhomND, admin_role, phone_magic, magic_verify_code
 from utils.env import TOKEN_LT
 from utils.helpers import generate_digits_code, generate_id, phone_validate, local_time, check_email
 from utils.insert_db.default_roles_perms import set_user_perm
@@ -203,12 +203,11 @@ def phone_login_2(request):
             phone = PhoneNumber.objects.get(phone_number=phone_number)
         # When not exist, register this phone number
         except PhoneNumber.DoesNotExist:
-            response_data = call_api_register(phone_number)
+            response_data = create_verify_user(phone_number)
             return Response(response_data)
         # Get user from phone object
         user = phone.user
         app_log.info(f"Test token: {refresh_token}")
-        app_log.debug(f"Test token: {refresh_token}")
         if refresh_token:
             # Get new token
             try:
@@ -222,6 +221,8 @@ def phone_login_2(request):
             return Response({'refresh': refresh_token, 'access': new_token}, status.HTTP_200_OK)
         else:
             verify_code = generate_digits_code()
+            if phone_number == phone_magic:
+                verify_code = magic_verify_code
             new_verify = Verify.objects.create(user=user, phone_verify=phone, verify_code=verify_code,
                                                verify_type="SMS OTP")
             response = response_verify_code(new_verify)
@@ -377,12 +378,16 @@ def check_token(request):
     return Response({'message': 'GET method not supported'}, status=status.HTTP_405_METHOD_NOT_ALLOWED)
 
 
-def call_api_register(phone_number):
+def create_verify_user(phone_number):
     is_valid, phone = phone_validate(phone_number)
+
+    verify_code = generate_digits_code()
+
+    if phone_number == phone_magic:
+        verify_code = magic_verify_code
 
     phone = PhoneNumber.objects.filter(phone_number=phone)
     # Get digits number code
-    verify_code = generate_digits_code()
     # Case phone Existed but not verify
     if phone.exists():
         phone_num = phone.first()

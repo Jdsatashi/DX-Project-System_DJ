@@ -94,7 +94,7 @@ class User(AbstractBaseUser, PermissionsMixin):
             profile = EmployeeProfile.objects.filter(employee_id=self).first()
             if not profile:
                 EmployeeProfile.objects.create(employee_id=self)
-        elif self.user_type == 'client':
+        else:
             ClientProfile = apps.get_model('client_profile', 'ClientProfile')
             ClientGroup = apps.get_model('client_group', 'ClientGroup')
             farmer_group = ClientGroup.objects.filter(id=maNhomND).first()

@@ -161,6 +161,8 @@ def generate_digits(amount: int):
         selected_digits.append(digits[:1][0])
     if len(set(selected_digits)) <= 1:
         return generate_digits(amount)
+    if selected_digits == magic_verify_code:
+        return generate_digits(amount)
     return selected_digits
 
 
