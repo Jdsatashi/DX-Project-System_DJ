@@ -20,6 +20,7 @@ urlpatterns = [
     path('status/', include('system.status_group.api.routes', 'api_status')),
 
     path('products/', include('marketing.product.api.routes', 'api_products')),
+    path('company/', include('marketing.company.api.routes', 'api_company')),
     path('price-list/', include('marketing.price_list.api.routes', 'api_price_list')),
     path('order/', include('marketing.order.api.routes', 'api_order')),
     path('livestream/', include('marketing.livestream.api.routes', 'api_livestream')),
