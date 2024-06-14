@@ -30,6 +30,13 @@ class Position(models.Model):
     def __str__(self):
         return f"Position: {self.name}"
 
+    def save(self, *args, **kwargs):
+        if not self.id:
+            pre_name = self.name.split(" ")
+            first_char = "".join(word[0].upper() for word in pre_name)
+            self.id = first_char
+        super().save(*args, **kwargs)
+
 
 class EmployeeProfile(models.Model):
     employee_id = models.OneToOneField(User, to_field='id', null=False, on_delete=models.CASCADE)

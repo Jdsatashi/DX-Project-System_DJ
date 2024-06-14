@@ -12,6 +12,7 @@ from pyodbc import IntegrityError
 
 from app.logs import app_log
 from utils.constants import maNhomND
+from utils.helpers import self_id
 
 
 # Custom command create_user or create_super user
@@ -78,6 +79,9 @@ class User(AbstractBaseUser, PermissionsMixin):
 
     def save(self, *args, **kwargs):
         self.id = self.id.upper()
+        if not self.id or self.id == '':
+            char = 'NV' if self.user_type == 'employee' else 'KH'
+            self.id = self_id(char, User, 4)
         self.username = self.username if self.username and self.username != '' else self.id
         if self.password is None or self.password == '':
             self.password = self.id.lower()

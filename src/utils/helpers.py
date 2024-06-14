@@ -5,13 +5,13 @@ import pyodbc
 import unicodedata
 from datetime import datetime
 
+from django.apps import apps
 from django.contrib.contenttypes.models import ContentType
 from django.core.exceptions import ValidationError
 from django.core.validators import RegexValidator
 from django.utils import timezone
 from rest_framework import serializers
 
-from account.models import User
 from app.logs import app_log
 from utils.env import OLD_SQL_HOST, OLD_SQL_DB, OLD_SQL_USER, OLD_SQL_PW
 from .constants import *
@@ -107,7 +107,7 @@ def generate_id(ma_nhom):
     else:
         return None
     id_template = f'{code}{current_year}'
-
+    User = apps.get_model('account', 'User')
     existing_ids = User.objects.filter(id__startswith=id_template).values_list('id', flat=True)
 
     if not existing_ids:

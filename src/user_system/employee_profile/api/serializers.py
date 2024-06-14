@@ -4,16 +4,17 @@ from account.handlers.restrict_serializer import BaseRestrictSerializer
 from user_system.employee_profile.models import Department, Position, EmployeeProfile
 
 
-class DepartmentSerializer(BaseRestrictSerializer):
+class DepartmentSerializer(serializers.ModelSerializer):
     class Meta:
         model = Department
         fields = '__all__'
 
 
-class PositionSerializer(BaseRestrictSerializer):
+class PositionSerializer(serializers.ModelSerializer):
     class Meta:
         model = Position
         fields = '__all__'
+        read_only_fields = ('id', 'created_at', 'updated_at')
 
 
 class EmployeeProfileSerializer(BaseRestrictSerializer):

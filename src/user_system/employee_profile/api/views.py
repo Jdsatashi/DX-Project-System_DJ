@@ -43,8 +43,8 @@ class GenericApiPosition(viewsets.GenericViewSet, mixins.ListModelMixin, mixins.
                          mixins.RetrieveModelMixin, mixins.UpdateModelMixin, mixins.DestroyModelMixin):
     serializer_class = PositionSerializer
     queryset = Position.objects.all()
-    authentication_classes = [JWTAuthentication, BasicAuthentication, SessionAuthentication]
-    permission_classes = [partial(ValidatePermRest, model=Position)]
+    #authentication_classes = [JWTAuthentication, BasicAuthentication, SessionAuthentication]
+    #permission_classes = [partial(ValidatePermRest, model=Position)]
 
     def list(self, request, *args, **kwargs):
         response = filter_data(self, request, ['id', 'name', 'note'],
