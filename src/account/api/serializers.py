@@ -147,6 +147,7 @@ class UserWithPerm(serializers.ModelSerializer):
     def to_representation(self, instance):
         representation = super().to_representation(instance)
         representation['phone'] = [phone.phone_number for phone in instance.phone_numbers.all()]
+
         # Add profile data to representation
         if instance.user_type == 'employee':
             profile = EmployeeProfile.objects.filter(employee_id=instance).first()
@@ -156,6 +157,18 @@ class UserWithPerm(serializers.ModelSerializer):
             profile = ClientProfile.objects.filter(client_id=instance).first()
             if profile:
                 representation['profile'] = ClientProfileUserSerializer(profile).data
+        # Add perm_user data to representation
+        perm_user = [perm.name for perm in instance.perm_user.all()]
+
+        request = self.context.get('request')
+        if request and request.method == 'GET' and hasattr(request,
+                                                           'resolver_match') and request.resolver_match.kwargs.get(
+            'pk'):
+            representation['perm_user'] = perm_user
+        else:
+            perm_user = perm_user[:5]
+            representation['perm_user'] = perm_user + ['...'] if len(perm_user) >= 5 else perm_user
+
         return representation
 
     def create(self, validated_data):

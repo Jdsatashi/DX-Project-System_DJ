@@ -58,6 +58,9 @@ class ApiAccount(viewsets.GenericViewSet, mixins.ListModelMixin, mixins.CreateMo
                 queryset = queryset.filter(user_type='employee')
             case 'farmer':
                 queryset = queryset.filter(user_type='farmer')
+            case 'admin':
+                # queryset = queryset.filter(is_superuser=True)
+                queryset = queryset.filter(group_user__name='admin')
             case _:
                 pass
         response = filter_data(self, request, ['id', 'username', 'email', 'phone_numbers__phone_number'],
