@@ -25,7 +25,7 @@ urlpatterns = [
     path('profile/', employees_view),
     path('profile/<pk>', employee_detail_view),
     path('departments/', departments_view),
-    path('departments/<pk>/', department_detail_view),
+    path('departments/<pk>', department_detail_view),
     path('positions/', positions_view),
-    path('positions/<pk>/', position_detail_view),
+    path('positions/<pk>', position_detail_view),
 ]
