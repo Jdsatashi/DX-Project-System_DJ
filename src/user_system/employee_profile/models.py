@@ -33,8 +33,19 @@ class Position(models.Model):
     def save(self, *args, **kwargs):
         if not self.id:
             pre_name = self.name.split(" ")
-            first_char = "".join(word[0].upper() for word in pre_name)
-            self.id = first_char
+            if len(pre_name) > 2:
+                first_char = "".join(word[0].upper() for word in pre_name)[:3]
+            elif len(pre_name) == 2:
+                first_char = pre_name[0][0].upper() + pre_name[1][:2].upper()
+            else:
+                first_char = "".join(pre_name[:3])
+            new_id = first_char
+            counter = 1
+            # Loop to find a unique ID
+            while Position.objects.filter(id=new_id).exists():
+                new_id = f"{first_char}{counter:02d}"
+                counter += 1
+            self.id = new_id
         super().save(*args, **kwargs)
 
 
