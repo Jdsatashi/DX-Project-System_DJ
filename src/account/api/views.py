@@ -51,11 +51,11 @@ class ApiAccount(viewsets.GenericViewSet, mixins.ListModelMixin, mixins.CreateMo
             case 'nvtt':
                 queryset = User.objects.filter(
                     Q(employeeprofile__position__id='NVTT')
-                ).select_related('employeeprofile').prefetch_related('employeeprofile__position').distinct()
+                ).select_related('employeeprofile').prefetch_related('employeeprofile__position').exclude(group_user__name='admin').distinct()
             case 'client':
                 queryset = queryset.filter(user_type='client')
             case 'employee':
-                queryset = queryset.filter(user_type='employee')
+                queryset = queryset.filter(user_type='employee').exclude(group_user__name='admin')
             case 'farmer':
                 queryset = queryset.filter(user_type='farmer')
             case 'admin':
