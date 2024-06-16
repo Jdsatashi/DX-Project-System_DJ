@@ -6,15 +6,20 @@ from django.db.models import Sum, Q
 from django.utils import timezone
 from rest_framework import viewsets, mixins, status
 from rest_framework.authentication import BasicAuthentication
+from rest_framework.decorators import api_view
 from rest_framework.response import Response
 from rest_framework.views import APIView
 from rest_framework_simplejwt.authentication import JWTAuthentication
 
+from account.handlers.perms import DataFKModel
 from account.handlers.validate_perm import ValidatePermRest
+from account.models import User
 from app.logs import app_log
-from marketing.order.api.serializers import OrderSerializer, ProductStatisticsSerializer
+from marketing.order.api.serializers import OrderSerializer, ProductStatisticsSerializer, OrderReportSerializer
 from marketing.order.models import Order, OrderDetail
 from marketing.price_list.models import SpecialOfferProduct
+from user_system.client_profile.models import ClientProfile
+from user_system.employee_profile.models import EmployeeProfile
 from utils.model_filter_paginate import filter_data
 
 
@@ -108,6 +113,110 @@ class ProductStatisticsView(APIView):
         except Exception as e:
             raise e
             return Response({"error": str(e)}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+
+
+class OrderReportView(viewsets.GenericViewSet, mixins.ListModelMixin):
+    serializer_class = OrderReportSerializer
+    queryset = Order.objects.all()
+
+    def list(self, request, *args, **kwargs):
+        page = int(request.query_params.get('page', 1))
+        order_by = '-date_get'
+        limit = 10
+        orders = Order.objects.all().order_by(order_by)
+        paginator = Paginator(orders, limit)
+        page_obj = paginator.get_page(page)
+
+        # Validate page number
+        if page < 0:
+            page = 1
+        elif page > paginator.num_pages:
+            page = paginator.num_pages
+
+        serializer = self.get_serializer(page_obj, many=True)
+        response_data = {
+            'data': serializer.data,
+            'total_page': paginator.num_pages,
+            'current_page': page
+        }
+
+        return Response(response_data, status=status.HTTP_200_OK)
+
+
+class OrderReportView2(APIView):
+    def get(self, request):
+        page = int(request.query_params.get('page', 1))
+        order_by = '-date_get'
+        limit = 10
+        orders = Order.objects.all().order_by(order_by)
+        paginator = Paginator(orders, limit)
+        page_obj = paginator.get_page(page)
+
+        # Validate page number
+        if page < 0:
+            page = 1
+        elif page > paginator.num_pages:
+            page = paginator.num_pages
+
+        data = [self.get_order_fields(obj, Order) for obj in page_obj]
+        # Add total and current page and data to response data
+        response_data = {
+            'data': data,
+            'total_page': paginator.num_pages,
+            'current_page': page
+        }
+
+        return Response(response_data, status=status.HTTP_200_OK)
+
+    def get_order_fields(self, obj, model):
+        order_detail = OrderDetail.objects.filter(order_id=obj)
+        client_profile = ClientProfile.objects.get(client_id=obj.client_id)
+        nvtt = EmployeeProfile.objects.filter(employee_id=client_profile.nvtt_id).first()
+
+        if not nvtt:
+            nvtt_name = None
+        else:
+            nvtt_name = nvtt.fullname
+
+        client_lv1 = ClientProfile.objects.filter(client_id=client_profile.client_lv1_id).first()
+        if not client_lv1:
+            client_lv1_name = None
+        else:
+            client_lv1_name = client_lv1.register_name
+
+        client_data = {
+            'id': obj.client_id.id,
+            'name': client_profile.register_name,
+            'nvtt': nvtt_name,
+            'register_lv1': client_lv1_name
+        }
+        fields = model._meta.fields
+        field_dict = {}
+        fk_field = DataFKModel(model)
+        fk_fields = fk_field.get_fk_fields()
+        app_log.info(f"FK FIELDS: {fk_fields}")
+        for field in fields:
+            field_name = field.name
+            if field_name not in fk_fields:
+                field_value = getattr(obj, field_name)
+                field_dict[field_name] = field_value
+        field_dict['order_details'] = [self.get_object_fields(obj2, OrderDetail) for obj2 in order_detail]
+        field_dict['clients'] = client_data
+        return field_dict
+
+    @staticmethod
+    def get_object_fields(obj, model):
+        fields = model._meta.fields
+        field_dict = {}
+        fk_field = DataFKModel(model)
+        fk_fields = fk_field.get_fk_fields()
+        app_log.info(f"FK FIELDS: {fk_fields}")
+        for field in fields:
+            field_name = field.name
+            if field_name not in fk_fields:
+                field_value = getattr(obj, field_name)
+                field_dict[field_name] = field_value
+        return field_dict
 
 
 def get_product_statistics(user, input_date, type_statistic):

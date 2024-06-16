@@ -11,6 +11,8 @@ from marketing.livestream.models import LiveStreamOfferRegister
 from marketing.order.models import Order, OrderDetail
 from marketing.price_list.models import ProductPrice, SpecialOfferProduct
 from marketing.sale_statistic.models import SaleStatistic, SaleTarget
+from user_system.client_profile.models import ClientProfile
+from user_system.employee_profile.models import EmployeeProfile
 
 
 class OrderDetailSerializer(BaseRestrictSerializer):
@@ -292,3 +294,48 @@ class ProductStatisticsSerializer(serializers.Serializer):
     current = serializers.DictField(required=False)
     one_year_ago = serializers.DictField(required=False)
     total_cashback = serializers.IntegerField(required=False)
+
+
+class OrderDetailSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = OrderDetail
+        fields = '__all__'
+
+class ClientProfileSerializer(serializers.ModelSerializer):
+    nvtt = serializers.CharField(source='nvtt.fullname', read_only=True)
+    register_lv1 = serializers.CharField(source='register_lv1.register_name', read_only=True)
+
+    class Meta:
+        model = ClientProfile
+        fields = ['id', 'register_name', 'nvtt', 'register_lv1']
+
+class OrderReportSerializer(serializers.ModelSerializer):
+    order_details = serializers.SerializerMethodField()
+    clients = serializers.SerializerMethodField()
+
+    class Meta:
+        model = Order
+        fields = '__all__'
+
+    def get_order_details(self, obj):
+        order_details = OrderDetail.objects.filter(order_id=obj)
+        return OrderDetailSerializer(order_details, many=True).data
+
+    def get_clients(self, obj):
+        client_profile = ClientProfile.objects.filter(client_id=obj.client_id).first()
+        if not client_profile:
+            return None
+
+        nvtt = EmployeeProfile.objects.filter(employee_id=client_profile.nvtt_id).first()
+        nvtt_name = nvtt.fullname if nvtt else None
+
+        client_lv1 = ClientProfile.objects.filter(client_id=client_profile.client_lv1_id).first()
+        client_lv1_name = client_lv1.register_name if client_lv1 else None
+
+        client_data = {
+            'id': obj.client_id.id,
+            'name': client_profile.register_name,
+            'nvtt': nvtt_name,
+            'register_lv1': client_lv1_name
+        }
+        return client_data
