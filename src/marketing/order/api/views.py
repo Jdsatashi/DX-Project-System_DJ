@@ -1,3 +1,4 @@
+import time
 from datetime import datetime, timedelta
 from functools import partial
 
@@ -6,14 +7,12 @@ from django.db.models import Sum, Q
 from django.utils import timezone
 from rest_framework import viewsets, mixins, status
 from rest_framework.authentication import BasicAuthentication
-from rest_framework.decorators import api_view
 from rest_framework.response import Response
 from rest_framework.views import APIView
 from rest_framework_simplejwt.authentication import JWTAuthentication
 
 from account.handlers.perms import DataFKModel
 from account.handlers.validate_perm import ValidatePermRest
-from account.models import User
 from app.logs import app_log
 from marketing.order.api.serializers import OrderSerializer, ProductStatisticsSerializer, OrderReportSerializer
 from marketing.order.models import Order, OrderDetail
@@ -120,31 +119,16 @@ class OrderReportView(viewsets.GenericViewSet, mixins.ListModelMixin):
     queryset = Order.objects.all()
 
     def list(self, request, *args, **kwargs):
-        page = int(request.query_params.get('page', 1))
-        order_by = '-date_get'
-        limit = 10
-        orders = Order.objects.all().order_by(order_by)
-        paginator = Paginator(orders, limit)
-        page_obj = paginator.get_page(page)
-
-        # Validate page number
-        if page < 0:
-            page = 1
-        elif page > paginator.num_pages:
-            page = paginator.num_pages
-
-        serializer = self.get_serializer(page_obj, many=True)
-        response_data = {
-            'data': serializer.data,
-            'total_page': paginator.num_pages,
-            'current_page': page
-        }
-
-        return Response(response_data, status=status.HTTP_200_OK)
+        start_time = time.time()
+        response = filter_data(self, request, ['id', 'date_get', 'date_company_get', 'client_id__id'],
+                               **kwargs)
+        app_log.info(f'OrderReport1 Query Time: {time.time() - start_time}')
+        return Response(response, status=status.HTTP_200_OK)
 
 
 class OrderReportView2(APIView):
     def get(self, request):
+        start_time = time.time()
         page = int(request.query_params.get('page', 1))
         order_by = '-date_get'
         limit = 10
@@ -165,7 +149,7 @@ class OrderReportView2(APIView):
             'total_page': paginator.num_pages,
             'current_page': page
         }
-
+        app_log.info(f'OrderReport2 Query Time: {time.time() - start_time}')
         return Response(response_data, status=status.HTTP_200_OK)
 
     def get_order_fields(self, obj, model):
@@ -176,7 +160,7 @@ class OrderReportView2(APIView):
         if not nvtt:
             nvtt_name = None
         else:
-            nvtt_name = nvtt.fullname
+            nvtt_name = nvtt.register_name
 
         client_lv1 = ClientProfile.objects.filter(client_id=client_profile.client_lv1_id).first()
         if not client_lv1:
