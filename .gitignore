@@ -16,3 +16,6 @@ storage/
 logs/
 product_image/
 *.sql
+conf/
+runserver.sh
+
