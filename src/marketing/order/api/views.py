@@ -252,9 +252,11 @@ class OrderReportView2(APIView):
             order_details_include = ['product_id', 'order_quantity', 'order_box', 'product_price', 'point_get', 'note']
             for field in details_fields:
                 field_name = field.name
+                app_log.info(f"Test name: {field_name}")
                 if field_name in order_details_include:
                     field_value = getattr(obj, field_name)
                     if field_name == 'product_id':
+                        details_data['product_name'] = field_value.name
                         field_value = field_value.id
                     details_data[field_name] = field_value
                     order_details_include.remove(field_name)
