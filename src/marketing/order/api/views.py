@@ -2,6 +2,7 @@ import time
 from datetime import datetime, timedelta
 from functools import partial
 
+from django.core.exceptions import FieldError
 from django.core.paginator import Paginator
 from django.db.models import Sum, Q
 from django.utils import timezone
@@ -14,12 +15,13 @@ from rest_framework_simplejwt.authentication import JWTAuthentication
 from account.handlers.perms import DataFKModel
 from account.handlers.validate_perm import ValidatePermRest
 from app.logs import app_log
-from marketing.order.api.serializers import OrderSerializer, ProductStatisticsSerializer, OrderReportSerializer
+from marketing.order.api.serializers import OrderSerializer, ProductStatisticsSerializer, OrderReportSerializer, \
+    OrderDetailSerializer, OrderDetail2Serializer, Order2Serializer, OrderDetail3Serializer, Order3Serializer
 from marketing.order.models import Order, OrderDetail
 from marketing.price_list.models import SpecialOfferProduct
 from user_system.client_profile.models import ClientProfile
 from user_system.employee_profile.models import EmployeeProfile
-from utils.model_filter_paginate import filter_data
+from utils.model_filter_paginate import filter_data, get_query_parameters
 
 
 class GenericApiOrder(viewsets.GenericViewSet, mixins.ListModelMixin, mixins.CreateModelMixin,
@@ -129,10 +131,65 @@ class OrderReportView(viewsets.GenericViewSet, mixins.ListModelMixin):
 class OrderReportView2(APIView):
     def get(self, request):
         start_time = time.time()
-        page = int(request.query_params.get('page', 1))
-        order_by = '-date_get'
-        limit = int(request.query_params.get('limit', 10))
-        orders = Order.objects.all().order_by(order_by)
+        query, strict_mode, limit, page, order_by, from_date, to_date = get_query_parameters(request)
+        order_by = '-date_get' if order_by == '' else order_by
+
+        orders = Order.objects.all()
+
+        if from_date or to_date:
+            try:
+                if from_date:
+                    from_date = datetime.strptime(from_date, '%d/%m/%Y')
+                    orders = orders.filter(created_at__gte=from_date)
+                if to_date:
+                    to_date = datetime.strptime(to_date, '%d/%m/%Y') + timedelta(days=1) - timedelta(seconds=1)
+                    orders = orders.filter(created_at__lte=to_date)
+            except ValueError:
+                pass
+
+        if query != '':
+            query_parts = query.split(',')
+            order_query = Q()
+            order_detail_query = Q()
+            client_profile_query = Q()
+            employee_profile_query = Q()
+
+            for part in query_parts:
+                order_query |= Q(id__icontains=part) | Q(date_get__icontains=part) | Q(date_company_get__icontains=part)
+                order_detail_query |= Q(order_detail__product_id__id__icontains=part) | Q(
+                    order_detail__product_id__name__icontains=part)
+                client_profile_query |= Q(client_id__clientprofile__register_name__icontains=part) | Q(
+                    client_id__clientprofile__nvtt_id__icontains=part) | Q(
+                    client_id__clientprofile__client_group_id__id__icontains=part)
+
+                # Tìm tất cả các nvtt_id trong ClientProfile
+                client_profiles = ClientProfile.objects.filter(nvtt_id__icontains=part).values_list('nvtt_id',
+                                                                                                    flat=True)
+                # Tìm tất cả các EmployeeProfile có id trong client_profiles
+                employee_profile_query |= Q(client_id__clientprofile__nvtt_id__in=client_profiles)
+
+            if strict_mode:
+                orders = orders.filter(order_query & order_detail_query & client_profile_query & employee_profile_query)
+            else:
+                orders = orders.filter(order_query | order_detail_query | client_profile_query | employee_profile_query)
+
+        # Get fields in models
+        valid_fields = [f.name for f in Order._meta.get_fields()]
+        # Check field order_by exists, then order queryset
+        try:
+            if order_by in valid_fields or order_by.lstrip('-') in valid_fields:
+                orders = orders.order_by(order_by)
+            else:
+                try:
+                    orders = orders.order_by('created_at')
+                except FieldError:
+                    orders = orders.order_by('id')
+                except Exception as e:
+                    app_log.error(f"Error order_by fields")
+                    return Response({'message': 'error field order_by not in model'}, status=200)
+        except FieldError:
+            pass
+
         paginator = Paginator(orders, limit)
         page_obj = paginator.get_page(page)
 
@@ -176,20 +233,40 @@ class OrderReportView2(APIView):
         }
         fields = model._meta.fields
         field_dict = {}
-        fk_field = DataFKModel(model)
-        fk_fields = fk_field.get_fk_fields()
-        app_log.info(f"FK FIELDS: {fk_fields}")
+        include_fields = ['id', 'date_get', 'date_company_get', 'date_delay', 'id_offer_consider',
+                          'order_point', 'order_price', 'note', 'created_at']
+        # fk_field = DataFKModel(model)
+        # fk_fields = fk_field.get_fk_fields()
         for field in fields:
             field_name = field.name
-            if field_name not in fk_fields:
+            if field_name in include_fields:
+                # if field_name not in fk_fields:
+                include_fields.remove(field_name)
                 field_value = getattr(obj, field_name)
                 field_dict[field_name] = field_value
-        field_dict['order_details'] = [self.get_object_fields(obj2, OrderDetail) for obj2 in order_detail]
+
+        details_fields = OrderDetail._meta.fields
+        order_details = {}
+        order_details_include = ['product_id', 'order_quantity', 'order_box', 'product_price', 'point_get', 'note']
+        for obj in order_detail:
+            for field in details_fields:
+                field_name = field.name
+                if field_name in order_details_include:
+                    # if field_name not in fk_fields:
+                    field_value = getattr(obj, field_name)
+                    if field_name == 'product_id':
+                        field_value = field_value.id
+                    order_details[field_name] = field_value
+                    order_details_include.remove(field_name)
+        # field_dict['order_details'] = [self.get_object_fields_exclude_fk(obj2, OrderDetail) for obj2 in order_detail]
+        # field_dict = Order3Serializer(obj).data
+        # field_dict['order_details'] = OrderDetail3Serializer(order_detail, many=True).data
+        field_dict['order_details'] = order_details
         field_dict['clients'] = client_data
         return field_dict
 
     @staticmethod
-    def get_object_fields(obj, model):
+    def get_object_fields_exclude_fk(obj, model):
         fields = model._meta.fields
         field_dict = {}
         fk_field = DataFKModel(model)
@@ -200,6 +277,8 @@ class OrderReportView2(APIView):
             if field_name not in fk_fields:
                 field_value = getattr(obj, field_name)
                 field_dict[field_name] = field_value
+            else:
+                fk_fields.remove(field_name)
         return field_dict
 
 

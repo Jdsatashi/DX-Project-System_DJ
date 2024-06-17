@@ -301,6 +301,7 @@ class OrderDetailSerializer(serializers.ModelSerializer):
         model = OrderDetail
         fields = '__all__'
 
+
 class ClientProfileSerializer(serializers.ModelSerializer):
     nvtt = serializers.CharField(source='nvtt.register_name', read_only=True)
     register_lv1 = serializers.CharField(source='register_lv1.register_name', read_only=True)
@@ -308,6 +309,7 @@ class ClientProfileSerializer(serializers.ModelSerializer):
     class Meta:
         model = ClientProfile
         fields = ['id', 'register_name', 'nvtt', 'register_lv1']
+
 
 class OrderReportSerializer(serializers.ModelSerializer):
     order_details = serializers.SerializerMethodField()
@@ -339,3 +341,37 @@ class OrderReportSerializer(serializers.ModelSerializer):
             'register_lv1': client_lv1_name
         }
         return client_data
+
+
+class Order2Serializer(serializers.ModelSerializer):
+    class Meta:
+        model = Order
+        fields = ['id', 'date_get', 'date_company_get', 'date_delay', 'id_offer_consider',
+                  'order_point', 'order_price', 'note', 'created_at']
+
+
+class OrderDetail2Serializer(serializers.ModelSerializer):
+    class Meta:
+        model = OrderDetail
+        fields = ['product_id', 'order_quantity', 'order_box', 'product_price', 'point_get', 'note']
+
+
+class Order3Serializer(serializers.Serializer):
+    id = serializers.CharField()
+    date_get = serializers.DateField()
+    date_company_get = serializers.DateTimeField()
+    date_delay = serializers.IntegerField()
+    id_offer_consider = serializers.CharField
+    order_point = serializers.FloatField()
+    order_price = serializers.FloatField()
+    note = serializers.CharField()
+    created_at = serializers.DateTimeField
+
+
+class OrderDetail3Serializer(serializers.Serializer):
+    product_id = serializers.CharField()
+    order_quantity = serializers.FloatField()
+    order_box = serializers.FloatField()
+    product_price = serializers.IntegerField()
+    point_get = serializers.FloatField()
+    note = serializers.CharField()
