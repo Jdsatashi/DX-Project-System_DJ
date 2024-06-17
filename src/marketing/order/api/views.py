@@ -246,18 +246,19 @@ class OrderReportView2(APIView):
                 field_dict[field_name] = field_value
 
         details_fields = OrderDetail._meta.fields
-        order_details = {}
-        order_details_include = ['product_id', 'order_quantity', 'order_box', 'product_price', 'point_get', 'note']
+        order_details = []
         for obj in order_detail:
+            details_data = {}
+            order_details_include = ['product_id', 'order_quantity', 'order_box', 'product_price', 'point_get', 'note']
             for field in details_fields:
                 field_name = field.name
                 if field_name in order_details_include:
-                    # if field_name not in fk_fields:
                     field_value = getattr(obj, field_name)
                     if field_name == 'product_id':
                         field_value = field_value.id
-                    order_details[field_name] = field_value
+                    details_data[field_name] = field_value
                     order_details_include.remove(field_name)
+            order_details.append(details_data)
         # field_dict['order_details'] = [self.get_object_fields_exclude_fk(obj2, OrderDetail) for obj2 in order_detail]
         # field_dict = Order3Serializer(obj).data
         # field_dict['order_details'] = OrderDetail3Serializer(order_detail, many=True).data
