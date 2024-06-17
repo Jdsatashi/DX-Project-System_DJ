@@ -18,7 +18,7 @@ SECRET_KEY = APP_SECRET
 DEBUG = APP_DEBUG
 
 ALLOWED_HOSTS = ['0.0.0.0', 'localhost', '127.0.0.1', '192.168.1.17', 'jdserver.ddnsfree.com', 'sukiendongxanh.online',
-                 'christian.ns.cloudflare.com', 'sara.ns.cloudflare.com', '27.71.25.195'
+                 'christian.ns.cloudflare.com', 'sara.ns.cloudflare.com', '27.71.25.195', 'server.sukiendongxanh.online'
                  ]
 CSRF_TRUSTED_ORIGINS = ['https://sukiendongxanh.online', 'https://jdserver.ddnsfree.com:3000']
 
