@@ -43,7 +43,7 @@ class ClientInfo(serializers.ModelSerializer):
 class EmployeeInfo(serializers.ModelSerializer):
     class Meta:
         model = EmployeeProfile
-        fields = ['fullname', 'gender', 'dob', 'address']
+        fields = ['register_name', 'gender', 'dob', 'address']
 
 
 class UserUpdateSerializer(serializers.ModelSerializer):

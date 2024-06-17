@@ -37,4 +37,4 @@ class EmployeeProfileUserSerializer(serializers.ModelSerializer):
 
     class Meta:
         model = EmployeeProfile
-        fields = ['fullname', 'address', 'department', 'position']
+        fields = ['register_name', 'address', 'department', 'position']

@@ -53,7 +53,7 @@ class EmployeeProfile(models.Model):
     employee_id = models.OneToOneField(User, to_field='id', null=False, on_delete=models.CASCADE)
     department = models.ManyToManyField(Department)
     position = models.ManyToManyField(Position)
-    fullname = models.CharField(max_length=255, null=True)
+    register_name = models.CharField(max_length=255, null=True)
     gender = models.CharField(max_length=1, null=True)
     dob = models.DateField(null=True)
     address = models.CharField(max_length=255, null=True)

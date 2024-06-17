@@ -302,7 +302,7 @@ class OrderDetailSerializer(serializers.ModelSerializer):
         fields = '__all__'
 
 class ClientProfileSerializer(serializers.ModelSerializer):
-    nvtt = serializers.CharField(source='nvtt.fullname', read_only=True)
+    nvtt = serializers.CharField(source='nvtt.register_name', read_only=True)
     register_lv1 = serializers.CharField(source='register_lv1.register_name', read_only=True)
 
     class Meta:
@@ -327,7 +327,7 @@ class OrderReportSerializer(serializers.ModelSerializer):
             return None
 
         nvtt = EmployeeProfile.objects.filter(employee_id=client_profile.nvtt_id).first()
-        nvtt_name = nvtt.fullname if nvtt else None
+        nvtt_name = nvtt.register_name if nvtt else None
 
         client_lv1 = ClientProfile.objects.filter(client_id=client_profile.client_lv1_id).first()
         client_lv1_name = client_lv1.register_name if client_lv1 else None

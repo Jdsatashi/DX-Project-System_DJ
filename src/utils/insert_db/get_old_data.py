@@ -84,7 +84,7 @@ def append_nv():
             app_log.info(f"User {v[0]} was existed, skipping...")
 
         obj, created = EmployeeProfile.objects.get_or_create(employee_id=obj,
-                                                             defaults={'fullname': f"{v[2]} {v[3]}", 'gender': v[5]})
+                                                             defaults={'register_name': f"{v[2]} {v[3]}", 'gender': v[5]})
         obj.created_at = created_time
         obj.save()
         if created:

@@ -63,7 +63,7 @@ class ApiAccount(viewsets.GenericViewSet, mixins.ListModelMixin, mixins.CreateMo
                 queryset = queryset.filter(group_user__name='admin')
             case _:
                 pass
-        response = filter_data(self, request, ['id', 'username', 'email', 'phone_numbers__phone_number'],
+        response = filter_data(self, request, ['id', 'username', 'email', 'phone_numbers__phone_number', 'clientprofile__register_name', 'employeeprofile__register_name'],
                                queryset=queryset, **kwargs)
         app_log.info(f"Query time: {time.time() - start_time}")
         return Response(response, status.HTTP_200_OK)
