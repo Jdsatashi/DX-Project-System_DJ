@@ -131,7 +131,7 @@ class OrderReportView2(APIView):
         start_time = time.time()
         page = int(request.query_params.get('page', 1))
         order_by = '-date_get'
-        limit = 10
+        limit = int(request.query_params.get('limit', 10))
         orders = Order.objects.all().order_by(order_by)
         paginator = Paginator(orders, limit)
         page_obj = paginator.get_page(page)
