@@ -132,6 +132,7 @@ class OrderReportView2(APIView):
     def get(self, request):
         start_time = time.time()
         query, strict_mode, limit, page, order_by, from_date, to_date = get_query_parameters(request)
+        nvtt_query = request.query_params.get('nvtt', '')
         order_by = '-date_get' if order_by == '' else order_by
 
         orders = Order.objects.all()
@@ -147,13 +148,19 @@ class OrderReportView2(APIView):
             except ValueError:
                 pass
 
+        if nvtt_query and nvtt_query != '':
+            nvtt_list = nvtt_query.split(',')
+            nvtt_ids = EmployeeProfile.objects.filter(
+                Q(register_name__in=nvtt_list) | Q(employee_id__in=nvtt_list)
+            ).values_list('employee_id', flat=True)
+            client_profile_query = Q(client_id__clientprofile__nvtt_id__in=nvtt_ids)
+            orders = orders.filter(client_profile_query)
+
         if query != '':
             query_parts = query.split(',')
             order_query = Q()
             order_detail_query = Q()
             client_profile_query = Q()
-            employee_profile_query = Q()
-
             for part in query_parts:
                 order_query |= Q(id__icontains=part) | Q(date_get__icontains=part) | Q(date_company_get__icontains=part)
                 order_detail_query |= Q(order_detail__product_id__id__icontains=part) | Q(
@@ -162,16 +169,10 @@ class OrderReportView2(APIView):
                     client_id__clientprofile__nvtt_id__icontains=part) | Q(
                     client_id__clientprofile__client_group_id__id__icontains=part)
 
-                # Tìm tất cả các nvtt_id trong ClientProfile
-                client_profiles = ClientProfile.objects.filter(nvtt_id__icontains=part).values_list('nvtt_id',
-                                                                                                    flat=True)
-                # Tìm tất cả các EmployeeProfile có id trong client_profiles
-                employee_profile_query |= Q(client_id__clientprofile__nvtt_id__in=client_profiles)
-
             if strict_mode:
-                orders = orders.filter(order_query & order_detail_query & client_profile_query & employee_profile_query)
+                orders = orders.filter(order_query & order_detail_query & client_profile_query)
             else:
-                orders = orders.filter(order_query | order_detail_query | client_profile_query | employee_profile_query)
+                orders = orders.filter(order_query | order_detail_query | client_profile_query)
 
         # Get fields in models
         valid_fields = [f.name for f in Order._meta.get_fields()]
@@ -210,7 +211,6 @@ class OrderReportView2(APIView):
         return Response(response_data, status=status.HTTP_200_OK)
 
     def get_order_fields(self, obj, model):
-        app_log.info(f"Testing object: {obj}")
         order_detail = OrderDetail.objects.filter(order_id=obj)
         try:
             client_profile = ClientProfile.objects.get(client_id=obj.client_id)
