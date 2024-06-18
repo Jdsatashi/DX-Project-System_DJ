@@ -210,27 +210,34 @@ class OrderReportView2(APIView):
         return Response(response_data, status=status.HTTP_200_OK)
 
     def get_order_fields(self, obj, model):
+        app_log.info(f"Testing object: {obj}")
         order_detail = OrderDetail.objects.filter(order_id=obj)
-        client_profile = ClientProfile.objects.get(client_id=obj.client_id)
-        nvtt = EmployeeProfile.objects.filter(employee_id=client_profile.nvtt_id).first()
+        try:
+            client_profile = ClientProfile.objects.get(client_id=obj.client_id)
+            client_name = client_profile.register_name
+            nvtt = EmployeeProfile.objects.filter(employee_id=client_profile.nvtt_id).first()
 
-        if not nvtt:
-            nvtt_name = None
-        else:
-            nvtt_name = nvtt.register_name
+            if not nvtt:
+                nvtt_name = None
+            else:
+                nvtt_name = nvtt.register_name
 
-        client_lv1 = ClientProfile.objects.filter(client_id=client_profile.client_lv1_id).first()
-        if not client_lv1:
-            client_lv1_name = None
-        else:
-            client_lv1_name = client_lv1.register_name
+            client_lv1 = ClientProfile.objects.filter(client_id=client_profile.client_lv1_id).first()
+            if not client_lv1:
+                client_lv1_name = None
+            else:
+                client_lv1_name = client_lv1.register_name
 
-        client_data = {
-            'id': obj.client_id.id,
-            'name': client_profile.register_name,
-            'nvtt': nvtt_name,
-            'register_lv1': client_lv1_name
-        }
+            client_data = {
+                'id': obj.client_id.id,
+                'name': client_name,
+                'nvtt': nvtt_name,
+                'register_lv1': client_lv1_name
+            }
+        except ClientProfile.DoesNotExist:
+            app_log.info(f"Error user '{obj.client_id}' not has profile")
+            client_data = None
+
         fields = model._meta.fields
         field_dict = {}
         include_fields = ['id', 'date_get', 'date_company_get', 'date_delay', 'id_offer_consider',
@@ -252,7 +259,6 @@ class OrderReportView2(APIView):
             order_details_include = ['product_id', 'order_quantity', 'order_box', 'product_price', 'point_get', 'note']
             for field in details_fields:
                 field_name = field.name
-                app_log.info(f"Test name: {field_name}")
                 if field_name in order_details_include:
                     field_value = getattr(obj, field_name)
                     if field_name == 'product_id':
