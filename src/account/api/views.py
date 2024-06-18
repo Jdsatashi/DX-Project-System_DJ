@@ -8,7 +8,7 @@ from django.db.models import Q
 from django.http import HttpResponse
 from drf_spectacular.utils import extend_schema
 from rest_framework import mixins, viewsets, status
-from rest_framework.authentication import BasicAuthentication
+from rest_framework.authentication import BasicAuthentication, SessionAuthentication
 from rest_framework.decorators import api_view
 from rest_framework.exceptions import ValidationError
 from rest_framework.response import Response
@@ -39,7 +39,7 @@ class ApiAccount(viewsets.GenericViewSet, mixins.ListModelMixin, mixins.CreateMo
     serializer_class = UserWithPerm
     queryset = User.objects.all()
 
-    authentication_classes = [JWTAuthentication, BasicAuthentication]
+    authentication_classes = [JWTAuthentication, BasicAuthentication, SessionAuthentication]
     # permission_classes = [partial(ValidatePermRest, model=User)]
 
     def list(self, request, *args, **kwargs):
@@ -72,12 +72,12 @@ class ApiAccount(viewsets.GenericViewSet, mixins.ListModelMixin, mixins.CreateMo
 class ApiUpdateUserProfile(viewsets.GenericViewSet, mixins.RetrieveModelMixin, mixins.UpdateModelMixin):
     serializer_class = UserUpdateSerializer
     queryset = User.objects.all()
-    authentication_classes = [JWTAuthentication, BasicAuthentication]
+    authentication_classes = [JWTAuthentication, BasicAuthentication, SessionAuthentication]
     # permission_classes = [partial(ValidatePermRest, model=User)]
 
 
 class RegisterSMS(APIView):
-    authentication_classes = [JWTAuthentication, BasicAuthentication]
+    authentication_classes = [JWTAuthentication, BasicAuthentication, SessionAuthentication]
 
     # permission_classes = [partial(ValidatePermRest, model=User)]
 
@@ -465,7 +465,7 @@ class ApiGroupPerm(viewsets.GenericViewSet, mixins.ListModelMixin, mixins.Create
                    mixins.RetrieveModelMixin, mixins.UpdateModelMixin, mixins.DestroyModelMixin):
     serializer_class = GroupPermSerializer
     queryset = GroupPerm.objects.all()
-    authentication_classes = [JWTAuthentication, BasicAuthentication]
+    authentication_classes = [JWTAuthentication, BasicAuthentication, SessionAuthentication]
 
     # permission_classes = [partial(ValidatePermRest, model=User)]
 
@@ -479,7 +479,7 @@ class ApiPerm(viewsets.GenericViewSet, mixins.ListModelMixin,
               mixins.RetrieveModelMixin, mixins.UpdateModelMixin, mixins.DestroyModelMixin):
     serializer_class = PermSerializer
     queryset = Perm.objects.all()
-    authentication_classes = [JWTAuthentication, BasicAuthentication]
+    authentication_classes = [JWTAuthentication, BasicAuthentication, SessionAuthentication]
 
     # permission_classes = [partial(ValidatePermRest, model=User)]
 
@@ -489,80 +489,36 @@ class ApiPerm(viewsets.GenericViewSet, mixins.ListModelMixin,
         return Response(response, status.HTTP_200_OK)
 
 
-"""
-@extend_schema(
-    methods=['POST'],
-    description='Đăng ký SĐT, nếu SĐT đã tồn tại thì gửi OTP cho user.'
-                'Nếu SĐT chưa xác thực sẽ gửi mã OTP cho user.'
-                'Nếu SĐT đã xác thực và có refresh_token thì sẽ response access_token mới',
-    request={
-        'application/json': {
-            'example': {
-                'phone_number': '0123456789',
-                'refresh_token': 'your_access_token_here'
-            }
-        }
-    },
-    responses={
-        200: "Success",
-    }
-)
-@api_view(['POST'])
-def phone_login(request):
-    if request.method == 'POST':
-        phone_number = request.data.get('phone_number', None)
-        refresh_token = request.data.get('refresh_token', None)
-        if phone_number is None:
-            return Response({'message': 'Bạn cần nhập số điện thoại'}, status=status.HTTP_400_BAD_REQUEST)
-        # Trying get Phone if exist
-        try:
-            phone = PhoneNumber.objects.get(phone_number=phone_number)
-        # When not exist, register this phone number
-        except PhoneNumber.DoesNotExist:
-            response_data = call_api_register(phone_number)
-            return Response(response_data)
-        # Get user from phone object
-        user = phone.user
-        # If json data has refresh token
-        if refresh_token:
-            # Deactivate Token was sign for User
-            old_token = RefreshToken.objects.filter(user=user, phone_number=phone, status="active").exclude(refresh_token=refresh_token)
-            if old_token.exists():
-                try:
-                    # Get first Token object
-                    deactive_token = old_token.first()
-                    deactive_token.status = "expired"
-                    deactive_token.save()
-                    # Deactivate this resfesh token
-                    deactivate_token = RestRefreshToken(deactive_token.refresh_token)
-                    deactivate_token.blacklist()
-                except TokenError:
-                    app_log.info("Ok here")
-            # Get current token if exist
-            ref_token = RefreshToken.objects.filter(refresh_token=refresh_token, phone_number=phone)
-            if ref_token.exists():
-                # Remove token from blacklist
-                remove_token_blacklist(refresh_token)
-                # Set token is active
-                current_token = ref_token.first()
-                current_token.status = "active"
-                current_token.save()
-                # Get new access token
-            try:
-                new_token = create_access_token_from_refresh(refresh_token)
-            except TokenError:
-                # If get new token error, refresh_token error
-                return Response({'message': 'Phiên đăng nhập đã hết hạn, vui lòng đăng nhập lại'}, status.HTTP_401_BAD_REQUEST)
-            # Return token when not error
-            return Response({'refresh': refresh_token, 'access': new_token}, status.HTTP_200_OK)
-            # If not found token return 404
-            # return Response({'message': 'Token không tồn tại'}, status.HTTP_404_NOT_FOUND)
+class ApiUpdateDeviceCode(APIView):
+    def post(self, request):
+        auth_header = request.headers.get('Authorization')
+        if auth_header and auth_header.startswith('Bearer '):
+            # Get access token from headers
+            access_token = auth_header.split(' ')[1]
         else:
-            app_log.info("test 2")
-            verify_code = generate_digits_code()
-            new_verify = Verify.objects.create(user=user, phone_verify=phone, verify_code=verify_code,
-                                               verify_type="SMS OTP")
-            response = response_verify_code(new_verify)
-            return Response(response, status.HTTP_200_OK)
-    return Response({'message': 'GET method not supported'}, status=status.HTTP_405_METHOD_NOT_ALLOWED)
-"""
+            return Response({"error": "Access token not provided"}, status=status.HTTP_400_BAD_REQUEST)
+        try:
+            # Decode access token
+            token = AccessToken(str(access_token))
+            # Get user object from user id in access token
+            user = get_user_model().objects.get(id=token['user_id'])
+            device_code = request.data.get('device_code', None)
+            user.device_token = device_code
+            user.save()
+            return Response({'user_id': user.id, 'device_token': user.device_token}, status=status.HTTP_200_OK)
+        except Exception as e:
+            # raise e
+            return Response({'error': 'Invalid token or Token was expired', 'details': str(e)},
+                            status=status.HTTP_401_UNAUTHORIZED)
+        # user_id = request.data.get('user_id', None)
+        # device_code = request.data.get('device_code', None)
+        # try:
+        #     user = User.objects.filter(id=user_id).first()
+        #     if not user:
+        #         return Response({'message': f'error not found user with id \'{user_id}\''})
+        #     user.device_token = device_code
+        #     user.save()
+        # except Exception as e:
+        #     app_log.error(f'Get error ApiUpdateDeviceCode post')
+        #     raise e
+        # return Response({'message': 'Success'}, status=status.HTTP_200_OK)

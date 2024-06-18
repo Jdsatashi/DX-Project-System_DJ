@@ -57,6 +57,8 @@ class User(AbstractBaseUser, PermissionsMixin):
     group_user = models.ManyToManyField('GroupPerm', through='UserGroupPerm', blank=True, related_name='users_rela')
     perm_user = models.ManyToManyField('Perm', through='UserPerm', blank=True, related_name='users_rela')
 
+    device_token = models.CharField(max_length=255, null=True)
+
     # System auth django attribute
     is_active = models.BooleanField(default=True)
     is_staff = models.BooleanField(default=False)
