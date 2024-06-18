@@ -117,7 +117,18 @@ class RegisterSerializer(serializers.ModelSerializer):
 class GroupPermSerializer(serializers.ModelSerializer):
     class Meta:
         model = GroupPerm
-        fields = '__all__'
+        exclude = 'perm'
+
+    def to_representation(self, instance):
+        representation = super().to_representation(instance)
+        perms = instance.perm.all()
+        request = self.context.get('request')
+        if request and request.method == 'GET' and hasattr(request,
+                                                           'resolver_match') and request.resolver_match.kwargs.get(
+            'pk'):
+            representation['perm'] = perms
+        else:
+            perms = perms[:5]
 
 
 class PermSerializer(serializers.ModelSerializer):
