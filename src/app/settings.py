@@ -57,7 +57,8 @@ MY_APPS = [
     'marketing.order',
     'marketing.livestream',
     'marketing.sale_statistic',
-    'marketing.pick_number'
+    'marketing.pick_number',
+    'marketing.medias',
 ]
 
 # Application definition
