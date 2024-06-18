@@ -141,7 +141,7 @@ class PermSerializer(serializers.ModelSerializer):
 class UserWithPerm(serializers.ModelSerializer):
     group = serializers.ListField(child=serializers.CharField(), write_only=True, required=False, allow_null=True)
     perm = serializers.ListField(child=serializers.CharField(), write_only=True, required=False, allow_null=True)
-    phone = serializers.ListField(child=serializers.CharField(), read_only=True, required=False, allow_null=True)
+    phone = serializers.ListField(child=serializers.CharField(), write_only=True, required=False, allow_null=True)
     profile = serializers.JSONField(write_only=True, required=False, allow_null=True)
 
     class Meta:
@@ -190,7 +190,6 @@ class UserWithPerm(serializers.ModelSerializer):
         try:
             with transaction.atomic():
                 user = super().create(validated_data)
-
                 # Create phone
                 if phone_data:
                     for phone_number in phone_data:
@@ -199,7 +198,7 @@ class UserWithPerm(serializers.ModelSerializer):
                         if not is_valid:
                             raise serializers.ValidationError({'phone': f'Phone number "{phone_number}" is not valid'})
                         try:
-                            PhoneNumber.objects.create(phone=phone_number, user=user)
+                            PhoneNumber.objects.create(phone_number=phone_number, user=user)
                         except IntegrityError:
                             raise serializers.ValidationError(
                                 {'phone': f'Phone number "{phone_number}" already exists'})
@@ -234,7 +233,7 @@ class UserWithPerm(serializers.ModelSerializer):
                         if not is_valid:
                             raise serializers.ValidationError({'phone': f'Phone number "{phone_number}" is not valid'})
                         try:
-                            PhoneNumber.objects.create(phone=phone_number, user=instance)
+                            PhoneNumber.objects.create(phone_number=phone_number, user=instance)
                         except IntegrityError:
                             raise serializers.ValidationError(
                                 {'phone': f'Phone number "{phone_number}" already exists'})
