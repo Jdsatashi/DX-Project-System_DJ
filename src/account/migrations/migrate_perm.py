@@ -42,11 +42,11 @@ def create_admin_perm(apps, schema_editor):
 
 class Migration(migrations.Migration):
     depdc = [('account', '0001_groupperm_description_groupperm_parent_group'), ('admin', '0001_initial')]
-    for i, v in enumerate(MY_APPS):
-        data = v.split('.')
-        v = data[-1]
-        a = (v, '0001_initial')
-        depdc.append(a)
+    # for i, v in enumerate(MY_APPS):
+    #     data = v.split('.')
+    #     v = data[-1]
+    #     a = (v, '0001_initial')
+    #     depdc.append(a)
     dependencies = depdc
 
     operations = [
