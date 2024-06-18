@@ -147,12 +147,11 @@ class UserWithPerm(serializers.ModelSerializer):
     class Meta:
         model = User
         # fields = '__all__'
-        exclude = ['is_staff', 'is_superuser', 'last_login', 'groups', 'user_permissions']
+        exclude = ['is_staff', 'is_superuser', 'last_login', 'groups', 'user_permissions', 'password']
         extra_kwargs = {
             'id': {'required': False},
             'username': {'required': False},
             'email': {'required': False},
-            'password': {'write_only': True}
         }
 
     def to_representation(self, instance):
