@@ -26,4 +26,5 @@ urlpatterns = [
     path('livestream/', include('marketing.livestream.api.routes', 'api_livestream')),
     path('sale-statistic/', include('marketing.sale_statistic.api.routes', 'api_sale_statistic')),
     path('event-number/', include('marketing.pick_number.api.routes', 'api_pick_number')),
+    path('media/', include('marketing.medias.api.routes', 'api_media')),
 ]
