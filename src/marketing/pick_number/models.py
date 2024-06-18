@@ -8,6 +8,7 @@ from account.models import User
 from app.logs import app_log
 from marketing.order.models import OrderDetail, Order
 from marketing.price_list.models import PriceList
+from utils.helpers import self_id
 
 
 # Create your models here.
@@ -30,6 +31,8 @@ class EventNumber(models.Model):
         app_log.debug(f"Start saving EventNumber")
         is_new = self._state.adding
         old_limit_repeat = None
+        if not self.id or self.id == '':
+            self.id = self_id('EVN', EventNumber, 4)
         if not is_new:
             # Lưu giá trị limit_repeat cũ trước khi cập nhật
             old_event = EventNumber.objects.get(id=self.id)

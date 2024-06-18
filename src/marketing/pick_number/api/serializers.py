@@ -171,7 +171,7 @@ class UserJoinEventNumberSerializer(serializers.ModelSerializer):
 
 
 class EventNumberSerializer(BaseRestrictSerializer):
-    users = serializers.ListField(child=serializers.CharField(), write_only=True)
+    users = serializers.ListField(child=serializers.CharField(), write_only=True, required=False)
 
     class Meta:
         model = EventNumber
