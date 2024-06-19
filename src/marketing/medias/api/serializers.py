@@ -25,18 +25,29 @@ class NotificationSerializer(serializers.ModelSerializer):
     def to_representation(self, instance):
         representation = super().to_representation(instance)
         users = NotificationUser.objects.filter(notify=instance).values_list('user__id', flat=True)
-        representation['users'] = list(users)
 
         # Get groups with specific permissions
         content_type = ContentType.objects.get_for_model(instance)
         perms = Perm.objects.filter(content_type=content_type, object_id=instance.id)
         groups = GroupPerm.objects.filter(perm__in=perms).distinct().values_list('name', flat=True)
-        representation['groups'] = list(groups)
 
         # Get files from NotificationFile
         files = NotificationFile.objects.filter(notify=instance).values_list('file__file', flat=True)
-        representation['files'] = [file.url for file in FileUpload.objects.filter(file__in=files)]
 
+        request = self.context.get('request')
+        if (request and request.method == 'GET'
+                and hasattr(request, 'resolver_match')
+                and request.resolver_match.kwargs.get('pk')):
+            representation['users'] = list(users)
+            representation['groups'] = list(groups)
+            representation['files'] = [file.url for file in FileUpload.objects.filter(file__in=files)]
+        else:
+            user = list(users)[:5]
+            representation['users'] = user + ['...'] if len(user) > 5 else user
+            group = list(groups)[:5]
+            representation['groups'] = group + ['...'] if len(group) else group
+            file = [file.url for file in list(FileUpload.objects.filter(file__in=files))[:5]]
+            representation['files'] = file + ['...'] if len(file) > 5 else file
         return representation
 
     def create(self, validated_data):
