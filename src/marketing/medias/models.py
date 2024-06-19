@@ -31,3 +31,11 @@ class NotificationFile(models.Model):
     priority = models.IntegerField(null=True)
     note = models.CharField(max_length=255)
     created_at = models.DateTimeField(auto_now_add=True)
+
+    def save(self, *args, **kwargs):
+        notify_file = NotificationFile.objects.filter(notify=self.notify)
+        if notify_file.exists() and self.id not in notify_file.values_list('id', flat=True):
+            prio_list = [p.priority for p in notify_file]
+            if self.priority in prio_list:
+                self.priority = max(prio_list) + 1
+        super().save(*args, **kwargs)

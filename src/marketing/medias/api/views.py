@@ -18,6 +18,6 @@ class ApiNotification(viewsets.GenericViewSet, mixins.ListModelMixin, mixins.Cre
     # permission_classes = [partial(ValidatePermRest, model=User)]
 
     def list(self, request, *args, **kwargs):
-        response = filter_data(self, request, ['id', 'title', 'alert_time'],
+        response = filter_data(self, request, ['id', 'title'],
                                **kwargs)
         return Response(response, status.HTTP_200_OK)
