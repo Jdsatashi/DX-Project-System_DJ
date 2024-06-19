@@ -5,21 +5,39 @@ from rest_framework.exceptions import ValidationError
 
 from account.handlers.restrict_serializer import BaseRestrictSerializer, create_full_perm, list_user_has_perm, \
     list_group_has_perm, add_perm
-from account.models import Perm, User
+from account.models import Perm, User, GroupPerm
 from app.logs import app_log
 from marketing.medias.models import Notification, NotificationUser, NotificationFile
+from system.file_upload.models import FileUpload
 from utils.constants import acquy
 
 
 class NotificationSerializer(serializers.ModelSerializer):
-    users = serializers.ListField(child=serializers.CharField(), allow_null=True, required=False)
-    groups = serializers.ListField(child=serializers.CharField(), allow_null=True, required=False)
-    files = serializers.ListField(child=serializers.FileField(), allow_null=True, required=False)
+    users = serializers.ListField(child=serializers.CharField(), write_only=True, allow_null=True, required=False)
+    groups = serializers.ListField(child=serializers.CharField(), write_only=True, allow_null=True, required=False)
+    files = serializers.ListField(child=serializers.FileField(), write_only=True, allow_null=True, required=False)
 
     class Meta:
         model = Notification
         fields = '__all__'
         read_only_fields = ('id', 'created_at', 'updated_at')
+
+    def to_representation(self, instance):
+        representation = super().to_representation(instance)
+        users = NotificationUser.objects.filter(notify=instance).values_list('user__id', flat=True)
+        representation['users'] = list(users)
+
+        # Get groups with specific permissions
+        content_type = ContentType.objects.get_for_model(instance)
+        perms = Perm.objects.filter(content_type=content_type, object_id=instance.id)
+        groups = GroupPerm.objects.filter(perm__in=perms).distinct().values_list('name', flat=True)
+        representation['groups'] = list(groups)
+
+        # Get files from NotificationFile
+        files = NotificationFile.objects.filter(notify=instance).values_list('file__file', flat=True)
+        representation['files'] = [file.url for file in FileUpload.objects.filter(file__in=files)]
+
+        return representation
 
     def create(self, validated_data):
         users = validated_data.pop('users', [])
