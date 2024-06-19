@@ -14,4 +14,7 @@ class ClientProfileSerializer(BaseRestrictSerializer):
 class ClientProfileUserSerializer(serializers.ModelSerializer):
     class Meta:
         model = ClientProfile
-        fields = ['register_name', 'address', 'client_group_id', 'nvtt_id']
+        fields = ['register_name', 'address', 'client_group_id', 'is_npp', 'nvtt_id']
+        extra_kwargs = {
+            'is_npp': {'required': False},
+        }

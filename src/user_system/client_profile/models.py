@@ -14,6 +14,7 @@ class ClientProfile(models.Model):
     nvtt_id = models.CharField(max_length=255, null=True)
     address = models.TextField(null=True)
     client_lv1_id = models.CharField(max_length=255, null=True)
+    is_npp = models.BooleanField(default=False)
     created_by = models.TextField(null=True)
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)

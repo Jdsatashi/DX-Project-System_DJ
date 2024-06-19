@@ -49,19 +49,31 @@ class ApiAccount(viewsets.GenericViewSet, mixins.ListModelMixin, mixins.CreateMo
         get_user = self.request.query_params.get('get_user', None)
         match get_user:
             case 'nvtt':
+                app_log.info(f"Case nvtt")
                 queryset = User.objects.filter(
                     Q(employeeprofile__position__id='NVTT')
                 ).select_related('employeeprofile').prefetch_related('employeeprofile__position').exclude(group_user__name='admin').distinct()
             case 'client':
+                app_log.info(f"Case client")
                 queryset = queryset.filter(user_type='client')
             case 'employee':
+                app_log.info(f"Case employee")
                 queryset = queryset.filter(user_type='employee').exclude(group_user__name='admin')
             case 'farmer':
+                app_log.info(f"Case farmer")
                 queryset = queryset.filter(user_type='farmer')
             case 'admin':
+                app_log.info(f"Case admin")
                 # queryset = queryset.filter(is_superuser=True)
                 queryset = queryset.filter(group_user__name='admin')
+            case 'npp':
+                app_log.info(f"Case npp")
+                queryset = queryset.filter(clientprofile__is_npp=True)
+            case 'daily':
+                app_log.info(f"Case daily")
+                queryset = queryset.filter(user_type='client').exclude(clientprofile__is_npp=True)
             case _:
+                app_log.info(f"Case default")
                 pass
         response = filter_data(self, request, ['id', 'username', 'email', 'phone_numbers__phone_number', 'clientprofile__register_name', 'employeeprofile__register_name'],
                                queryset=queryset, **kwargs)
