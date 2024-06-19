@@ -117,18 +117,22 @@ class RegisterSerializer(serializers.ModelSerializer):
 class GroupPermSerializer(serializers.ModelSerializer):
     class Meta:
         model = GroupPerm
-        exclude = 'perm'
+        exclude = ['perm']
 
     def to_representation(self, instance):
         representation = super().to_representation(instance)
         perms = instance.perm.all()
+        app_log.info(perms)
         request = self.context.get('request')
-        if request and request.method == 'GET' and hasattr(request,
-                                                           'resolver_match') and request.resolver_match.kwargs.get(
-            'pk'):
+        if (request and request.method == 'GET'
+                and hasattr(request, 'resolver_match')
+                and request.resolver_match.kwargs.get('pk')):
+            perms = [perm.name for perm in perms]
             representation['perm'] = perms
         else:
-            perms = perms[:5]
+            perms = [perm.name for perm in perms[:5]]
+            representation['perm'] = perms + ['...'] if len(perms) >= 5 else perms
+        return representation
 
 
 class PermSerializer(serializers.ModelSerializer):
@@ -190,6 +194,10 @@ class UserWithPerm(serializers.ModelSerializer):
         try:
             with transaction.atomic():
                 user = super().create(validated_data)
+                email = validated_data.get('email')
+                if email and email != '' and User.objects.filter(email=email).exists():
+                    raise serializers.ValidationError(
+                        {'phone': f"Email '{email}' already exists"})
                 # Create phone
                 if phone_data:
                     for phone_number in phone_data:
@@ -201,7 +209,7 @@ class UserWithPerm(serializers.ModelSerializer):
                             PhoneNumber.objects.create(phone_number=phone_number, user=user)
                         except IntegrityError:
                             raise serializers.ValidationError(
-                                {'phone': f'Phone number "{phone_number}" already exists'})
+                                {'phone': f"Phone number '{phone_number}' already exists"})
                 handle_user(user, group_data, perm_data, profile_data)
 
         except Exception as e:
