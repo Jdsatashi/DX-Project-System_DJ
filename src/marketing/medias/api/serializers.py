@@ -71,6 +71,10 @@ class NotificationSerializer(serializers.ModelSerializer):
                 # Create notification of user
                 NotificationUser.objects.bulk_create(notify_users)
 
+                for file in files:
+                    file_upload = FileUpload.objects.create(file=file)
+                    NotificationFile.objects.create(notify=notify, file=file_upload)
+
                 return notify
         except Exception as e:
             raise e
