@@ -193,11 +193,15 @@ class UserWithPerm(serializers.ModelSerializer):
 
         try:
             with transaction.atomic():
-                user = super().create(validated_data)
                 email = validated_data.get('email')
+                app_log.info(f"Email: {email}")
+                app_log.info(f"{email and email != '' and User.objects.filter(email=email).exists()}")
                 if email and email != '' and User.objects.filter(email=email).exists():
                     raise serializers.ValidationError(
-                        {'phone': f"Email '{email}' already exists"})
+                        {'email': f"Email '{email}' already exists"})
+
+                user = super().create(validated_data)
+
                 # Create phone
                 if phone_data:
                     for phone_number in phone_data:
