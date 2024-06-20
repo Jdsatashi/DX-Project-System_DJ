@@ -44,7 +44,7 @@ class ApiNotificationUser(viewsets.GenericViewSet, mixins.ListModelMixin):
         if pk:
             query_fields = ['notify__id']
         else:
-            query_fields = ['notify__title', 'user__username', 'user__email', 'user__phone__phone_number']
+            query_fields = ['notify__id', 'notify__title', 'user__username', 'user__email', 'user__phone__phone_number']
         response = filter_data(self, request, query_fields,
                                queryset=queryset, **kwargs)
         return Response(response, status.HTTP_200_OK)
