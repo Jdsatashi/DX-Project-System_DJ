@@ -131,7 +131,7 @@ class OrderReportView(viewsets.GenericViewSet, mixins.ListModelMixin):
 class OrderReportView2(APIView):
     def get(self, request):
         start_time = time.time()
-        query, strict_mode, limit, page, order_by, from_date, to_date = get_query_parameters(request)
+        query, strict_mode, limit, page, order_by, from_date, to_date, _ = get_query_parameters(request)
         nvtt_query = request.query_params.get('nvtt', '')
         order_by = '-date_get' if order_by == '' else order_by
 
