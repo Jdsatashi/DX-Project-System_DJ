@@ -163,10 +163,24 @@ class NotificationSerializer(serializers.ModelSerializer):
             raise e
 
 
+class NotifyReadSerializer(serializers.ModelSerializer):
+    files = serializers.SerializerMethodField()
+
+    class Meta:
+        model = Notification
+        fields = ['id', 'title', 'short_description', 'alert_date', 'alert_time', 'content', 'type', 'files']
+
+    def get_files(self, obj):
+        files = NotificationFile.objects.filter(notify=obj).values_list('file__file', flat=True)
+        return [file.url for file in FileUpload.objects.filter(file__in=files)]
+
+
 class NotificationUserSerializer(serializers.ModelSerializer):
+    notify = NotifyReadSerializer()
+
     class Meta:
         model = NotificationUser
-        fields = '__all__'
+        exclude = ('id', 'updated_at')
         read_only_fields = ('id', 'updated_at', 'notify', 'user')
 
 
