@@ -122,7 +122,6 @@ class GroupPermSerializer(serializers.ModelSerializer):
     def to_representation(self, instance):
         representation = super().to_representation(instance)
         perms = instance.perm.all()
-        app_log.info(perms)
         request = self.context.get('request')
         if (request and request.method == 'GET'
                 and hasattr(request, 'resolver_match')

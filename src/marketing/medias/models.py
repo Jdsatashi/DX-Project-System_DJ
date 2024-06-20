@@ -1,4 +1,5 @@
 from django.db import models
+from rest_framework.exceptions import ValidationError
 
 from account.models import User
 from system.file_upload.models import FileUpload
@@ -23,6 +24,10 @@ class NotificationUser(models.Model):
     status = models.CharField(max_length=64, default='unread')
     read_at = models.DateTimeField(null=True)
     updated_at = models.DateTimeField(auto_now=True)
+
+    def save(self, *args, **kwargs):
+        if NotificationUser.objects.filter(notify=self.notify, user=self.user).exists():
+            raise ValidationError({'message': 'error when save notification user'})
 
 
 class NotificationFile(models.Model):
