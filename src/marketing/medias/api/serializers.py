@@ -33,21 +33,23 @@ class NotificationSerializer(serializers.ModelSerializer):
 
         # Get files from NotificationFile
         files = NotificationFile.objects.filter(notify=instance).values_list('file__file', flat=True)
-
-        request = self.context.get('request')
-        if (request and request.method == 'GET'
-                and hasattr(request, 'resolver_match')
-                and request.resolver_match.kwargs.get('pk')):
-            representation['users'] = list(users)
-            representation['groups'] = list(groups)
-            representation['files'] = [file.url for file in FileUpload.objects.filter(file__in=files)]
-        else:
-            user = list(users)[:5]
-            representation['users'] = user + ['...'] if len(user) > 5 else user
-            group = list(groups)[:5]
-            representation['groups'] = group + ['...'] if len(group) else group
-            file = [file.url for file in list(FileUpload.objects.filter(file__in=files))[:5]]
-            representation['files'] = file + ['...'] if len(file) > 5 else file
+        representation['users'] = list(users)
+        representation['groups'] = list(groups)
+        representation['files'] = [file.url for file in FileUpload.objects.filter(file__in=files)]
+        # request = self.context.get('request')
+        # if (request and request.method == 'GET'
+        #         and hasattr(request, 'resolver_match')
+        #         and request.resolver_match.kwargs.get('pk')):
+        #     representation['users'] = list(users)
+        #     representation['groups'] = list(groups)
+        #     representation['files'] = [file.url for file in FileUpload.objects.filter(file__in=files)]
+        # else:
+        #     user = list(users)[:5]
+        #     representation['users'] = user + ['...'] if len(user) > 5 else user
+        #     group = list(groups)[:5]
+        #     representation['groups'] = group + ['...'] if len(group) > 5 else group
+        #     file = [file.url for file in list(FileUpload.objects.filter(file__in=files))[:5]]
+        #     representation['files'] = file + ['...'] if len(file) > 5 else file
         return representation
 
     def create(self, validated_data):
