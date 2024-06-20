@@ -2,7 +2,7 @@ from functools import partial
 
 from django.utils import timezone
 from rest_framework import viewsets, mixins, status
-from rest_framework.authentication import BasicAuthentication
+from rest_framework.authentication import BasicAuthentication, SessionAuthentication
 from rest_framework.decorators import action
 from rest_framework.response import Response
 from rest_framework_simplejwt.authentication import JWTAuthentication
@@ -19,7 +19,7 @@ class GenericApiPriceList(viewsets.GenericViewSet, mixins.ListModelMixin, mixins
                           mixins.RetrieveModelMixin, mixins.UpdateModelMixin, mixins.DestroyModelMixin):
     serializer_class = PriceListSerializer
     # queryset = PriceList.objects.all()
-    authentication_classes = [JWTAuthentication, BasicAuthentication]
+    authentication_classes = [JWTAuthentication, BasicAuthentication, SessionAuthentication]
 
     permission_classes = [partial(ValidatePermRest, model=PriceList)]
 
@@ -45,7 +45,7 @@ class ApiSpecialOffer(viewsets.GenericViewSet, mixins.ListModelMixin, mixins.Cre
                       mixins.RetrieveModelMixin, mixins.UpdateModelMixin, mixins.DestroyModelMixin):
     serializer_class = SpecialOfferSerializer
     # queryset = SpecialOffer.objects.all()
-    authentication_classes = [JWTAuthentication, BasicAuthentication]
+    authentication_classes = [JWTAuthentication, BasicAuthentication, SessionAuthentication]
     permission_classes = [partial(ValidatePermRest, model=PriceList)]
 
     def get_queryset(self):
@@ -60,7 +60,7 @@ class ApiSpecialOffer(viewsets.GenericViewSet, mixins.ListModelMixin, mixins.Cre
 class ApiSpecialOfferConsider(viewsets.GenericViewSet, mixins.ListModelMixin):
     serializer_class = SpecialOfferSerializer
     queryset = SpecialOffer.objects.filter(type_list='consider_offer_user')
-    authentication_classes = [JWTAuthentication, BasicAuthentication]
+    authentication_classes = [JWTAuthentication, BasicAuthentication, SessionAuthentication]
     # permission_classes = [partial(ValidatePermRest, model=PriceList)]
 
     def list(self, request, *args, **kwargs):
