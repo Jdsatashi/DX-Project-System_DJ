@@ -89,7 +89,6 @@ def add_perm(items: dict, perms: list, allow: bool):
     if exited and len(exited) > 0:
         # Return users/groups that would be removed permissions
         items['existed'] = list(set(exited) - set(items_data))
-        app_log.info(f"'{field}_{items['type']}' item existeed: {items['existed']}")
         for item_data in items['existed']:
             if items['type'] == 'users':
                 update_user_perm(item_data, perms, items, allow, exited)
@@ -126,14 +125,14 @@ def update_user_perm(item_data, perms, items, allow, exited):
         is_perm = user.is_perm(perm)
         # Remove when permission is existed and User not in Updated list
         if exited is not None and is_perm and user.id in items['existed']:
-            app_log.info(f"Remove permissions '{user.id}' - '{perm}'")
+            app_log.info(f"|__ Remove permissions '{user.id}' - '{perm}'")
             user.perm_user.remove(perm)
         elif is_perm:
-            app_log.info(f"Continue '{user.id}' - '{perm}'")
+            app_log.info(f"|__ Continue '{user.id}' - '{perm}'")
             continue
         # Adding permissions to user
         else:
-            app_log.info(f"Add permissions '{user.id}' - '{perm}'")
+            app_log.info(f"|__ Add permissions '{user.id}' - '{perm}'")
             user.perm_user.add(perm, through_defaults={'allow': allow})
 
 
@@ -150,22 +149,22 @@ def update_group_perm(item_data, perms, items, allow, exited):
         is_perm = group.group_has_perm(perm)
         # Remove when permission is existed and Group not in Updated list
         if exited is not None and is_perm and group.name in items['existed']:
-            app_log.info(f"Remove permissions '{group.name}' - '{perm}'")
+            app_log.info(f"|__ Remove permissions '{group.name}' - '{perm}'")
             group.perm.remove(perm)
         elif is_perm:
-            app_log.info(f"Continue '{group.name}' - '{perm}'")
+            app_log.info(f"|__ Continue '{group.name}' - '{perm}'")
             continue
         # Adding permissions to group
-        elif allow:
-            app_log.info(f"Add permissions '{group.name}' - '{perm}'")
+        else:
+            app_log.info(f"|__ Add permissions '{group.name}' - '{perm}'")
             group.perm.add(perm, through_defaults={'allow': allow})
 
 
 def list_user_has_perm(perms: list, allow: bool):
     user_perms = UserPerm.objects.filter(
-        perm__name__in=perms,
-        user__is_superuser=False,
-        allow=allow
+        Q(perm__name__in=perms,
+          user__is_superuser=False,
+          allow=allow)
     ).distinct('user')
     # Create user_id list in which user has perm
     existed_user = []
@@ -202,6 +201,6 @@ def create_full_perm(model, _id=None, user_actions=None):
             content_type=content
         )
         # Add perm to list_perm for register user/nhom
-        if len(user_actions) > 0 and user_actions[0] is not '' and action in acquy.get(user_actions[0]):
+        if len(user_actions) > 0 and user_actions[0] != '' and action in acquy.get(user_actions[0]):
             list_perm.append(_perm_name)
     return list_perm
