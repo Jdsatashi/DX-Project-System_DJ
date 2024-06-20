@@ -248,7 +248,8 @@ class GroupPerm(models.Model):
     description = models.CharField(max_length=255, null=True, blank=True)
     parent_group = models.ForeignKey('self', null=True, blank=True, on_delete=models.SET_NULL)
     note = models.TextField(null=True, default=None, blank=True)
-    perm = models.ManyToManyField(Perm, blank=True)
+    perm = models.ManyToManyField(to='Perm', through='GroupPermPerms', blank=True)
+    # perm = models.ManyToManyField(Perm, blank=True)
     allow = models.BooleanField(default=True)
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
@@ -289,6 +290,15 @@ class UserGroupPerm(models.Model):
     class Meta:
         db_table = 'users_user_group_perm'
 
+
+class GroupPermPerms(models.Model):
+    perm = models.ForeignKey(Perm, on_delete=models.CASCADE, related_name='perm_group')
+    group = models.ForeignKey(GroupPerm, on_delete=models.CASCADE, related_name='perm_group')
+    allow = models.BooleanField(default=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        db_table = 'users_groupperm_perm'
 
 """
 RefreshToken.objects.filter(
