@@ -7,7 +7,7 @@ from rest_framework import serializers
 
 from account.models import User, GroupPerm, Perm, UserPerm, UserGroupPerm, PhoneNumber
 from app.logs import app_log
-from utils.constants import acquy
+from utils.constants import acquy, admin_role
 from utils.helpers import phone_validate
 
 
@@ -175,7 +175,7 @@ def list_user_has_perm(perms: list, allow: bool):
 
 def list_group_has_perm(perms: list, allow: bool):
     # Get groups has perm
-    group_perms = GroupPerm.objects.filter(Q(perm__name__in=perms, allow=allow)).distinct()
+    group_perms = GroupPerm.objects.filter(Q(perm__name__in=perms, allow=allow)).exclude(name=admin_role).distinct()
     # Create group name list in which group has perm
     existed_group = []
     for group in group_perms:
