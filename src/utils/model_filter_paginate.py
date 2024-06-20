@@ -19,7 +19,8 @@ def get_query_parameters(request):
     strict_mode = bool(strict)
     from_date = data.get('from_date') or request.query_params.get('from_date', '')
     to_date = data.get('to_date') or request.query_params.get('to_date', '')
-    return query, strict_mode, limit, page, order_by, from_date, to_date
+    date_field = request.GET.get('date_field', 'created_at')
+    return query, strict_mode, limit, page, order_by, from_date, to_date, date_field
 
 
 def dynamic_q(queries, fields, strict_mode):
@@ -37,7 +38,7 @@ def filter_data(self, request, query_fields, **kwargs):
     # Get query set if exists or get default
     queryset = kwargs.get('queryset', self.get_queryset())
     # Split query search, strict mode, limit, page, order_by
-    query, strict_mode, limit, page, order_by, from_date, to_date = get_query_parameters(request)
+    query, strict_mode, limit, page, order_by, from_date, to_date, date_field = get_query_parameters(request)
     # If query exists, filter queryset
     if query != '':
         queries = query.split(',')
@@ -45,12 +46,17 @@ def filter_data(self, request, query_fields, **kwargs):
         queryset = queryset.filter(query_filter)
     if from_date or to_date:
         try:
+            app_log.info(f"Check date field: {date_field}")
             if from_date:
+                app_log.info(f"Check from date 1: {from_date}")
                 from_date = datetime.strptime(from_date, '%d/%m/%Y')
-                queryset = queryset.filter(created_at__gte=from_date)
+                app_log.info(f"Check from date 2: {from_date}")
+                queryset = queryset.filter(**{f'{date_field}__gte': from_date})
             if to_date:
+                app_log.info(f"Check to date 1: {to_date}")
                 to_date = datetime.strptime(to_date, '%d/%m/%Y') + timedelta(days=1) - timedelta(seconds=1)
-                queryset = queryset.filter(created_at__lte=to_date)
+                app_log.info(f"Check to date 2: {to_date}")
+                queryset = queryset.filter(**{f'{date_field}__lte': to_date})
         except ValueError:
             pass
     # Get fields in models
@@ -100,13 +106,13 @@ def filter_data(self, request, query_fields, **kwargs):
     # If has next page, add urls to response data
     if page_obj.has_next():
         next_page = request.build_absolute_uri(
-            '?page={}&limit={}&query={}&order_by={}&from_date={}&to_date={}'.format(
-                page_obj.next_page_number(), limit, query, order_by, from_date, to_date))
+            '?page={}&limit={}&query={}&order_by={}&date_field={}&from_date={}&to_date={}'.format(
+                page_obj.next_page_number(), limit, query, order_by, date_field, from_date, to_date))
         response_data['next_page'] = next_page
     # If has previous page, add urls to response data
     if page_obj.has_previous():
         prev_page = request.build_absolute_uri(
-            '?page={}&limit={}&query={}&order_by={}&from_date={}&to_date={}'.format(
-                page_obj.previous_page_number(), limit, query, order_by, from_date, to_date))
+            '?page={}&limit={}&query={}&order_by={}&date_field={}&from_date={}&to_date={}'.format(
+                page_obj.previous_page_number(), limit, query, order_by, date_field, from_date, to_date))
         response_data['prev_page'] = prev_page
     return response_data
