@@ -51,8 +51,8 @@ class ApiAccount(viewsets.GenericViewSet, mixins.ListModelMixin, mixins.CreateMo
             case 'nvtt':
                 app_log.info(f"Case nvtt")
                 queryset = User.objects.filter(
-                    Q(employeeprofile__position__id='NVTT')
-                ).select_related('employeeprofile').prefetch_related('employeeprofile__position').exclude(group_user__name='admin').distinct()
+                    group_user__name='nvtt'
+                )
             case 'client':
                 app_log.info(f"Case client")
                 queryset = queryset.filter(user_type='client')
