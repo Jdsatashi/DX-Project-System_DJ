@@ -2,10 +2,14 @@ import time
 from datetime import datetime, timedelta
 from functools import partial
 
+import openpyxl
 from django.core.exceptions import FieldError
 from django.core.paginator import Paginator
 from django.db.models import Sum, Q
+from django.http import HttpResponse
 from django.utils import timezone
+from openpyxl.styles import Font, Alignment, PatternFill
+from openpyxl.utils import get_column_letter
 from rest_framework import viewsets, mixins, status
 from rest_framework.authentication import BasicAuthentication
 from rest_framework.response import Response
@@ -14,10 +18,8 @@ from rest_framework_simplejwt.authentication import JWTAuthentication
 
 from account.handlers.perms import DataFKModel
 from account.handlers.validate_perm import ValidatePermRest
-from account.models import GroupPerm
 from app.logs import app_log
-from marketing.order.api.serializers import OrderSerializer, ProductStatisticsSerializer, OrderReportSerializer, \
-    OrderDetailSerializer, OrderDetail2Serializer, Order2Serializer, OrderDetail3Serializer, Order3Serializer
+from marketing.order.api.serializers import OrderSerializer, ProductStatisticsSerializer
 from marketing.order.models import Order, OrderDetail
 from marketing.price_list.models import SpecialOfferProduct
 from user_system.client_profile.models import ClientProfile
@@ -76,7 +78,7 @@ class ProductStatisticsView(APIView):
             page = int(request.query_params.get('page', 1))
 
             # Data set for statistic
-            statistics = get_product_statistics_2(user, input_date, type_statistic)
+            statistics = get_product_statistics(user, input_date, type_statistic)
 
             statistics_list = [{"product_id": k, **v} for k, v in statistics.items()]
 
@@ -115,22 +117,111 @@ class ProductStatisticsView(APIView):
             return Response({"error": str(e)}, status=status.HTTP_400_BAD_REQUEST)
         except Exception as e:
             raise e
-            return Response({"error": str(e)}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+            # return Response({"error": str(e)}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
 
 
-class OrderReportView(viewsets.GenericViewSet, mixins.ListModelMixin):
-    serializer_class = OrderReportSerializer
-    queryset = Order.objects.all()
+class ExportReport(APIView):
+    def get(self, request):
+        # Get data from OrderReport
+        limit = request.query_params.get('limit', 10)
+        response_data, _, _ = OrderReportView().get_query_results(request)
 
-    def list(self, request, *args, **kwargs):
-        start_time = time.time()
-        response = filter_data(self, request, ['id', 'date_get', 'date_company_get', 'client_id__id'],
-                               **kwargs)
-        app_log.info(f'OrderReport1 Query Time: {time.time() - start_time}')
-        return Response(response, status=status.HTTP_200_OK)
+        # Add new workbook
+        workbook = openpyxl.Workbook()
+        sheet = workbook.active
+
+        # Format title
+        title_font = Font(bold=True, size=20)
+        note_font = Font(size=11)
+        header_font = Font(bold=True)
+        center_alignment = Alignment(horizontal='center', vertical='center')
+        header_fill = PatternFill(start_color='FFFF00', end_color='FFFF00', fill_type='solid')
+
+        # Create Title
+        sheet.merge_cells('A1:N1')
+        title_cell = sheet.cell(row=1, column=1)
+        title_cell.value = f'Bảng thống kê toa thuốc {datetime.now().strftime("%d/%m/%Y")}'
+        title_cell.font = title_font
+        title_cell.alignment = center_alignment
+
+        # Suport note
+        note = f'Ngày thống kê: {datetime.now().strftime("%d/%m/%Y")}   ||   Tổng doanh thu: None   ||   Số lượng bản kê: {limit}'
+        sheet.merge_cells('A2:N2')
+        note_cell = sheet.cell(row=2, column=1)
+        note_cell.value = note
+        note_cell.font = note_font
+        note_cell.alignment = center_alignment
+
+        # Tiêu đề cột
+        columns = [
+            'Loại bảng kê', 'Mã khách hàng', 'Tên Khách hàng', 'Khách hàng cấp 1', 'NVTT',
+            'Ngày nhận toa', 'Ngày nhận hàng', 'Ngày gửi trễ', 'Ghi chú',
+            'Mã sản phẩm', 'Tên sản phẩm', 'Số lượng', 'Số thùng', 'Thành tiền'
+        ]
+
+        column_widths = {
+            'Loại bảng kê': 88,
+            'Mã khách hàng': 104,
+            'Tên Khách hàng': 160,
+            'Khách hàng cấp 1': 160,
+            'NVTT': 160,
+            'Tên sản phẩm': 200,
+        }
+
+        for col_num, column_title in enumerate(columns, 1):
+            cell = sheet.cell(row=4, column=col_num)  # Thêm tiêu đề cột từ dòng 4
+            cell.value = column_title
+            cell.font = header_font
+            cell.alignment = center_alignment
+            cell.fill = header_fill
+
+            # Đặt độ rộng cột
+            col_letter = get_column_letter(col_num)
+            if column_title in column_widths:
+                sheet.column_dimensions[col_letter].width = column_widths[
+                                                                column_title] / 7.2  # Chia để chuyển đổi từ px sang độ rộng cột
+            else:
+                sheet.column_dimensions[col_letter].width = 120 / 7.2  # Đặt độ rộng cột mặc định
+
+        # Thêm dữ liệu vào sheet
+        row_num = 5  # Bắt đầu thêm dữ liệu từ dòng 5
+        for order in response_data:
+            for detail in order['order_details']:
+                product_price = detail['product_price'] or 0
+                try:
+                    date_send = datetime.strftime(order['date_company_get'], "%d/%m/%Y")
+                except TypeError:
+                    date_send = ''
+
+                sheet.append([
+                    '',
+                    order['clients']['id'],
+                    order['clients']['name'],
+                    order['clients']['register_lv1'],
+                    order['clients']['nvtt'],
+                    order['date_get'],
+                    date_send,
+                    order['date_delay'],
+                    order['note'],
+                    detail['product_id'],
+                    detail['product_name'],
+                    detail['order_quantity'],
+                    detail['order_box'],
+                    product_price,
+                ])
+                row_num += 1
+
+        # Tạo response với Content-Disposition để tải xuống tệp Excel
+        response = HttpResponse(content_type='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet')
+        response['Content-Disposition'] = 'attachment; filename=orders.xlsx'
+
+        # Lưu workbook vào response
+        workbook.save(response)
+
+        return response
 
 
-class OrderReportView2(APIView):
+class OrderReportView(APIView):
     def get(self, request):
         start_time = time.time()
 
@@ -199,7 +290,6 @@ class OrderReportView2(APIView):
 
             client_query = Q(client_id__in=daily_ids)
             orders = orders.filter(client_query)
-
 
         if query != '':
             query_parts = query.split(',')
@@ -321,7 +411,6 @@ class OrderReportView2(APIView):
         field_dict = {}
         fk_field = DataFKModel(model)
         fk_fields = fk_field.get_fk_fields()
-        app_log.info(f"FK FIELDS: {fk_fields}")
         for field in fields:
             field_name = field.name
             if field_name not in fk_fields:
@@ -333,81 +422,6 @@ class OrderReportView2(APIView):
 
 
 def get_product_statistics(user, input_date, type_statistic):
-    # Convert date format
-    start_date_1 = timezone.make_aware(datetime.strptime(input_date.get('start_date_1'), '%d/%m/%Y'),
-                                       timezone.get_current_timezone())
-    end_date_1 = timezone.make_aware(
-        datetime.strptime(input_date.get('end_date_1'), '%d/%m/%Y') + timedelta(days=1) - timedelta(seconds=1),
-        timezone.get_current_timezone())
-
-    start_date_2 = timezone.make_aware(datetime.strptime(input_date.get('start_date_2'), '%d/%m/%Y'),
-                                       timezone.get_current_timezone())
-    end_date_2 = timezone.make_aware(
-        datetime.strptime(input_date.get('end_date_2'), '%d/%m/%Y') + timedelta(days=1) - timedelta(seconds=1),
-        timezone.get_current_timezone())
-    orders_1 = Order.objects.filter(client_id=user, created_at__gte=start_date_1, created_at__lte=end_date_1)
-    orders_2 = Order.objects.filter(client_id=user, created_at__gte=start_date_2, created_at__lte=end_date_2)
-    # Get orders for each date range
-    match type_statistic:
-        case 'special_offer':
-            # Get orders for each date range with new_special_offer or is_so
-            orders_1 = orders_1.filter(Q(new_special_offer__isnull=False) | Q(is_so=True))
-            orders_2 = orders_2.filter(Q(new_special_offer__isnull=False) | Q(is_so=True))
-        case 'normal':
-            orders_1 = orders_1.filter(Q(new_special_offer__isnull=True) & Q(is_so=False))
-            orders_2 = orders_2.filter(Q(new_special_offer__isnull=True) & Q(is_so=False))
-
-    # Get order details for each date range
-    details_1 = OrderDetail.objects.filter(order_id__in=orders_1).values('product_id', 'product_id__name').annotate(
-        total_quantity=Sum('order_quantity'),
-        total_point=Sum('point_get'),
-        total_price=Sum('product_price'),
-        total_box=Sum('order_box')
-    )
-
-    details_2 = OrderDetail.objects.filter(order_id__in=orders_2).values('product_id', 'product_id__name').annotate(
-        total_quantity=Sum('order_quantity'),
-        total_point=Sum('point_get'),
-        total_price=Sum('product_price'),
-        total_box=Sum('order_box')
-    )
-
-    # Combine results into a single dictionary
-    combined_results = {}
-    for detail in details_1:
-        product_id = detail['product_id']
-        product_name = detail['product_id__name']
-
-        combined_results[product_id] = {
-            "product_name": product_name,
-            "current": {
-                "price": detail['total_price'],
-                "point": detail['total_point'],
-                "quantity": detail['total_quantity'],
-                "box": detail['total_box']
-            }
-        }
-
-    for detail in details_2:
-        product_id = detail['product_id']
-        product_name = detail['product_id__name']
-
-        if product_id not in combined_results:
-            combined_results[product_id] = {
-                "product_name": product_name,
-                "one_year_ago": {}
-            }
-        combined_results[product_id]["one_year_ago"] = {
-            "price": detail['total_price'],
-            "point": detail['total_point'],
-            "quantity": detail['total_quantity'],
-            "box": detail['total_box']
-        }
-
-    return combined_results
-
-
-def get_product_statistics_2(user, input_date, type_statistic):
     # Convert date format
     start_date_1 = timezone.make_aware(datetime.strptime(input_date.get('start_date_1'), '%d/%m/%Y'),
                                        timezone.get_current_timezone())
