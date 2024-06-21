@@ -14,6 +14,7 @@ from rest_framework_simplejwt.authentication import JWTAuthentication
 
 from account.handlers.perms import DataFKModel
 from account.handlers.validate_perm import ValidatePermRest
+from account.models import GroupPerm
 from app.logs import app_log
 from marketing.order.api.serializers import OrderSerializer, ProductStatisticsSerializer, OrderReportSerializer, \
     OrderDetailSerializer, OrderDetail2Serializer, Order2Serializer, OrderDetail3Serializer, Order3Serializer
@@ -21,6 +22,7 @@ from marketing.order.models import Order, OrderDetail
 from marketing.price_list.models import SpecialOfferProduct
 from user_system.client_profile.models import ClientProfile
 from user_system.employee_profile.models import EmployeeProfile
+from utils.constants import maNhomND
 from utils.model_filter_paginate import filter_data, get_query_parameters
 
 
@@ -131,8 +133,11 @@ class OrderReportView(viewsets.GenericViewSet, mixins.ListModelMixin):
 class OrderReportView2(APIView):
     def get(self, request):
         start_time = time.time()
-        query, strict_mode, limit, page, order_by, from_date, to_date, _ = get_query_parameters(request)
+        query, strict_mode, limit, page, order_by, from_date, to_date, date_field = get_query_parameters(request)
         nvtt_query = request.query_params.get('nvtt', '')
+        npp_query = request.query_params.get('npp', '')
+        daily_query = request.query_params.get('daily', '')
+
         order_by = '-date_get' if order_by == '' else order_by
 
         orders = Order.objects.all()
@@ -141,20 +146,47 @@ class OrderReportView2(APIView):
             try:
                 if from_date:
                     from_date = datetime.strptime(from_date, '%d/%m/%Y')
-                    orders = orders.filter(created_at__gte=from_date)
+                    orders = orders.filter(**{f'{date_field}__gte': from_date})
                 if to_date:
                     to_date = datetime.strptime(to_date, '%d/%m/%Y') + timedelta(days=1) - timedelta(seconds=1)
-                    orders = orders.filter(created_at__lte=to_date)
+                    orders = orders.filter(**{f'{date_field}__lte': to_date})
             except ValueError:
                 pass
 
         if nvtt_query and nvtt_query != '':
             nvtt_list = nvtt_query.split(',')
+            app_log.info(f'Test nvtt list: {nvtt_list}')
             nvtt_ids = EmployeeProfile.objects.filter(
                 Q(register_name__in=nvtt_list) | Q(employee_id__in=nvtt_list)
             ).values_list('employee_id', flat=True)
             client_profile_query = Q(client_id__clientprofile__nvtt_id__in=nvtt_ids)
             orders = orders.filter(client_profile_query)
+
+        if npp_query and npp_query != '':
+            npp_list = npp_query.split(',')
+            app_log.info(f'Test npp list: {npp_list}')
+            npp_ids = ClientProfile.objects.filter(
+                Q(register_name__in=npp_list, is_npp=True) | Q(client_id__in=npp_list, is_npp=True)
+            ).values_list('client_id', flat=True)
+            client_profile_query = Q(client_id__in=npp_ids)
+            orders = orders.filter(client_profile_query)
+
+        if daily_query and daily_query != '':
+            daily_list = daily_query.split(',')
+            # include_group = GroupPerm.objects.filter(name__icontains='client').values_list('name', flat=True)
+            # daily_ids = ClientProfile.objects.filter(
+            #     Q(register_name__in=daily_list) | Q(client_id__in=daily_list),
+            #     client_id__group_user__name__in=list(include_group)
+            # ).exclude(is_npp=True).values_list('client_id', flat=True)
+            exclude_groups = ["NVTT", "TEST", maNhomND]
+
+            daily_ids = ClientProfile.objects.filter(
+                Q(register_name__in=daily_list) | Q(client_id__in=daily_list)
+            ).exclude(client_group_id__name__in=exclude_groups, is_npp=True).values_list('client_id', flat=True)
+
+            client_query = Q(client_id__in=daily_ids)
+            orders = orders.filter(client_query)
+
 
         if query != '':
             query_parts = query.split(',')
@@ -262,8 +294,11 @@ class OrderReportView2(APIView):
                 if field_name in order_details_include:
                     field_value = getattr(obj, field_name)
                     if field_name == 'product_id':
-                        details_data['product_name'] = field_value.name
-                        field_value = field_value.id
+                        try:
+                            details_data['product_name'] = field_value.name or None
+                            field_value = field_value.id
+                        except AttributeError:
+                            field_value = None
                     details_data[field_name] = field_value
                     order_details_include.remove(field_name)
             order_details.append(details_data)
