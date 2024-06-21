@@ -227,6 +227,7 @@ class Verify(models.Model):
 # Perm as known as Permissions
 class Perm(models.Model):
     name = models.CharField(max_length=255, primary_key=True)
+    display_name = models.CharField(max_length=255, null=True)
     note = models.TextField(null=True, default=None, blank=True)
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
@@ -245,6 +246,7 @@ class Perm(models.Model):
 # GroupPerm as a Permissions Group or Roles User
 class GroupPerm(models.Model):
     name = models.CharField(max_length=255, primary_key=True)
+    display_name = models.CharField(max_length=255, null=True)
     description = models.CharField(max_length=255, null=True, blank=True)
     parent_group = models.ForeignKey('self', null=True, blank=True, on_delete=models.SET_NULL)
     note = models.TextField(null=True, default=None, blank=True)
