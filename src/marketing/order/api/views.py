@@ -246,14 +246,7 @@ class OrderReportView2(APIView):
             page = paginator.num_pages
 
         data = [self.get_order_fields(obj, Order) for obj in page_obj]
-        # Add total and current page and data to response data
-        response_data = {
-            'data': data,
-            'total_page': paginator.num_pages,
-            'current_page': page
-        }
-        app_log.info(f'OrderReport2 Query Time: {time.time() - start_time}')
-        return Response(response_data, status=status.HTTP_200_OK)
+        return data, paginator.num_pages, page
 
     def get_order_fields(self, obj, model):
         order_detail = OrderDetail.objects.filter(order_id=obj)
