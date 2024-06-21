@@ -298,9 +298,8 @@ def handle_user(user, group_data, perm_data, profile_data):
         nvtt_id = profile_data.pop('nvtt_id', '')
         # Get user as nvtt object
         nvtt = User.objects.filter(
-            Q(id=nvtt_id) &
-            Q(user_type='employee') &
-            Q(employeeprofile__position__id='NVTT')
+            Q(group_user__name='nvtt') |
+            (Q(id=nvtt_id) & Q(user_type='employee') & Q(employeeprofile__position__id='NVTT'))
         ).select_related('employeeprofile').prefetch_related('employeeprofile__position').distinct().first()
         if nvtt is None:
             raise serializers.ValidationError({'nvtt_id': 'not found nvtt with id'})
