@@ -133,6 +133,19 @@ class OrderReportView(viewsets.GenericViewSet, mixins.ListModelMixin):
 class OrderReportView2(APIView):
     def get(self, request):
         start_time = time.time()
+
+        data, total_pages, current_page = self.get_query_results(request)
+
+        # Add total and current page and data to response data
+        response_data = {
+            'data': data,
+            'total_page': total_pages,
+            'current_page': current_page
+        }
+        app_log.info(f'OrderReport2 Query Time: {time.time() - start_time}')
+        return Response(response_data, status=status.HTTP_200_OK)
+
+    def get_query_results(self, request):
         query, strict_mode, limit, page, order_by, from_date, to_date, date_field = get_query_parameters(request)
         nvtt_query = request.query_params.get('nvtt', '')
         npp_query = request.query_params.get('npp', '')
