@@ -325,7 +325,9 @@ class OrderReportView(APIView):
                     return Response({'message': 'error field order_by not in model'}, status=200)
         except FieldError:
             pass
-
+        if limit == 0:
+            data = [self.get_order_fields(obj, Order) for obj in orders]
+            return data, 1, 1
         paginator = Paginator(orders, limit)
         page_obj = paginator.get_page(page)
 
