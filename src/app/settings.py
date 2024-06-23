@@ -1,4 +1,6 @@
 import os
+import firebase_admin
+
 from datetime import timedelta
 from pathlib import Path
 from logging.handlers import TimedRotatingFileHandler
@@ -6,6 +8,7 @@ from logging.handlers import TimedRotatingFileHandler
 from pusher import Pusher
 
 from utils.env import *
+from firebase_admin import credentials
 
 # Build paths inside the project like this: BASE_DIR / 'subdir'.
 BASE_DIR = Path(__file__).resolve().parent.parent
@@ -29,6 +32,11 @@ CSRF_TRUSTED_ORIGINS = ['https://sukiendongxanh.online',
                         'https://api.sukiendongxanh.online'
                         ]
 
+# Firebase setup
+FIREBASE_CONFIG_FILE = PROJECT_DIR / FIREBASE_JSON
+cred = credentials.Certificate(FIREBASE_CONFIG_FILE)
+firebase_admin.initialize_app(cred)
+
 # Customize authentication
 AUTH_USER_MODEL = 'account.User'
 
@@ -47,7 +55,7 @@ MY_APPS = [
     'draft',
     'account',
     # User system structure
-    'user_system.client_group',
+    # 'user_system.client_group',
     'user_system.client_profile',
     'user_system.employee_profile',
     # NVTT functions

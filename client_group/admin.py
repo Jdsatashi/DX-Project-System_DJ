@@ -1,5 +1,5 @@
 from django.contrib import admin
-from user_system.client_group.models import ClientGroup
+from client_group.models import ClientGroup
 
 
 # Register your models here.

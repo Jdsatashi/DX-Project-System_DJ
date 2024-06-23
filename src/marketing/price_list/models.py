@@ -88,7 +88,6 @@ class SpecialOffer(models.Model):
     time_start = models.DateTimeField(null=True)
     time_end = models.DateTimeField(null=True)
 
-    price_list = models.ForeignKey(PriceList, null=True, on_delete=models.CASCADE, related_name='offers')
     product = models.ManyToManyField(Product, through='SpecialOfferProduct')
 
     type_list = models.CharField(max_length=24, null=False, default='manual')  # Chọn giữa ['manual',

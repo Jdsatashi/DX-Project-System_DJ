@@ -1,6 +1,6 @@
 from django.urls import path
 from rest_framework.routers import DefaultRouter
-from user_system.client_group.api.views import GenericApiClientGroup
+from client_group.api.views import GenericApiClientGroup
 
 app_name = 'client_group'
 

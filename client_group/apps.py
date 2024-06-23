@@ -3,4 +3,4 @@ from django.apps import AppConfig
 
 class KhNhomkhConfig(AppConfig):
     default_auto_field = 'django.db.models.BigAutoField'
-    name = 'user_system.client_group'
+    name = ''

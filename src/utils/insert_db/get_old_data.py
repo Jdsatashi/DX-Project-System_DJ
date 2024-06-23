@@ -1,3 +1,4 @@
+import json
 import time
 
 from django.contrib.auth.hashers import make_password
@@ -11,8 +12,7 @@ from marketing.order.models import Order, OrderDetail
 from marketing.price_list.models import PriceList, ProductPrice
 from marketing.product.models import Product, UseObject, UseFor, ProductCategory, CategoryDetail, RegistrationCert, \
     Producer, RegistrationUnit, ProductType
-from user_system.client_group.models import ClientGroup
-from user_system.client_profile.models import ClientProfile
+from user_system.client_profile.models import ClientProfile, ClientGroup
 from user_system.employee_profile.models import EmployeeProfile, Position, Department
 from utils.helpers import table_data, normalize_vietnamese, table_data_2
 from utils.constants import (old_data, maNhomND as farmerID, tenNhomND as farmerGroupName)
@@ -357,7 +357,7 @@ def process_order(data):
             client = User.objects.get(id=v[3])
         except User.DoesNotExist:
             client = None
-        notes = v[6] if client is not None else v[6] + f" | User not found: {v[3]}"
+        notes = json.dumps({"notes": str(v[6])}) if client is not None else json.dumps({"notes": str(v[6]), "client_id": v[3]})
         date_company_get = make_aware(v[2]) if v[2] is not None else None
         insert = {
             "date_get": v[1],

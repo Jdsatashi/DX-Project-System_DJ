@@ -192,7 +192,13 @@ class ExportReport(APIView):
                     date_send = datetime.strftime(order['date_company_get'], "%d/%m/%Y")
                 except TypeError:
                     date_send = ''
-
+                if order.get('clients') is None:
+                    order['client'] = {
+                        'id': None,
+                        'name': None,
+                        'register_lv1': None,
+                        'nvtt': None
+                    }
                 sheet.append([
                     '',
                     order['clients']['id'],

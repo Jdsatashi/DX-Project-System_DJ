@@ -6,9 +6,8 @@ from rest_framework import serializers
 from account.models import User, GroupPerm, Perm, Verify, PhoneNumber
 from app.logs import app_log
 from app.settings import SMS_SERVICE
-from user_system.client_group.models import ClientGroup
 from user_system.client_profile.api.serializers import ClientProfileUserSerializer
-from user_system.client_profile.models import ClientProfile
+from user_system.client_profile.models import ClientProfile, ClientGroup
 from user_system.employee_profile.api.serializers import EmployeeProfileUserSerializer
 from user_system.employee_profile.models import EmployeeProfile
 from utils.constants import maNhomND, status

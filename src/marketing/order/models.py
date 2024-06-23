@@ -39,11 +39,8 @@ class Order(models.Model):
 
     def clean(self):
         if self.price_list_id:
-            if self.created_at is None:
-                self.created_at = datetime.utcnow()
-            if not (self.price_list_id.date_start <= self.created_at.date() <= self.price_list_id.date_end):
-                raise ValidationError(
-                    f"Order date {self.created_at.date()} must be within the PriceList's date range from {self.price_list_id.date_start} to {self.price_list_id.date_end}.")
+            if self.date_get is None:
+                self.date_get = datetime.utcnow()
             if not (self.price_list_id.date_start <= self.date_get <= self.price_list_id.date_end):
                 raise ValidationError(
                     f"Order date {self.date_get} must be between the PriceList's date range from {self.price_list_id.date_start} to {self.price_list_id.date_end}.")
@@ -122,6 +119,29 @@ class OrderDetail(models.Model):
         if self.point_get:
             self.point_get = round(self.point_get, 5)
         super().save(*args, **kwargs)
+
+
+class OrderBackup(models.Model):
+    order_id = models.CharField(max_length=255, null=True)
+    date_get = models.CharField(max_length=255, null=True)
+    date_company_get = models.CharField(max_length=255, null=True)
+    client_id = models.CharField(max_length=255, null=True)
+    date_delay = models.CharField(max_length=255, null=True)
+
+    price_list_id = models.CharField(max_length=255, null=True)
+
+    clientlv1_id = models.CharField(max_length=255, null=True)
+    list_type = models.CharField(max_length=255, null=True)
+
+    is_so = models.CharField(null=True, max_length=255, default=None)
+    id_so = models.CharField(null=True, max_length=255, default=None)
+    id_offer_consider = models.CharField(null=True, max_length=255, default=None)
+
+    note = models.CharField(max_length=255, null=True)
+
+    created_by = models.CharField(max_length=255, null=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+
 
 
 def update_sale_statistics_for_user(user):

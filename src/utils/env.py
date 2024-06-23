@@ -46,3 +46,6 @@ PUS_CLUSTER = os.environ.get('PUSHER_CLUSTER')
 # Token life time
 TOKEN_LT = os.environ.get('TOKEN_LIFE')
 REF_TOKEN_LT = os.environ.get('REF_TOKEN_LIFE')
+
+# Firebase
+FIREBASE_JSON = os.environ.get('FIREBASE_KEY')

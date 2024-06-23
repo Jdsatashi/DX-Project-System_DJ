@@ -296,12 +296,6 @@ class ProductStatisticsSerializer(serializers.Serializer):
     total_cashback = serializers.IntegerField(required=False)
 
 
-class OrderDetailSerializer(serializers.ModelSerializer):
-    class Meta:
-        model = OrderDetail
-        fields = '__all__'
-
-
 class ClientProfileSerializer(serializers.ModelSerializer):
     nvtt = serializers.CharField(source='nvtt.register_name', read_only=True)
     register_lv1 = serializers.CharField(source='register_lv1.register_name', read_only=True)
