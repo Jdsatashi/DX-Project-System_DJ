@@ -32,7 +32,7 @@ class Order(models.Model):
     order_price = models.FloatField(null=True, default=0)  # Default value to ensure it's not None
 
     created_by = models.CharField(max_length=64, null=True)
-    note = models.CharField(max_length=255, null=True)
+    note = models.TextField(null=True)
     status = models.CharField(max_length=24, null=True)
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)

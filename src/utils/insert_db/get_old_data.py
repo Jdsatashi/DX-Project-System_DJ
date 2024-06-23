@@ -2,7 +2,7 @@ import json
 import time
 
 from django.contrib.auth.hashers import make_password
-from django.db import IntegrityError
+from django.db import IntegrityError, transaction
 from django.utils.timezone import make_aware
 
 from account.models import User, GroupPerm
@@ -358,24 +358,28 @@ tb_toaDetail
 
 def insert_order():
     start_time = time.time()
-    for a in range(0, 1):
-        i = 1 + (5000 * a)
+    for a in range(3, 40):
+        i = (5000 * a)
         y = 5000 + (5000 * a)
-        data = table_data_2(old_data['tb_toa'], '*', {'start': i, 'end': y})
-        process_order(data)
-        app_log.info(f"Get data from: {i} - {y}")
+        try:
+            app_log.info(f"Get data from: {i} - {y}")
+            data = table_data_2(old_data['tb_toa'], '*', {'start': i, 'end': y})
+            process_order(data)
+        except Exception as e:
+            app_log.error(f"\nWhen get data from: {i} - {y}\n")
+            raise e
     app_log.info(f"---------------------- FINISH ------------------------")
     app_log.debug(f"Complete INSERT ORDER time: {time.time() - start_time} seconds")
     app_log.info(f"Complete INSERT ORDER time: {time.time() - start_time} seconds")
 
 
 def process_order(data):
-    list_data_backup = list()
-    for k, v in enumerate(data):
-        if k <= 10:
-            if k == 1:
-                app_log.info(v)
-            app_log.info(f"Client_id: {v[3]}")
+    with transaction.atomic():
+        list_data_backup = list()
+        list_order = list()
+        list_order_update = list()
+        for k, v in enumerate(data):
+            app_log.info(f"Processing order: {v[0]}")
             date_company_get = make_aware(v[2]) if v[2] is not None else None
             check_date = make_aware(v[8]).date()
             price_lists = PriceList.objects.filter(date_start__lte=check_date, date_end__gte=check_date)
@@ -404,6 +408,8 @@ def process_order(data):
                 client = None
             notes = json.dumps({"notes": str(v[6])}) if client is not None else json.dumps(
                 {"notes": str(v[6]), "client_id": v[3]})
+            # app_log.info(f"Check character: note - {len(str(notes))} | id_so - {len(str(v[15]))} | "
+            #              f"id_offer_consider - {len(str(v[16]))}")
             date_company_get = make_aware(v[2]) if v[2] is not None else None
             insert = {
                 "date_get": v[1],
@@ -419,19 +425,16 @@ def process_order(data):
                 "status": v[9],
             }
             create_at = make_aware(v[8])
-            order, _ = Order.objects.get_or_create(id=v[0], **insert)
-            app_log.info(f"Inserting order: {order}")
-            order.created_at = create_at
-            order.save()
+            order = Order(id=v[0], **insert)
+            list_order.append(order)
             check_date = make_aware(v[8]).date()
-            price_lists = PriceList.objects.filter(date_start__lte=check_date, date_end__gte=check_date)
-            if price_lists.exists():
-                order.price_list_id = price_lists.first()
-                order.save()
-                app_log.info(price_lists.first())
-
-    app_log.info(f"Inserting backup")
-    OrderBackup.objects.bulk_create(list_data_backup)
+            price_lists = PriceList.objects.filter(date_start__lte=check_date, date_end__gte=check_date).first()
+            order_update = Order(id=v[0], price_list_id=price_lists, created_at=create_at)
+            list_order_update.append(order_update)
+        app_log.info(f"Inserting backup")
+        Order.objects.bulk_create(list_order, ignore_conflicts=True)
+        Order.objects.bulk_update(list_order_update, ['price_list_id', 'created_at'])
+        OrderBackup.objects.bulk_create(list_data_backup, ignore_conflicts=True)
 
 
 def insert_order_detail():
@@ -439,60 +442,65 @@ def insert_order_detail():
     for a in range(0, 50):
         i = 1 + (5000 * a)
         y = 5000 + (5000 * a)
-        app_log.info(f"--\nGet data from: {i} - {y} \n--\n")
-        data = table_data(old_data['tb_toaDetail'], '*', {'start': i, 'end': y})
-        process_order_detail(data)
+        try:
+            app_log.info(f"--\nGet data from: {i} - {y} \n--\n")
+            data = table_data(old_data['tb_toaDetail'], '*', {'start': i, 'end': y})
+            process_order_detail(data)
+        except Exception as e:
+            app_log.error(f"\nWhen get data from: {i} - {y}\n")
+            raise e
     app_log.debug(f"---------------------- FINISH ------------------------")
     app_log.debug(f"Complete INSERT ORDER DETAILS time: {time.time() - start_time} seconds")
     app_log.info(f"Complete INSERT ORDER DETAILS time: {time.time() - start_time} seconds")
 
 
 def process_order_detail(data):
-    order_details_list = list()
-    order_backup_details = list()
-    for k, v in enumerate(data):
-        if k == 1:
-            app_log.info("---")
-            app_log.info(v)
-        note = ""
-        try:
-            order = Order.objects.get(id=v[1])
-        except Order.DoesNotExist:
-            order = None
-            note += f"order_id: {v[1]} not found"
-        try:
-            product = Product.objects.get(id=v[2])
-        except Product.DoesNotExist:
-            product = None
-            note = "" if note == "" else note + ", "
-            note += f"product_id: {v[2]} not found"
+    with transaction.atomic():
+        order_details_list = list()
+        order_backup_details = list()
+        for k, v in enumerate(data):
+            if k == 1:
+                app_log.info("---")
+                app_log.info(v)
+            note = ""
+            try:
+                order = Order.objects.get(id=v[1])
+            except Order.DoesNotExist:
+                order = None
+                note += f"order_id: {v[1]} not found"
+            try:
+                product = Product.objects.get(id=v[2])
+            except Product.DoesNotExist:
+                product = None
+                note = "" if note == "" else note + ", "
+                note += f"product_id: {v[2]} not found"
 
-        insert = {
-            "order_quantity": v[3],
-            "order_box": v[4],
-            "price_list_so": v[8],
-            "note": note
-        }
-        app_log.info("")
-        app_log.debug(f"Inserting: {order} - {product}")
+            insert = {
+                "order_quantity": v[3],
+                "order_box": v[4],
+                "price_list_so": v[8],
+                "note": note
+            }
+            app_log.info("")
+            app_log.debug(f"Inserting: {order} - {product}")
 
-        try:
-            if order.price_list_id is not None:
-                price = ProductPrice.objects.filter(product=product, price_list=order.price_list_id).first()
-                point = v[7] * v[4] if v[7] is not None else 0
-                order_detail_price = v[3] * price.price
-                insert['product_price'] = order_detail_price
-                insert['point_get'] = point
-            order_detail = OrderDetail(product_id=product, order_id=order, **insert)
-            order_details_list.append(order_detail)
-        except AttributeError:
-            pass
-        backup = OrderBackupDetail(order_id=v[1], product_id=v[2], order_quantity=v[3], order_box=v[4],
-                                   product_price=v[5], quantity_in_box=v[6], point_get=v[7], price_list_so=v[8])
-        order_backup_details.append(backup)
+            try:
+                if order.price_list_id is not None:
+                    price = ProductPrice.objects.filter(product=product, price_list=order.price_list_id).first()
+                    point = v[7] * v[4] if v[7] is not None else 0
+                    order_detail_price = v[3] * price.price
+                    insert['product_price'] = order_detail_price
+                    insert['point_get'] = point
+                order_detail = OrderDetail(product_id=product, order_id=order, **insert)
+                order_details_list.append(order_detail)
+            except AttributeError:
+                pass
+            backup = OrderBackupDetail(order_id=v[1], product_id=v[2], order_quantity=v[3], order_box=v[4],
+                                       product_price=v[5], quantity_in_box=v[6], point_get=v[7], price_list_so=v[8])
+            order_backup_details.append(backup)
 
-    OrderDetail.objects.bulk_create(order_details_list)
-    OrderBackupDetail.objects.bulk_create(order_backup_details)
+        OrderDetail.objects.bulk_create(order_details_list)
+        OrderBackupDetail.objects.bulk_create(order_backup_details)
 
 
 def insert_special_offer():
@@ -542,14 +550,20 @@ def insert_special_offer():
                                              )
             special_offer_product.append(so_product)
             app_log.info(f"Test data: {insert_data}")
+    # SpecialOffer.objects.bulk_create(special_offers)
+    SpecialOffer.objects.bulk_update(special_offers_update, ['created_at'])
+    SpecialOfferProduct.objects.bulk_create(special_offer_product)
 
 
 def insert_old_data():
-    price_list()
-    price_list_product()
-    insert_special_offer()
+    # price_list()
+    # price_list_product()
+    # insert_special_offer()
     insert_order()
     insert_order_detail()
+
+
+# from utils.insert_db.get_old_data import
 
 
 if __name__ == '__main__':
