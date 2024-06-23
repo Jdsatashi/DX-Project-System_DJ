@@ -1,11 +1,13 @@
 from django.db import migrations
 
 from app.logs import app_log
-from utils.insert_db.get_old_data import old_product_type, old_product, old_product_category, old_cate_detail
+from utils.insert_db.get_old_data import old_product_type, old_product, old_product_category, old_cate_detail, \
+    add_old_company
 
 
 def add_old_product(apps, schema_editor):
     try:
+        add_old_company(None, None)
         old_product_type()
         old_product_category()
         old_cate_detail()
