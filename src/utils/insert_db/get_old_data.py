@@ -419,7 +419,7 @@ def process_order(data):
                 "status": v[9],
             }
             create_at = make_aware(v[8])
-            order, _ = Order.objects.get_or_create(id=v[0], defaults=insert)
+            order, _ = Order.objects.get_or_create(id=v[0], **insert)
             app_log.info(f"Inserting order: {order}")
             order.created_at = create_at
             order.save()
@@ -483,7 +483,7 @@ def process_order_detail(data):
                 order_detail_price = v[3] * price.price
                 insert['product_price'] = order_detail_price
                 insert['point_get'] = point
-            order_detail = OrderDetail(product_id=product, order_id=order, defaults=insert)
+            order_detail = OrderDetail(product_id=product, order_id=order, **insert)
             order_details_list.append(order_detail)
         except AttributeError:
             pass
