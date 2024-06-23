@@ -5,7 +5,7 @@ from django.contrib.auth.hashers import make_password
 from django.db import IntegrityError
 from django.utils.timezone import make_aware
 
-from account.models import User
+from account.models import User, GroupPerm
 from app.logs import app_log
 from marketing.company.models import Company
 from marketing.order.models import Order, OrderDetail
@@ -26,6 +26,8 @@ def append_kh():
         if k == 1:
             app_log.info(v)
         client_group_id = ClientGroup.objects.filter(id=v[3]).first()
+        group_client = GroupPerm.objects.get(name='client')
+        group_of_user = GroupPerm.objects.filter(display_name__icontains=client_group_id.name).first()
         code_client_lv1 = v[11] if v[11] != '' else None
         data_profile = {"register_name": v[1], "organization": v[2], "client_group_id": client_group_id,
                         "nvtt_id": v[4], "address": v[7], "client_lv1_id": code_client_lv1, "created_by": v[8]}
@@ -33,13 +35,14 @@ def append_kh():
         phone = v[5] if v[5] != '' else None
         pw = v[0].lower() if v[10] == '' or v[10] is None else v[10]
         hash_pw = make_password(pw)
-        obj, created = User.objects.get_or_create(id=v[0], defaults={"user_type": type_kh,
+        user, created = User.objects.get_or_create(id=v[0], defaults={"user_type": type_kh,
                                                                      "password": hash_pw})
-        obj.created_at = created_time
-        obj.save()
+        user.created_at = created_time
+        user.save()
+        user.group_user.add(group_client, through_defaults={'allow': True})
         try:
             if phone is not None and len(phone) <= 24:
-                obj.phone_numbers.get_or_create(phone_number=phone)
+                user.phone_numbers.get_or_create(phone_number=phone)
         except IntegrityError:
             pass
 
@@ -54,6 +57,8 @@ def append_kh():
             obj.save()
         else:
             app_log.info(f"User profile {v[0]} was existed, skipping...")
+        if group_of_user is not None:
+            user.group_user.add(group_client, through_defaults={'allow': True})
     return ctx
 
 
@@ -91,6 +96,10 @@ def append_nv():
             app_log.info(f"User profile {v[0]} was created successfully.")
         else:
             app_log.info(f"User profile {v[0]} was existed, skipping...")
+    add_department()
+    add_user_department()
+    create_position()
+    add_user_position()
     return ctx
 
 
@@ -108,12 +117,20 @@ def add_user_position():
     data = table_data(old_data['tb_chucDanhUser'])
     for k, v in enumerate(data):
         app_log.info(f"Test data: {v}")
-        employee = EmployeeProfile.objects.filter(employee_id=v[1]).first()
+        user = User.objects.get(id=v[1])
+        employee = user.employeeprofile
         position = Position.objects.filter(id=v[2]).first()
-        app_log.info(f"Test user: {employee}")
-        app_log.info(f"Test position: {position}")
+        app_log.info(f"Test user: {employee} - {position}")
         try:
             employee.position.add(position)
+        except Exception as e:
+            raise e
+        try:
+            nv = GroupPerm.objects.get(name="employee")
+            user.group_user.add(nv, through_defaults={'allow': True})
+            if v[2] == "NVTT":
+                nvtt = GroupPerm.objects.get(name="nvtt")
+                user.group_user.add(nvtt, through_defaults={'allow': True})
         except Exception as e:
             raise e
 

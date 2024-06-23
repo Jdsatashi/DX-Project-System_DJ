@@ -3,6 +3,7 @@ import time
 from django.db import migrations
 
 from app.logs import app_log
+from utils.insert_db.default_roles_perms import auto_role
 from utils.insert_db.get_old_data import create_position, create_client_group_id, append_nv, append_kh
 
 
@@ -10,6 +11,7 @@ def insertDB(apps, schema_editor):
     start_time = time.time()
     create_position()
     create_client_group_id()
+    auto_role()
     append_nv()
     append_kh()
     app_log.info(f"\n__FINISHED__")

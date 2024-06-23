@@ -95,19 +95,19 @@ class User(AbstractBaseUser, PermissionsMixin):
             self.email = None
         self.clean()
         super().save(*args, **kwargs)
-        if self.user_type == 'employee':
-            EmployeeProfile = apps.get_model('employee_profile', 'EmployeeProfile')
-            profile = EmployeeProfile.objects.filter(employee_id=self).first()
-            if not profile:
-                EmployeeProfile.objects.create(employee_id=self)
-        else:
-            ClientProfile = apps.get_model('client_profile', 'ClientProfile')
-            ClientGroup = apps.get_model('client_group', 'ClientGroup')
-            farmer_group = ClientGroup.objects.filter(id=maNhomND).first()
-            app_log.info(f"testing: {farmer_group}")
-            profile = ClientProfile.objects.filter(client_id=self).first()
-            if not profile:
-                ClientProfile.objects.create(client_id=self, client_group_id=farmer_group, register_name=f"Nông dân {self.id}")
+        # if self.user_type == 'employee':
+        #     EmployeeProfile = apps.get_model('employee_profile', 'EmployeeProfile')
+        #     profile = EmployeeProfile.objects.filter(employee_id=self).first()
+        #     if not profile:
+        #         EmployeeProfile.objects.create(employee_id=self)
+        # else:
+        #     ClientProfile = apps.get_model('client_profile', 'ClientProfile')
+        #     ClientGroup = apps.get_model('client_group', 'ClientGroup')
+        #     farmer_group = ClientGroup.objects.filter(id=maNhomND).first()
+        #     app_log.info(f"testing: {farmer_group}")
+        #     profile = ClientProfile.objects.filter(client_id=self).first()
+        #     if not profile:
+        #         ClientProfile.objects.create(client_id=self, client_group_id=farmer_group, register_name=f"Nông dân {self.id}")
 
     def is_perm(self, permission):
         return self.perm_user.filter(name=permission).exists()
