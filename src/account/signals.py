@@ -13,7 +13,7 @@ def add_quyen_to_superuser(sender, instance, created, **kwargs):
         for user in superusers:
             user.perm_user.add(instance, through_defaults={'allow': True})
 
-        admin_group = GroupPerm.objects.get_or_create(name=admin_role)
+        admin_group, _ = GroupPerm.objects.get_or_create(name=admin_role)
         admin_group.perm.add(instance, through_defaults={'allow': True})
 
 
