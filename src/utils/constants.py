@@ -14,7 +14,8 @@ old_data = {
     "tb_chucDanh": "Sys_ChucDanh",
     "tb_chucDanhUser": "Sys_ChucDanhNhanVien",
     "tb_phongBan": "Sys_PhongBan",
-    "tb_phongBanUser": "Sys_PhongBanNhanVien"
+    "tb_phongBanUser": "Sys_PhongBanNhanVien",
+    "tb_UuDai": "tbl_QLTT_UuDaiKhachHang"
 }
 maNhomND = 'DMNKH000005'
 tenNhomND = 'Khách hàng Nông dân'

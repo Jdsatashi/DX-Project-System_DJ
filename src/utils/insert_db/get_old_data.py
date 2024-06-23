@@ -8,8 +8,8 @@ from django.utils.timezone import make_aware
 from account.models import User, GroupPerm
 from app.logs import app_log
 from marketing.company.models import Company
-from marketing.order.models import Order, OrderDetail
-from marketing.price_list.models import PriceList, ProductPrice
+from marketing.order.models import Order, OrderDetail, OrderBackup, OrderBackupDetail
+from marketing.price_list.models import PriceList, ProductPrice, SpecialOffer, SpecialOfferProduct
 from marketing.product.models import Product, UseObject, UseFor, ProductCategory, CategoryDetail, RegistrationCert, \
     Producer, RegistrationUnit, ProductType
 from user_system.client_profile.models import ClientProfile, ClientGroup
@@ -36,7 +36,7 @@ def append_kh():
         pw = v[0].lower() if v[10] == '' or v[10] is None else v[10]
         hash_pw = make_password(pw)
         user, created = User.objects.get_or_create(id=v[0], defaults={"user_type": type_kh,
-                                                                     "password": hash_pw})
+                                                                      "password": hash_pw})
         user.created_at = created_time
         user.save()
         user.group_user.add(group_client, through_defaults={'allow': True})
@@ -89,7 +89,8 @@ def append_nv():
             app_log.info(f"User {v[0]} was existed, skipping...")
 
         obj, created = EmployeeProfile.objects.get_or_create(employee_id=obj,
-                                                             defaults={'register_name': f"{v[2]} {v[3]}", 'gender': v[5]})
+                                                             defaults={'register_name': f"{v[2]} {v[3]}",
+                                                                       'gender': v[5]})
         obj.created_at = created_time
         obj.save()
         if created:
@@ -328,8 +329,9 @@ def price_list():
 
 def price_list_product():
     data = table_data(old_data['tb_bangGiaSanPham'])
+    product_prices = list()
     for k, v in enumerate(data):
-        if k <= 3:
+        if k <= 1:
             app_log.info(v)
         insert = {
             "price_list": v[1],
@@ -343,7 +345,9 @@ def price_list_product():
         pl = PriceList.objects.get(id=v[1])
         prod = Product.objects.get(id=v[2])
         app_log.info(f"{pl} - {v[2]}")
-        ProductPrice.objects.create(price_list=pl, product=prod, price=v[5], quantity_in_box=v[6], point=v[7])
+        product_price = ProductPrice(price_list=pl, product=prod, price=v[5], quantity_in_box=v[6], point=v[7])
+        product_prices.append(product_price)
+    ProductPrice.objects.bulk_create(product_prices)
 
 
 """
@@ -354,7 +358,7 @@ tb_toaDetail
 
 def insert_order():
     start_time = time.time()
-    for a in range(0, 40):
+    for a in range(0, 1):
         i = 1 + (5000 * a)
         y = 5000 + (5000 * a)
         data = table_data_2(old_data['tb_toa'], '*', {'start': i, 'end': y})
@@ -366,40 +370,68 @@ def insert_order():
 
 
 def process_order(data):
+    list_data_backup = list()
     for k, v in enumerate(data):
-        if k == 1:
-            app_log.info(v)
-        app_log.info(f"Client_id: {v[3]}")
-        try:
-            client = User.objects.get(id=v[3])
-        except User.DoesNotExist:
-            client = None
-        notes = json.dumps({"notes": str(v[6])}) if client is not None else json.dumps({"notes": str(v[6]), "client_id": v[3]})
-        date_company_get = make_aware(v[2]) if v[2] is not None else None
-        insert = {
-            "date_get": v[1],
-            "date_company_get": date_company_get,
-            "client_id": client,
-            "date_delay": v[5],
-            "list_type": v[12],
-            "is_so": v[14],
-            "id_so": v[15],
-            "id_offer_consider": v[16],
-            "created_by": v[7],
-            "note": notes,
-            "status": v[9],
-        }
-        create_at = make_aware(v[8])
-        order, _ = Order.objects.get_or_create(id=v[0], defaults=insert)
-        app_log.info(f"Inserting order: {order}")
-        order.created_at = create_at
-        order.save()
-        check_date = make_aware(v[8]).date()
-        price_lists = PriceList.objects.filter(date_start__lte=check_date, date_end__gte=check_date)
-        if price_lists.exists():
-            order.price_list_id = price_lists.first()
+        if k <= 10:
+            if k == 1:
+                app_log.info(v)
+            app_log.info(f"Client_id: {v[3]}")
+            date_company_get = make_aware(v[2]) if v[2] is not None else None
+            check_date = make_aware(v[8]).date()
+            price_lists = PriceList.objects.filter(date_start__lte=check_date, date_end__gte=check_date)
+            price_list = price_lists.first().id if price_lists.exists() else str(None)
+            insert_backup = {
+                'order_id': v[0],
+                'date_get': v[1],
+                'date_company_get': date_company_get,
+                'client_id': v[3],
+                'date_delay': v[5],
+                'price_list_id': price_list,
+                'clientlv1_id': v[11],
+                'list_type': v[12],
+                'is_so': v[14],
+                'id_so': v[15],
+                'id_offer_consider': v[16],
+                'note': v[6],
+                'created_by': v[7],
+                'created_at': make_aware(v[8]),
+            }
+            list_data_backup.append(OrderBackup(**insert_backup))
+
+            try:
+                client = User.objects.get(id=v[3])
+            except User.DoesNotExist:
+                client = None
+            notes = json.dumps({"notes": str(v[6])}) if client is not None else json.dumps(
+                {"notes": str(v[6]), "client_id": v[3]})
+            date_company_get = make_aware(v[2]) if v[2] is not None else None
+            insert = {
+                "date_get": v[1],
+                "date_company_get": date_company_get,
+                "client_id": client,
+                "date_delay": v[5],
+                "list_type": v[12],
+                "is_so": v[14],
+                "id_so": v[15],
+                "id_offer_consider": v[16],
+                "created_by": v[7],
+                "note": notes,
+                "status": v[9],
+            }
+            create_at = make_aware(v[8])
+            order, _ = Order.objects.get_or_create(id=v[0], defaults=insert)
+            app_log.info(f"Inserting order: {order}")
+            order.created_at = create_at
             order.save()
-            app_log.info(price_lists.first())
+            check_date = make_aware(v[8]).date()
+            price_lists = PriceList.objects.filter(date_start__lte=check_date, date_end__gte=check_date)
+            if price_lists.exists():
+                order.price_list_id = price_lists.first()
+                order.save()
+                app_log.info(price_lists.first())
+
+    app_log.info(f"Inserting backup")
+    OrderBackup.objects.bulk_create(list_data_backup)
 
 
 def insert_order_detail():
@@ -416,6 +448,8 @@ def insert_order_detail():
 
 
 def process_order_detail(data):
+    order_details_list = list()
+    order_backup_details = list()
     for k, v in enumerate(data):
         if k == 1:
             app_log.info("---")
@@ -436,26 +470,84 @@ def process_order_detail(data):
         insert = {
             "order_quantity": v[3],
             "order_box": v[4],
-            "point_get": v[7],
             "price_list_so": v[8],
             "note": note
         }
         app_log.info("")
         app_log.debug(f"Inserting: {order} - {product}")
-        order_detail, _ = OrderDetail.objects.get_or_create(product_id=product, order_id=order, defaults=insert)
+
         try:
             if order.price_list_id is not None:
                 price = ProductPrice.objects.filter(product=product, price_list=order.price_list_id).first()
-                order_detail.product_price = order_detail.order_quantity * price.price
-                order_detail.save()
+                point = v[7] * v[4] if v[7] is not None else 0
+                order_detail_price = v[3] * price.price
+                insert['product_price'] = order_detail_price
+                insert['point_get'] = point
+            order_detail = OrderDetail(product_id=product, order_id=order, defaults=insert)
+            order_details_list.append(order_detail)
         except AttributeError:
             pass
-        app_log.info(order_detail)
+        backup = OrderBackupDetail(order_id=v[1], product_id=v[2], order_quantity=v[3], order_box=v[4],
+                                   product_price=v[5], quantity_in_box=v[6], point_get=v[7], price_list_so=v[8])
+        order_backup_details.append(backup)
+
+    OrderDetail.objects.bulk_create(order_details_list)
+    OrderBackupDetail.objects.bulk_create(order_backup_details)
+
+
+def insert_special_offer():
+    special_offers = list()
+    special_offers_update = list()
+    special_offer_product = list()
+
+    data = table_data(old_data['tb_UuDai'])
+    for k, v in enumerate(data):
+        if k < 10:
+            if k == 1:
+                app_log.info(f"Test data: {v}")
+            insert_data = {
+                'id': v[11],
+                'order_id': v[10],
+                'created_at': make_aware(v[7]),
+                'notes': v[6],
+                'quantity_offer': float(v[4]),
+                'value_sale_off': int(v[3]),
+                'product_id': v[2],
+                'client_id': v[1],
+                'date_get': v[0]
+            }
+            so = SpecialOffer(id=v[11], name=f'Uu đa {v[11]}', box_can_use=int(v[4]), created_by=v[8])
+            special_offers.append(so)
+
+            so_update = SpecialOffer(id=v[11], created_at=make_aware(v[7]))
+            special_offers_update.append(so_update)
+
+            product = Product.objects.get(id=v[2])
+            check_date = make_aware(v[0]).date()
+            price_lists = PriceList.objects.filter(date_start__lte=check_date, date_end__gte=check_date).first()
+            price = 0
+            quantity_in_box = 0
+            point = 0
+            if price_lists is not None:
+                product_price = ProductPrice.objects.filter(price_list=price_lists, product=product).first()
+                price = product_price.price
+                quantity_in_box = product_price.quantity_in_box
+                point = product_price.point
+
+            so_product = SpecialOfferProduct(special_offer=so, product=product,
+                                             cashback=int(v[3]),
+                                             price=price,
+                                             point=point,
+                                             quantity_in_box=quantity_in_box
+                                             )
+            special_offer_product.append(so_product)
+            app_log.info(f"Test data: {insert_data}")
 
 
 def insert_old_data():
-    # price_list()
-    # price_list_product()
+    price_list()
+    price_list_product()
+    insert_special_offer()
     insert_order()
     insert_order_detail()
 

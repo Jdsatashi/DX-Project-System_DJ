@@ -140,8 +140,22 @@ class OrderBackup(models.Model):
     note = models.CharField(max_length=255, null=True)
 
     created_by = models.CharField(max_length=255, null=True)
-    created_at = models.DateTimeField(auto_now_add=True)
+    created_at = models.DateTimeField(null=True)
 
+
+class OrderBackupDetail(models.Model):
+    order_id = models.CharField(max_length=255, null=True)
+    product_id = models.CharField(max_length=255, null=True)
+    order_quantity = models.IntegerField(null=False, default=1)
+    order_box = models.FloatField(null=False, default=0)
+
+    product_price = models.BigIntegerField(null=True)
+    quantity_in_box = models.IntegerField(null=True)
+
+    point_get = models.FloatField(null=True)
+    price_list_so = models.FloatField(null=True)
+
+    note = models.CharField(max_length=255, null=True)
 
 
 def update_sale_statistics_for_user(user):
