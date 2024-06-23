@@ -254,7 +254,7 @@ def old_product():
                 insert['category'] = category
                 insert['product_type'] = category.product_type
                 if note:
-                    insert['note'] = "Not valid Category, borrow another category."
+                    insert['note'] = json.dumps({"notes": f"Category {v[7]} not found", "category": f"{v[7]}"})
             app_log.info(f"Adding product: {v[0]} - {v[1]}")
             product, _ = Product.objects.get_or_create(id=v[0], defaults=insert)
             product.created_at = make_aware(v[5])

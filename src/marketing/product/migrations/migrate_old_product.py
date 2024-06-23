@@ -8,8 +8,8 @@ def add_old_product(apps, schema_editor):
     try:
         old_product_type()
         old_product_category()
-        old_product()
         old_cate_detail()
+        old_product()
     except Exception as e:
         app_log.info(f"----- ERROR -----")
         app_log.info(f"Message: Error when adding product.")
