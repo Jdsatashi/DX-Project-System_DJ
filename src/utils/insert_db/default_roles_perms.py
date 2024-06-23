@@ -55,7 +55,7 @@ def set_user_perm(user_instance, add):
 
 
 def set_farmer_role():
-    farmer_group, _ = GroupPerm.objects.get_or_create(name='farmer', defaults={'allow': True})
+    farmer_group = GroupPerm.objects.get(name='farmer')
     view_group = [ProductType, RegistrationUnit, Producer, RegistrationCert, UseObject, UseFor, CategoryDetail,
                   ProductCategory]
     add_group_perm(farmer_group, acquy['view'], view_group)

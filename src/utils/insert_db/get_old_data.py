@@ -50,7 +50,7 @@ def append_kh():
             app_log.info(f"User {v[0]} was created successfully.")
         else:
             app_log.info(f"User {v[0]} was existed, skipping...")
-        obj, created = ClientProfile.objects.get_or_create(client_id=obj, defaults=data_profile)
+        obj, created = ClientProfile.objects.get_or_create(client_id=user, defaults=data_profile)
         if created:
             app_log.info(f"User profile {v[0]} was created successfully.")
             obj.created_at = created_time

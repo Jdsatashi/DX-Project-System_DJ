@@ -20,7 +20,8 @@ def create_initial_permission(apps, schema_editor):
             for task in tasks:
                 perm_name_ = f'{task}_{perm_name}'
                 app_log.info(f"Adding permission: {perm_name}")
-                Perm.objects.create(name=perm_name_, note=f'{task.capitalize()} {content_type.model}', content_type=content_type)
+                Perm.objects.create(name=perm_name_, note=f'{task.capitalize()} {content_type.model}',
+                                    content_type=content_type)
 
 
 def create_draft_perm(apps, schema_editor):
@@ -28,7 +29,7 @@ def create_draft_perm(apps, schema_editor):
     list_drafts_perm = list(matching_perm)
     group_perm, _ = GroupPerm.objects.get_or_create(name="group_draft")
     for q in list_drafts_perm:
-        group_perm.perm.add(q.name)
+        group_perm.perm.add(q.name, through_defaults={'allow': True})
 
 
 def create_admin_perm(apps, schema_editor):
@@ -37,7 +38,7 @@ def create_admin_perm(apps, schema_editor):
     group_perm, _ = GroupPerm.objects.get_or_create(name=admin_role)
     for q in list_perms:
         app_log.info(f"Add perms '{q.name}' to group {admin_role}")
-        group_perm.perm.add(q.name)
+        group_perm.perm.add(q.name, through_defaults={'allow': True})
 
 
 class Migration(migrations.Migration):
