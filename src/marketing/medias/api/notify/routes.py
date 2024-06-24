@@ -1,6 +1,6 @@
 from django.urls import path
 
-from marketing.medias.api.views import ApiNotification, ApiNotificationUser
+from marketing.medias.api.notify.views import ApiNotification, ApiNotificationUser
 from utils.constants import actions_views, actions_detail
 
 
