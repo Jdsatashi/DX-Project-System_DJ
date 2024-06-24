@@ -22,7 +22,7 @@ urlpatterns = [
     path('', view_sale_statistic, name='api_sale_statistic'),
     path('<pk>', detail_sale_statistic, name='api_sale_statistic'),
     path('now/', CurrentMonthSaleStatisticView.as_view({'get': 'list'}), name='api_sale_statistic_now'),
-    path('user/<user_id>', UserMonthSaleStatisticView.as_view({'get': 'list'}), name='api_sale_statistic_user'),
+    path('user/<str:user_id>', UserMonthSaleStatisticView.as_view({'get': 'list'}), name='api_sale_statistic_user'),
     path('month-target/', view_sale_month_target, name='api_sale_month_target'),
     path('month-target/<pk>', detail_sale_month_target, name='api_sale_month_target'),
 ]

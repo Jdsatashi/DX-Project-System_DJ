@@ -3,7 +3,7 @@ from rest_framework.authentication import SessionAuthentication, BasicAuthentica
 from rest_framework.response import Response
 from rest_framework_simplejwt.authentication import JWTAuthentication
 
-from marketing.medias.api.serializers import NotificationSerializer, NotificationUserSerializer
+from marketing.medias.api.notify.serializers import NotificationSerializer, NotificationUserSerializer
 from marketing.medias.models import Notification, NotificationUser
 from utils.model_filter_paginate import filter_data
 
