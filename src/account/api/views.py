@@ -373,6 +373,11 @@ def check_token(request):
                     # Create json response data of user
                     response = UserSerializer(user).data
                     response['point'] = point.point
+                    if user.user_type == 'employee':
+                        profile = EmployeeProfileSerializer(user.employeeprofile).data
+                    else:
+                        profile = ClientProfileSerializer(user.clientprofile).data
+                    response['profile'] = profile
                     return Response({'user': response}, status=status.HTTP_200_OK)
                 else:
                     # Create json response data of user
