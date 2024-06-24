@@ -358,7 +358,7 @@ tb_toaDetail
 
 def insert_order():
     start_time = time.time()
-    for a in range(3, 40):
+    for a in range(7, 40):
         i = (5000 * a)
         y = 5000 + (5000 * a)
         try:
