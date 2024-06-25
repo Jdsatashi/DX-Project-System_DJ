@@ -1,7 +1,11 @@
 from django.db import transaction
 from rest_framework import serializers
 
+from app import settings
+from app.logs import app_log
 from marketing.medias.models import Banner, BannerItem
+from system.file_upload.api.serializers import FileShortViewSerializer
+from utils.env import APP_SERVER
 
 
 class BannerItemSerializer(serializers.ModelSerializer):
@@ -12,16 +16,21 @@ class BannerItemSerializer(serializers.ModelSerializer):
 
 
 class BannerItemWrite(serializers.ModelSerializer):
-    file_url = serializers.SerializerMethodField(read_only=True)
-
     class Meta:
         model = BannerItem
         exclude = ['id', 'created_at']
 
-    def get_file_url(self, obj):
-        if obj.file:
-            return obj.file
-        return None
+    def to_representation(self, instance):
+        representation = super().to_representation(instance)
+        request = self.context.get('request')
+        if request:
+            app_log.info(f"In request")
+            representation['file_url'] = request.build_absolute_uri(instance.file.file.url)
+        else:
+            representation['file_url'] = APP_SERVER + instance.file.file.url if instance.file else None
+        return representation
+
+
 
 
 class BannerSerializer(serializers.ModelSerializer):
