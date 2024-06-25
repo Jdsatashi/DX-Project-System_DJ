@@ -1,4 +1,5 @@
 import json
+import math
 import time
 
 from django.contrib.auth.hashers import make_password
@@ -491,7 +492,7 @@ def process_order_detail(data):
                 "note": note
             }
             app_log.info(f"Inserting: {order} - {product}")
-            backup = OrderBackupDetail(order_id=v[1], product_id=v[2], order_quantity=v[3], order_box=v[4],
+            backup = OrderBackupDetail(id=v[0], order_id=v[1], product_id=v[2], order_quantity=v[3], order_box=v[4],
                                        product_price=v[5], quantity_in_box=v[6], point_get=v[7], price_list_so=v[8])
             order_backup_details.append(backup)
 
@@ -504,13 +505,12 @@ def process_order_detail(data):
                         order_detail_price = v[3] * price.price
                         insert['product_price'] = order_detail_price
                         insert['point_get'] = point
-                    order_detail = OrderDetail(product_id=product, order_id=order, **insert)
+                    order_detail = OrderDetail(id=v[0], product_id=product, order_id=order, **insert)
                     order_details_list.append(order_detail)
                 except AttributeError:
                     pass
             else:
                 continue
-
 
         OrderDetail.objects.bulk_create(order_details_list)
         OrderBackupDetail.objects.bulk_create(order_backup_details)
@@ -566,6 +566,62 @@ def insert_special_offer():
     # SpecialOffer.objects.bulk_create(special_offers)
     SpecialOffer.objects.bulk_update(special_offers_update, ['created_at'])
     SpecialOfferProduct.objects.bulk_create(special_offer_product)
+
+
+def insert_detail_order():
+    start_time = time.time()
+    max_num = count_table_items(old_data['tb_toaDetail'])
+    end_num = max_num / 5000
+    for a in range(0, math.ceil(end_num)):
+        i = (5000 * a)
+        y = 5000 + (5000 * a)
+        if y > max_num:
+            y = max_num
+        try:
+            app_log.info(f"--\nGet data from: {i} - {y} \n--\n")
+            data = table_data(old_data['tb_toaDetail'], '*', {'start': i, 'end': y})
+            process_order_detail(data)
+        except Exception as e:
+            app_log.error(f"\nWhen get data from: {i} - {y}\n")
+            raise e
+        if y == max_num:
+            break
+    app_log.debug(f"---------------------- FINISH ------------------------")
+    app_log.debug(f"Complete INSERT ORDER DETAILS time: {time.time() - start_time} seconds")
+    app_log.info(f"Complete INSERT ORDER DETAILS time: {time.time() - start_time} seconds")
+
+
+def handle_detail_order(data):
+    with (transaction.atomic()):
+        for k, v in enumerate(data):
+            if k == 1:
+                app_log.info(f"{v}")
+            note = {}
+
+            try:
+                order = Order.objects.get(id=v[1])
+            except Order.DoesNotExist:
+                order = None
+                note['order_id'] = f"{v[1]} not found"
+            try:
+                product = Product.objects.get(id=v[2])
+            except Product.DoesNotExist:
+                product = None
+                note['product_id'] = f"{v[2]} not found"
+
+            insert = {
+                "order_quantity": v[3],
+                "order_box": v[4],
+                "price_list_so": v[8],
+                "note": note
+            }
+
+            if order:
+                if product:
+                    if OrderDetail.objects.filter(order_id=order, product_id=product).exist():
+                        pass
+                    else:
+                        pass
 
 
 def insert_old_data():
