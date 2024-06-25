@@ -51,6 +51,8 @@ class GenericApiOrder(viewsets.GenericViewSet, mixins.ListModelMixin, mixins.Cre
 
 
 class ProductStatisticsView(APIView):
+    permission_classes = [partial(ValidatePermRest, model=Order)]
+
     def get(self, request, *args, **kwargs):
         try:
             # Get current user
@@ -121,6 +123,8 @@ class ProductStatisticsView(APIView):
 
 
 class ExportReport(APIView):
+    permission_classes = [partial(ValidatePermRest, model=Order)]
+
     def get(self, request):
         # Get data from OrderReport
         limit = request.query_params.get('limit', 10)
@@ -228,6 +232,8 @@ class ExportReport(APIView):
 
 
 class OrderReportView(APIView):
+    permission_classes = [partial(ValidatePermRest, model=Order)]
+
     def get(self, request):
         start_time = time.time()
 
