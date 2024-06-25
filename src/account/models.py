@@ -299,6 +299,7 @@ class UserPerm(models.Model):
     def save(self, *args, **kwargs):
         if UserPerm.objects.filter(user=self.user, perm=self.perm).exists():
             raise IntegrityError
+        super().save(*args, **kwargs)
 
     class Meta:
         db_table = 'users_user_perm'
@@ -317,6 +318,11 @@ class UserGroupPerm(models.Model):
     class Meta:
         db_table = 'users_user_group_perm'
 
+    def save(self, *args, **kwargs):
+        if UserGroupPerm.objects.filter(user=self.user, group=self.group).exists():
+            raise IntegrityError
+        super().save(*args, **kwargs)
+
 
 class GroupPermPerms(models.Model):
     perm = models.ForeignKey(Perm, on_delete=models.CASCADE, related_name='perm_group')
@@ -326,6 +332,12 @@ class GroupPermPerms(models.Model):
 
     class Meta:
         db_table = 'users_groupperm_perm'
+
+    def save(self, *args, **kwargs):
+        if GroupPermPerms.objects.filter(perm=self.perm, group=self.group).exists():
+            raise IntegrityError
+        super().save(*args, **kwargs)
+
 
 """
 RefreshToken.objects.filter(
