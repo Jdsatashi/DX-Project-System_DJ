@@ -20,7 +20,7 @@ class BannerItemWrite(serializers.ModelSerializer):
 
     def get_file_url(self, obj):
         if obj.file:
-            return obj.file.file
+            return obj.file.url
         return None
 
 
