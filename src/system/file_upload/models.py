@@ -20,7 +20,7 @@ def upload_location(filename):
 
 def check_ext(ext):
     image_extensions = ['.jpg', '.jpeg', '.png']
-    document_extensions = ['.pdf', '.docx', '.xlsx', '.pptx']
+    document_extensions = ['.pdf', '.docx', '.xlsx', '.pptx', '.PDF']
     if ext in image_extensions:
         return 'image'
     if ext in document_extensions:
@@ -29,29 +29,22 @@ def check_ext(ext):
 
 # Create your models here.
 class FileUpload(models.Model):
-    file = models.FileField(unique=True)
+    file = models.FileField(max_length=255, unique=True)
     file_name = models.CharField(max_length=255, unique=True, null=False, blank=True)
     file_ext = models.CharField(max_length=12, null=False, blank=True)
     type = models.CharField(max_length=8, null=True, choices=(('document', 'Document'), ('image', 'Image')))
-    note = models.CharField(max_length=255, null=True, blank=True)
+    note = models.TextField(null=True)
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
 
     def save(self, *args, **kwargs):
         if self.file:
             # Get name and extension of file
-            basename, file_ext = os.path.splitext(self.file.name)
+            basename, file_ext = os.path.splitext(os.path.basename(self.file.name))
             filename = basename.split('/')[-1]
-            # Create new filename to validate if filename exists
-            new_file_name = filename
-            i = 1
-            # Check if filename already exists
-            while FileUpload.objects.filter(file_name=new_file_name).exists():
-                # Add i = 1, 2, 3... number to filename
-                new_file_name = f"{filename}_{i}"
-                i += 1
+
             # Update filename and extension
-            self.file_name = new_file_name
+            self.file_name = filename
             self.file_ext = file_ext
             self.type = check_ext(self.file_ext)
             self.file.name = upload_location(self.file_name + file_ext)
