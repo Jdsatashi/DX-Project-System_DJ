@@ -60,6 +60,33 @@ def table_data(table_name: str, amount='*', options=None):
     return None
 
 
+def count_table_items(table_name: str) -> int:
+    # Get env values
+    server = OLD_SQL_HOST
+    db_name = OLD_SQL_DB
+    user = OLD_SQL_USER
+    password = OLD_SQL_PW
+    drivers = ["SQL Server", "ODBC Driver 18 for SQL Server", "ODBC Driver 17 for SQL Server"]
+    for i, driver in enumerate(drivers):
+        try:
+            connection_string = f"DRIVER={{{driver}}};SERVER={server};DATABASE={db_name};UID={user};PWD={password}"
+            if i >= 1:
+                connection_string += ";TrustServerCertificate=yes"
+            app_log.info(f"Attempting to connect using driver: {driver}")
+            app_log.info(f"Connection string: {connection_string}")
+            con = pyodbc.connect(connection_string)
+            cursor = con.cursor()
+
+            query = f"SELECT COUNT(*) FROM {table_name}"
+            cursor.execute(query)
+            count = cursor.fetchone()[0]
+            con.close()
+            return count
+        except pyodbc.Error as e:
+            app_log.info(f"Error with driver '{driver}': {e}")
+    return 0
+
+
 # Connect to MS SQL Server and get data of specific table
 def table_data_2(table_name: str, amount='*', options=None):
     # Get env values
