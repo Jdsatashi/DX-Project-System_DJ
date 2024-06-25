@@ -12,10 +12,16 @@ class BannerItemSerializer(serializers.ModelSerializer):
 
 
 class BannerItemWrite(serializers.ModelSerializer):
+    file_url = serializers.SerializerMethodField(read_only=True)
+
     class Meta:
         model = BannerItem
         exclude = ['id', 'created_at']
 
+    def get_file_url(self, obj):
+        if obj.file:
+            return obj.file.file
+        return None
 
 
 class BannerSerializer(serializers.ModelSerializer):
