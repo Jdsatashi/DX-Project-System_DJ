@@ -455,13 +455,15 @@ def insert_order_detail():
         except Exception as e:
             app_log.error(f"\nWhen get data from: {i} - {y}\n")
             raise e
+        if y == max_num:
+            break
     app_log.debug(f"---------------------- FINISH ------------------------")
     app_log.debug(f"Complete INSERT ORDER DETAILS time: {time.time() - start_time} seconds")
     app_log.info(f"Complete INSERT ORDER DETAILS time: {time.time() - start_time} seconds")
 
 
 def process_order_detail(data):
-    with transaction.atomic():
+    with (transaction.atomic()):
         order_details_list = list()
         order_backup_details = list()
         for k, v in enumerate(data):
@@ -489,21 +491,26 @@ def process_order_detail(data):
                 "note": note
             }
             app_log.info(f"Inserting: {order} - {product}")
-
-            try:
-                if order.price_list_id is not None:
-                    price = ProductPrice.objects.filter(product=product, price_list=order.price_list_id).first()
-                    point = v[7] * v[4] if v[7] is not None else 0
-                    order_detail_price = v[3] * price.price
-                    insert['product_price'] = order_detail_price
-                    insert['point_get'] = point
-                order_detail = OrderDetail(product_id=product, order_id=order, **insert)
-                order_details_list.append(order_detail)
-            except AttributeError:
-                pass
             backup = OrderBackupDetail(order_id=v[1], product_id=v[2], order_quantity=v[3], order_box=v[4],
                                        product_price=v[5], quantity_in_box=v[6], point_get=v[7], price_list_so=v[8])
             order_backup_details.append(backup)
+
+            if not OrderDetail.objects.filter(order_id=order, product_id=product, order_quantity=v[3]
+                                              ).exclude(order_id=None, product_id=None).exists():
+                try:
+                    if order.price_list_id is not None:
+                        price = ProductPrice.objects.filter(product=product, price_list=order.price_list_id).first()
+                        point = v[7] * v[4] if v[7] is not None else 0
+                        order_detail_price = v[3] * price.price
+                        insert['product_price'] = order_detail_price
+                        insert['point_get'] = point
+                    order_detail = OrderDetail(product_id=product, order_id=order, **insert)
+                    order_details_list.append(order_detail)
+                except AttributeError:
+                    pass
+            else:
+                continue
+
 
         OrderDetail.objects.bulk_create(order_details_list)
         OrderBackupDetail.objects.bulk_create(order_backup_details)
