@@ -1,7 +1,7 @@
 from rest_framework import serializers
 
 from account.handlers.restrict_serializer import BaseRestrictSerializer
-from user_system.client_profile.models import ClientProfile
+from user_system.client_profile.models import ClientProfile, ClientGroup
 
 
 class ClientProfileSerializer(BaseRestrictSerializer):
@@ -18,3 +18,9 @@ class ClientProfileUserSerializer(serializers.ModelSerializer):
         extra_kwargs = {
             'is_npp': {'required': False},
         }
+
+
+class ClientGroupSerializer(BaseRestrictSerializer):
+    class Meta:
+        model = ClientGroup
+        fields = '__all__'
