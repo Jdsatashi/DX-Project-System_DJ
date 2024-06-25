@@ -9,10 +9,21 @@ from utils.env import APP_SERVER
 
 
 class BannerItemSerializer(serializers.ModelSerializer):
+
     class Meta:
         model = BannerItem
         fields = '__all__'
         read_only_fields = ('id', 'created_at')
+
+    def to_representation(self, instance):
+        representation = super().to_representation(instance)
+        request = self.context.get('request')
+        if request:
+            app_log.info(f"In request")
+            representation['file_url'] = request.build_absolute_uri(instance.file.file.url)
+        else:
+            representation['file_url'] = APP_SERVER + instance.file.file.url if instance.file else None
+        return representation
 
 
 class BannerItemWrite(serializers.ModelSerializer):
