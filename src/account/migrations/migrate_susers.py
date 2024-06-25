@@ -4,6 +4,7 @@ import os
 from django.db import migrations
 from account.models import User, Perm, GroupPerm
 from app.settings import PROJECT_DIR
+from django.utils import timezone
 
 
 def create_suser(apps, schema_editor):
@@ -16,7 +17,8 @@ def create_suser(apps, schema_editor):
                 manager.create_superuser(
                     id=user['id'], username=user['username'], phone_number=[],
                     email=user['email'],
-                    password=user['password']
+                    password=user['password'],
+                    created_at=timezone.now()
                 )
 
 
