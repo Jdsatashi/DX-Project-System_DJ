@@ -52,8 +52,8 @@ def import_files_from_directory(directory_path, file_type):
     app_log.info(f"Not found list: {not_found}")
 
 
-document_path = r"D:\development\Dongxanh\NewSystem\GDK"
-image_path = r"D:\development\Dongxanh\NewSystem\Hinh Thuoc"
+document_path = r"/home/jdsatashi/GDK"
+image_path = r"/home/jdsatashi/Hinh Thuoc"
 
 
 def add_doc():
