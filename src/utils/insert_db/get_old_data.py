@@ -510,7 +510,6 @@ def process_order_detail(data):
         except AttributeError:
             pass
 
-
     OrderDetail.objects.bulk_create(order_details_list, ignore_conflicts=True)
     OrderBackupDetail.objects.bulk_create(order_backup_details, ignore_conflicts=True)
 
@@ -522,48 +521,60 @@ def insert_special_offer():
 
     data = table_data(old_data['tb_UuDai'])
     for k, v in enumerate(data):
-        if k < 10:
-            if k == 1:
-                app_log.info(f"Test data: {v}")
-            insert_data = {
-                'id': v[11],
-                'order_id': v[10],
-                'created_at': make_aware(v[7]),
-                'notes': v[6],
-                'quantity_offer': float(v[4]),
-                'value_sale_off': int(v[3]),
-                'product_id': v[2],
-                'client_id': v[1],
-                'date_get': v[0]
-            }
-            so = SpecialOffer(id=v[11], name=f'Uu đa {v[11]}', box_can_use=int(v[4]), created_by=v[8])
-            special_offers.append(so)
+        if k == 1:
+            app_log.info(f"Test data: {v}")
+        insert_data = {
+            'id': v[11],
+            'order_id': v[10],
+            'created_at': make_aware(v[7]),
+            'notes': v[6],
+            'quantity_offer': float(v[4]),
+            'value_sale_off': int(v[3]),
+            'product_id': v[2],
+            'client_id': v[1],
+            'date_get': v[0]
+        }
+        so = SpecialOffer(id=v[11], name=f'Uu đai {v[11]}', box_can_use=int(v[4]), created_by=v[8])
+        special_offers.append(so)
 
-            so_update = SpecialOffer(id=v[11], created_at=make_aware(v[7]))
-            special_offers_update.append(so_update)
 
-            product = Product.objects.get(id=v[2])
+
+        try:
             check_date = make_aware(v[0]).date()
-            price_lists = PriceList.objects.filter(date_start__lte=check_date, date_end__gte=check_date).first()
-            price = 0
-            quantity_in_box = 0
-            point = 0
-            if price_lists is not None:
-                product_price = ProductPrice.objects.filter(price_list=price_lists, product=product).first()
+        except AttributeError:
+            check_date = make_aware(v[7]).date()
+
+        product = Product.objects.filter(id=v[2]).first()
+        price_lists = PriceList.objects.filter(date_start__lte=check_date, date_end__gte=check_date).first()
+
+        price = 0
+        quantity_in_box = 0
+        point = 0
+        notes_dict = {"notes": v[6], "reference_order": v[11], "product_id": str(v[11]), "client_id": v[1]}
+        if price_lists is not None and product is not None:
+            product_price = ProductPrice.objects.filter(price_list=price_lists, product=product).first()
+            if product_price is not None:
                 price = product_price.price
                 quantity_in_box = product_price.quantity_in_box
                 point = product_price.point
+            else:
+                notes_dict['price_list'] = f"{price_lists}"
+                notes_dict['product_price'] = f"Not found ProductPrice(price_list={price_lists}, product={product})"
 
-            so_product = SpecialOfferProduct(special_offer=so, product=product,
-                                             cashback=int(v[3]),
-                                             price=price,
-                                             point=point,
-                                             quantity_in_box=quantity_in_box
-                                             )
-            special_offer_product.append(so_product)
-            app_log.info(f"Test data: {insert_data}")
-    # SpecialOffer.objects.bulk_create(special_offers)
-    SpecialOffer.objects.bulk_update(special_offers_update, ['created_at'])
+        so_product = SpecialOfferProduct(special_offer=so, product=product,
+                                         cashback=int(v[3]),
+                                         price=price,
+                                         point=point,
+                                         quantity_in_box=quantity_in_box
+                                         )
+        note = json.dumps(notes_dict)
+        so_update = SpecialOffer(id=v[11], created_at=make_aware(v[7]), note=note)
+        special_offers_update.append(so_update)
+
+        special_offer_product.append(so_product)
+        app_log.info(f"Test data: {insert_data}")
+    SpecialOffer.objects.bulk_create(special_offers)
+    SpecialOffer.objects.bulk_update(special_offers_update, ['created_at', 'note'])
     SpecialOfferProduct.objects.bulk_create(special_offer_product)
 
 

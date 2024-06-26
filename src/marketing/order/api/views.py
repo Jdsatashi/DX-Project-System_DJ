@@ -18,6 +18,7 @@ from rest_framework_simplejwt.authentication import JWTAuthentication
 
 from account.handlers.perms import DataFKModel
 from account.handlers.validate_perm import ValidatePermRest
+from account.models import User
 from app.logs import app_log
 from marketing.order.api.serializers import OrderSerializer, ProductStatisticsSerializer
 from marketing.order.models import Order, OrderDetail
@@ -42,7 +43,9 @@ class GenericApiOrder(viewsets.GenericViewSet, mixins.ListModelMixin, mixins.Cre
         return Response(response, status.HTTP_200_OK)
 
     def users_order(self, request, *args, **kwargs):
-        user = self.request.user
+        user = request.query_params.get('user', None)
+        if not user:
+            user = self.request.user
         app_log.info(f"User test: {user}")
         orders = Order.objects.filter(client_id=user)
         response = filter_data(self, request, ['id', 'date_get', 'date_company_get', 'client_id'], queryset=orders,
@@ -52,16 +55,23 @@ class GenericApiOrder(viewsets.GenericViewSet, mixins.ListModelMixin, mixins.Cre
 
 class ProductStatisticsView(APIView):
     permission_classes = [partial(ValidatePermRest, model=Order)]
+    serializer_class = ProductStatisticsSerializer
 
     def get(self, request, *args, **kwargs):
         try:
             # Get current user
-            user = request.user
+            user_id = request.query_params.get('user', '')
+            if user_id != '':
+                user = request.user
+            else:
+                current_user = request.user
+                user = User.objects.filter(id=user_id.upper())
             now = datetime.now().date()
             # Set date default
             default_start_date = now - timedelta(days=365)
             default_end_date = now
 
+            # Get params queries
             start_date_1 = request.data.get('start_date_1', datetime.strftime(default_start_date, '%d/%m/%Y'))
             end_date_1 = request.data.get('end_date_1', datetime.strftime(default_end_date, '%d/%m/%Y'))
 
@@ -75,12 +85,16 @@ class ProductStatisticsView(APIView):
             input_date = {'start_date_1': start_date_1, 'end_date_1': end_date_1,
                           'start_date_2': start_date_2, 'end_date_2': end_date_2}
 
+            nvtt_query = request.query_params.get('nvtt', '')
+            npp_query = request.query_params.get('npp', '')
+            daily_query = request.query_params.get('daily', '')
+            query = {'nvtt': nvtt_query, 'npp': npp_query, 'daily': daily_query}
             # Get param variables data
             limit = request.query_params.get('limit', 10)
             page = int(request.query_params.get('page', 1))
 
             # Data set for statistic
-            statistics = get_product_statistics(user, input_date, type_statistic)
+            statistics = get_product_statistics(user, input_date, query, type_statistic)
 
             statistics_list = [{"product_id": k, **v} for k, v in statistics.items()]
 
@@ -435,7 +449,7 @@ class OrderReportView(APIView):
         return field_dict
 
 
-def get_product_statistics(user, input_date, type_statistic):
+def get_product_statistics(user, input_date, query, type_statistic):
     # Convert date format
     start_date_1 = timezone.make_aware(datetime.strptime(input_date.get('start_date_1'), '%d/%m/%Y'),
                                        timezone.get_current_timezone())
@@ -452,6 +466,36 @@ def get_product_statistics(user, input_date, type_statistic):
     # Get orders for each date range
     orders_1 = Order.objects.filter(client_id=user, date_get__gte=start_date_1, date_get__lte=end_date_1)
     orders_2 = Order.objects.filter(client_id=user, date_get__gte=start_date_2, date_get__lte=end_date_2)
+
+    # Apply query filters
+    # if query.get('nvtt') != '':
+    #     nvtt_list = query.get('nvtt').split(',')
+    #     nvtt_ids = EmployeeProfile.objects.filter(
+    #         (Q(register_name__in=nvtt_list) | Q(employee_id__in=nvtt_list)) & Q(employee_id__group_user__name="nvtt")
+    #     ).values_list('employee_id', flat=True)
+    #     client_profile_query = Q(client_id__clientprofile__nvtt_id__in=nvtt_ids)
+    #     orders_1 = orders_1.filter(client_profile_query)
+    #     orders_2 = orders_2.filter(client_profile_query)
+    #
+    # if query.get('npp') != '':
+    #     npp_list = query.get('npp').split(',')
+    #     npp_ids = ClientProfile.objects.filter(
+    #         (Q(register_name__in=npp_list, is_npp=True) | Q(client_id__in=npp_list, is_npp=True)) &
+    #         Q(client_id__group_user__name="npp")
+    #     ).values_list('client_id', flat=True)
+    #     client_profile_query = Q(client_id__in=npp_ids)
+    #     orders_1 = orders_1.filter(client_profile_query)
+    #     orders_2 = orders_2.filter(client_profile_query)
+    #
+    # if query.get('daily') != '':
+    #     daily_list = query.get('daily').split(',')
+    #     exclude_groups = ["NVTT", "TEST", maNhomND]
+    #     daily_ids = ClientProfile.objects.filter(
+    #         Q(register_name__in=daily_list) | Q(client_id__in=daily_list)
+    #     ).exclude(client_group_id__name__in=exclude_groups, is_npp=True).values_list('client_id', flat=True)
+    #     client_query = Q(client_id__in=daily_ids)
+    #     orders_1 = orders_1.filter(client_query)
+    #     orders_2 = orders_2.filter(client_query)
 
     # Get orders for each date range with type_statistic
     match type_statistic:

@@ -273,6 +273,7 @@ class GroupPerm(models.Model):
     name = models.CharField(max_length=255, primary_key=True)
     display_name = models.CharField(max_length=255, null=True)
     description = models.CharField(max_length=255, null=True, blank=True)
+    level = models.IntegerField(null=False, default=0)
     parent_group = models.ForeignKey('self', null=True, blank=True, on_delete=models.SET_NULL)
     note = models.TextField(null=True, default=None, blank=True)
     perm = models.ManyToManyField(to='Perm', through='GroupPermPerms', blank=True)

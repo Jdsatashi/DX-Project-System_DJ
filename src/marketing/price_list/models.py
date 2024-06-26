@@ -100,7 +100,7 @@ class SpecialOffer(models.Model):
     box_can_use = models.IntegerField(null=True)
 
     status = models.CharField(null=True, max_length=24)
-    note = models.CharField(null=True, max_length=255)
+    note = models.TextField(null=True)
 
     created_by = models.CharField(max_length=64, null=True, blank=True)
     created_at = models.DateTimeField(auto_now_add=True)
@@ -123,7 +123,7 @@ class SpecialOffer(models.Model):
 
 class SpecialOfferProduct(models.Model):
     special_offer = models.ForeignKey(SpecialOffer, null=True, on_delete=models.CASCADE, related_name='special_offers')
-    product = models.ForeignKey(Product, on_delete=models.CASCADE, related_name='special_offers')
+    product = models.ForeignKey(Product, null=True, on_delete=models.CASCADE, related_name='special_offers')
     price = models.BigIntegerField(null=True)
     point = models.FloatField(null=True)
     quantity_in_box = models.IntegerField(default=0)
