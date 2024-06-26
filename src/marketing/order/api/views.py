@@ -43,7 +43,7 @@ class GenericApiOrder(viewsets.GenericViewSet, mixins.ListModelMixin, mixins.Cre
         return Response(response, status.HTTP_200_OK)
 
     def users_order(self, request, *args, **kwargs):
-        user_id = request.query_params.get('user', None)
+        user_id = request.query_params.get('user', '')
         if user_id == '':
             user = request.user
         else:
