@@ -43,9 +43,12 @@ class GenericApiOrder(viewsets.GenericViewSet, mixins.ListModelMixin, mixins.Cre
         return Response(response, status.HTTP_200_OK)
 
     def users_order(self, request, *args, **kwargs):
-        user = request.query_params.get('user', None)
-        if not user:
-            user = self.request.user
+        user_id = request.query_params.get('user', None)
+        if user_id == '':
+            user = request.user
+        else:
+            current_user = request.user
+            user = User.objects.filter(id=user_id.upper()).first()
         app_log.info(f"User test: {user}")
         orders = Order.objects.filter(client_id=user)
         response = filter_data(self, request, ['id', 'date_get', 'date_company_get', 'client_id'], queryset=orders,
@@ -61,11 +64,13 @@ class ProductStatisticsView(APIView):
         try:
             # Get current user
             user_id = request.query_params.get('user', '')
-            if user_id != '':
+            if user_id == '':
                 user = request.user
             else:
                 current_user = request.user
                 user = User.objects.filter(id=user_id.upper()).first()
+            app_log.info(f"Test user id: {user}")
+
             now = datetime.now().date()
             # Set date default
             default_start_date = now - timedelta(days=365)
