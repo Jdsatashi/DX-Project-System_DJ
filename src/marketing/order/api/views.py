@@ -65,7 +65,7 @@ class ProductStatisticsView(APIView):
                 user = request.user
             else:
                 current_user = request.user
-                user = User.objects.filter(id=user_id.upper())
+                user = User.objects.filter(id=user_id.upper()).first()
             now = datetime.now().date()
             # Set date default
             default_start_date = now - timedelta(days=365)
@@ -450,6 +450,7 @@ class OrderReportView(APIView):
 
 
 def get_product_statistics(user, input_date, query, type_statistic):
+    app_log.info(f"User id: {user}")
     # Convert date format
     start_date_1 = timezone.make_aware(datetime.strptime(input_date.get('start_date_1'), '%d/%m/%Y'),
                                        timezone.get_current_timezone())
