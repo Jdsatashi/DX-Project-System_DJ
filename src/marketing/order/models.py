@@ -77,7 +77,7 @@ class Order(models.Model):
         self.order_price = round(order_details['total_price'] or 0, 5)
 
     def generate_pk(self):
-        start_char = 'MT'
+        start_char = 'MTN'
         current_year = datetime.utcnow().year
         two_digit_year = str(current_year)[-2:]
         current_month = datetime.utcnow().month
