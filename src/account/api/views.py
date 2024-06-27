@@ -606,9 +606,11 @@ class ApiGetManageUser(APIView):
             user_name_ = user.clientprofile.register_name or ''
             if user.clientprofile.is_npp or user.group_user.filter(name='npp').exists():
                 user_type = 'npp'
+            user_phones = user.phone_numbers.filter().values_list('phone_number', flat=True)
             user_dict = {
                 'id': user.id,
                 'name': user_name_,
+                'phone': list(user_phones),
                 'user_type': user_type
             }
             user_data.append(user_dict)
