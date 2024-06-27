@@ -25,6 +25,7 @@ from app.logs import app_log
 from app.settings import pusher_client
 from marketing.price_list.models import PriceList, PointOfSeason
 from user_system.client_profile.api.serializers import ClientProfileSerializer
+from user_system.client_profile.models import ClientProfile
 from user_system.employee_profile.api.serializers import EmployeeProfileSerializer
 from utils.constants import status as user_status, maNhomND, admin_role, phone_magic, magic_verify_code
 from utils.env import TOKEN_LT
@@ -565,16 +566,16 @@ class ApiGetManageUser(APIView):
         highest_group = get_highest_level_group(user)
         app_log.info(f"Test group: {highest_group}")
 
-        # Get query search
-        query = request.query_params.get('query', '')
-
         if user_type == 'nvtt':
             users_list = User.objects.filter(clientprofile__nvtt_id=user.id)
             get_user = request.query_params.get('get_user', '')
             if get_user == 'npp':
+                app_log.info(f"Case 'npp'")
+                # distinct_lv1_ids = ClientProfile.objects.values('client_lv1_id').distinct()
                 query = Q(clientprofile__is_npp=True) | Q(group_user__name='npp')
                 users_list = users_list.filter(query)
             elif get_user == 'daily':
+                app_log.info(f"Case 'daily'")
                 query = Q(clientprofile__is_npp=True) | Q(group_user__name='npp')
                 users_list = users_list.exclude(query)
             else:
@@ -586,9 +587,12 @@ class ApiGetManageUser(APIView):
         else:
             return Response({'data': []}, status.HTTP_200_OK)
 
+        # Get query search
+        query = request.query_params.get('query', '')
+
         if query != '':
-            search_fields = ['id', 'username', 'email', 'phone_numbers__phone_number', 'clientprofile__register_name']
             search_queries = query.split(',')
+            search_fields = ['id', 'username', 'email', 'phone_numbers__phone_number', 'clientprofile__register_name']
             q_objects = Q()
             for search in search_queries:
                 for field in search_fields:
