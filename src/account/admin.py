@@ -20,6 +20,7 @@ class UserAdmin(BaseUserAdmin):
 
     def display_phone_numbers(self, obj):
         return ", ".join([phone_number.phone_number for phone_number in obj.phone_numbers.all()])
+
     display_phone_numbers.short_description = 'Phone Numbers'
 
     def get_fieldsets(self, request, obj=None):
@@ -43,8 +44,23 @@ class UserAdmin(BaseUserAdmin):
         super().save_model(request, obj, form, change)
 
 
+class GroupPermAdmin(admin.ModelAdmin):
+    search_fields = (
+        "name", "display_name", "description", "users_rela__username", "users_rela__id", "users_rela__email")
+
+
+class PermAdmin(admin.ModelAdmin):
+    search_fields = (
+        "name", "display_name", "description", "users_rela__username", "users_rela__id", "users_rela__email")
+
+
+class PhoneNumberAdmin(admin.ModelAdmin):
+    search_fields = (
+        "phone_number", "user__username", "user__email")  # Adjust this according to the fields you want to search
+
+
 # Register your models here.
 admin.site.register(User, UserAdmin)
-admin.site.register(GroupPerm)
-admin.site.register(Perm)
-admin.site.register(PhoneNumber)
+admin.site.register(GroupPerm, GroupPermAdmin)
+admin.site.register(Perm, PermAdmin)
+admin.site.register(PhoneNumber, PhoneNumberAdmin)
