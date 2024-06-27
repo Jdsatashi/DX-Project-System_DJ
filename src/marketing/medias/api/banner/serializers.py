@@ -16,6 +16,9 @@ class BannerItemSerializer(serializers.ModelSerializer):
         model = BannerItem
         fields = '__all__'
         read_only_fields = ('id', 'created_at')
+        extra_kwargs = {
+            'file': {'write_only': True}
+        }
 
     def to_representation(self, instance):
         representation = super().to_representation(instance)
@@ -59,11 +62,15 @@ class BannerItemSerializer(serializers.ModelSerializer):
 
 
 class BannerItemWrite(serializers.ModelSerializer):
-    file_upload = serializers.FileField(allow_null=True)
+    file_upload = serializers.FileField(allow_null=True, write_only=True)
 
     class Meta:
         model = BannerItem
         exclude = ['id', 'banner', 'created_at']
+        extra_kwargs = {
+            'note': {'write_only': True},
+            'file': {'write_only': True}
+        }
 
     def to_representation(self, instance):
         representation = super().to_representation(instance)
