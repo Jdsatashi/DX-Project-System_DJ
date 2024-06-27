@@ -71,7 +71,7 @@ class ApiAccount(viewsets.GenericViewSet, mixins.ListModelMixin, mixins.CreateMo
                 queryset = queryset.filter(Q(clientprofile__is_npp=True) | Q(group_user__name='npp'))
             case 'daily':
                 app_log.info(f"Case daily")
-                queryset = queryset.filter(user_type='client').exclude(clientprofile__is_npp=True)
+                queryset = queryset.filter(user_type='client').exclude(Q(group_user__name='npp') | Q(clientprofile__is_npp=True))
             case _:
                 app_log.info(f"Case default")
                 pass
