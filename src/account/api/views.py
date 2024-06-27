@@ -4,7 +4,7 @@ import time
 import pytz
 from django.contrib.auth import get_user_model
 from django.contrib.auth.hashers import check_password
-from django.db.models import Q
+from django.db.models import Q, Max
 from django.http import HttpResponse
 from drf_spectacular.utils import extend_schema
 from rest_framework import mixins, viewsets, status
@@ -40,6 +40,7 @@ class ApiAccount(viewsets.GenericViewSet, mixins.ListModelMixin, mixins.CreateMo
     queryset = User.objects.all()
 
     authentication_classes = [JWTAuthentication, BasicAuthentication, SessionAuthentication]
+
     # permission_classes = [partial(ValidatePermRest, model=User)]
 
     def list(self, request, *args, **kwargs):
@@ -71,11 +72,13 @@ class ApiAccount(viewsets.GenericViewSet, mixins.ListModelMixin, mixins.CreateMo
                 queryset = queryset.filter(Q(clientprofile__is_npp=True) | Q(group_user__name='npp'))
             case 'daily':
                 app_log.info(f"Case daily")
-                queryset = queryset.filter(user_type='client').exclude(Q(group_user__name='npp') | Q(clientprofile__is_npp=True))
+                queryset = queryset.filter(user_type='client').exclude(
+                    Q(group_user__name='npp') | Q(clientprofile__is_npp=True))
             case _:
                 app_log.info(f"Case default")
                 pass
-        response = filter_data(self, request, ['id', 'username', 'email', 'phone_numbers__phone_number', 'clientprofile__register_name', 'employeeprofile__register_name'],
+        response = filter_data(self, request, ['id', 'username', 'email', 'phone_numbers__phone_number',
+                                               'clientprofile__register_name', 'employeeprofile__register_name'],
                                queryset=queryset, **kwargs)
         app_log.info(f"Query time: {time.time() - start_time}")
         return Response(response, status.HTTP_200_OK)
@@ -541,3 +544,103 @@ class ApiUpdateDeviceCode(APIView):
         #     app_log.error(f'Get error ApiUpdateDeviceCode post')
         #     raise e
         # return Response({'message': 'Success'}, status=status.HTTP_200_OK)
+
+
+class ApiGetManageUser(APIView):
+    # authentication_classes = [JWTAuthentication, BasicAuthentication, SessionAuthentication]
+
+    def get(self, request):
+        # Get user for checking manage group user
+        user = request.user
+        user_id = request.query_params.get('user', '')
+        if user_id != '':
+            try:
+                user = User.objects.get(id=user_id)
+            except User.DoesNotExist:
+                return Response({'error': 'user id in query params not found'}, 400)
+        app_log.info(f"Test user: {user}")
+        # Check type of user
+        user_type = check_user_type(user)
+        app_log.info(f"Test type: {user_type}")
+        highest_group = get_highest_level_group(user)
+        app_log.info(f"Test group: {highest_group}")
+
+        # Get query search
+        query = request.query_params.get('query', '')
+
+        if user_type == 'nvtt':
+            users_list = User.objects.filter(clientprofile__nvtt_id=user.id)
+            get_user = request.query_params.get('get_user', '')
+            if get_user == 'npp':
+                query = Q(clientprofile__is_npp=True) | Q(group_user__name='npp')
+                users_list = users_list.filter(query)
+            elif get_user == 'daily':
+                query = Q(clientprofile__is_npp=True) | Q(group_user__name='npp')
+                users_list = users_list.exclude(query)
+            else:
+                pass
+            user_name = user.employeeprofile.register_name
+        elif user_type == 'npp':
+            users_list = User.objects.filter(clientprofile__client_lv1_id=user.id)
+            user_name = user.clientprofile.register_name
+        else:
+            return Response({'data': []}, status.HTTP_200_OK)
+
+        if query != '':
+            search_fields = ['id', 'username', 'email', 'phone_numbers__phone_number', 'clientprofile__register_name']
+            search_queries = query.split(',')
+            q_objects = Q()
+            for search in search_queries:
+                for field in search_fields:
+                    q_objects |= Q(**{f"{field}__icontains": search})
+            users_list = users_list.filter(q_objects)
+
+        # Get list user for response
+        user_data = []
+        user_type = 'daily'
+        for user in users_list:
+            user_name = user.clientprofile.register_name or ''
+            if user.clientprofile.is_npp or user.group_user.filter(name='npp').exists():
+                user_type = 'npp'
+            user_dict = {
+                'id': user.id,
+                'name': user_name,
+                'user_type': user_type
+            }
+            user_data.append(user_dict)
+        response_data = {
+            'user_id': user.id,
+            'name': user_name,
+            'group_manage': user_data
+        }
+        return Response(response_data, status.HTTP_200_OK)
+
+
+def get_client_npp(npp_id):
+    clients = User.objects.filter(Q(clientprofile__client_lv1_id=npp_id))
+    return clients
+
+
+def get_highest_level_group(user):
+    max_level = user.group_user.aggregate(Max('level'))['level__max']
+    app_log.info(f"Level: {max_level}")
+
+    highest_level_group = user.group_user.filter(level=max_level).first()
+
+    return highest_level_group.name
+
+
+def check_user_type(user):
+    if user.user_type == 'employee' and user.group_user.filter(name='admin').exists():
+        return 'admin'
+    if user.group_user.filter(name='nvtt').exists():
+        return 'nvtt'
+    if user.user_type == 'employee' and not user.group_user.filter(name='admin').exists():
+        return 'employee'
+    if user.user_type == 'client' and user.clientprofile.is_npp:
+        return 'npp'
+    if user.user_type == 'client' and not user.clientprofile.is_npp:
+        return 'daily'
+    if user.user_type == 'farmer':
+        return 'farmer'
+    return 'unknown'

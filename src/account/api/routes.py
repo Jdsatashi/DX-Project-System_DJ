@@ -2,7 +2,7 @@ from django.urls import path
 from rest_framework.routers import DefaultRouter
 
 from account.api.views import ApiAccount, otp_verify, phone_login_2, logout, check_token, \
-    ApiUpdateUserProfile, ApiPerm, ApiGroupPerm, admin_login, ApiUpdateDeviceCode
+    ApiUpdateUserProfile, ApiPerm, ApiGroupPerm, admin_login, ApiUpdateDeviceCode, ApiGetManageUser
 
 app_name = 'api_account'
 
@@ -44,4 +44,5 @@ urlpatterns = [
     path('update-device-token/', ApiUpdateDeviceCode.as_view()),
 
     path('admin/', admin_login),
+    path('manager/', ApiGetManageUser.as_view())
 ]
