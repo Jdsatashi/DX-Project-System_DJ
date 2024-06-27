@@ -73,7 +73,9 @@ def set_client_role():
 
 
 def set_employee_role():
-    employee_group, _ = GroupPerm.objects.get_or_create(name='employee', defaults={'allow': True, 'display_name': 'Nhân viên Cty'})
+    employee_group, _ = GroupPerm.objects.get_or_create(name='employee',
+                                                        defaults={'allow': True, 'display_name': 'Nhân viên Cty',
+                                                                  'level': 7})
     view_group = [ProductType, RegistrationUnit, Producer, RegistrationCert, UseObject, UseFor, CategoryDetail,
                   ProductCategory, Product, ProductPrice]
     add_group_perm(employee_group, acquy['view'], view_group)
@@ -85,8 +87,9 @@ def set_employee_role():
 def set_NVTT_role():
     set_employee_role()
     employee_group = GroupPerm.objects.get(name='employee')
-    nvt_group, _ = GroupPerm.objects.get_or_create(name='nvtt', defaults={'allow': True, 'display_name': 'Nhân viên Thị Trường',
-                                                                          'parent_group': employee_group})
+    nvt_group, _ = GroupPerm.objects.get_or_create(name='nvtt',
+                                                   defaults={'allow': True, 'display_name': 'Nhân viên Thị Trường',
+                                                             'level': 7, 'parent_group': employee_group})
     view_group = [ProductType, RegistrationUnit, Producer, RegistrationCert, UseObject, UseFor, CategoryDetail,
                   ProductCategory, Product, ProductPrice]
     add_group_perm(nvt_group, acquy['view'], view_group)
@@ -107,24 +110,28 @@ def set_NPP_role():
 
 def set_client_default():
     farmer_group, _ = GroupPerm.objects.get_or_create(name='farmer',
-                                                      defaults={'allow': True, 'display_name': 'Nông dân'})
+                                                      defaults={'allow': True, 'display_name': 'Nông dân', 'level': 2})
     client_group, _ = GroupPerm.objects.get_or_create(name='client',
-                                                      defaults={'allow': True, 'display_name': 'Khách hàng'})
+                                                      defaults={'allow': True, 'display_name': 'Khách hàng',
+                                                                'level': 4})
 
     client_lv1, _ = GroupPerm.objects.get_or_create(name='client_lv1',
                                                     defaults={'allow': True, 'display_name': 'Khách hàng cấp 1',
-                                                              'parent_group': client_group})
+                                                              'level': 5, 'parent_group': client_group})
     client_lv2, _ = GroupPerm.objects.get_or_create(name='client_lv2',
                                                     defaults={'allow': True, 'display_name': 'Khách hàng cấp 2',
-                                                              'parent_group': client_group})
+                                                              'level': 5, 'parent_group': client_group})
     client_vip, _ = GroupPerm.objects.get_or_create(name='client_vip',
                                                     defaults={'allow': True, 'display_name': 'Khách hàng VIP',
-                                                              'parent_group': client_group})
-    client_lv1_north, _ = GroupPerm.objects.get_or_create(name='client_lv1_north', defaults={'allow': True,
-                                                                                             'display_name': 'Khách hàng cấp 1 Miền Bắc',
-                                                                                             'parent_group': client_lv1})
+                                                              'level': 5, 'parent_group': client_group})
+    client_lv1_north, _ = GroupPerm.objects.get_or_create(name='client_lv1_north',
+                                                          defaults={'allow': True,
+                                                                    'display_name': 'Khách hàng cấp 1 Miền Bắc',
+                                                                    'level': 5,
+                                                                    'parent_group': client_lv1})
     test_group, _ = GroupPerm.objects.get_or_create(name='test', defaults={'allow': True, 'display_name': 'Nhóm test'})
-    npp, _ = GroupPerm.objects.get_or_create(name='npp', defaults={'allow': True, 'display_name': 'Nhà phân phối', 'parent_group': client_group})
+    npp, _ = GroupPerm.objects.get_or_create(name='npp', defaults={'allow': True, 'display_name': 'Nhà phân phối',
+                                                                   'parent_group': client_group, 'level': 6})
 
 
 def auto_role():
