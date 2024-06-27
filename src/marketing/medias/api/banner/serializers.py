@@ -10,7 +10,7 @@ from utils.env import APP_SERVER
 
 
 class BannerItemSerializer(serializers.ModelSerializer):
-    file_upload = serializers.FileField(allow_null=True, write_only=True)
+    file_upload = serializers.FileField(allow_null=True, write_only=True, required=False)
 
     class Meta:
         model = BannerItem
