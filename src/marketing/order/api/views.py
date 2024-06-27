@@ -64,10 +64,9 @@ class ProductStatisticsView(APIView):
         try:
             # Get current user
             user_id = request.query_params.get('user', '')
-            if user_id == '':
-                user = request.user
-            else:
-                current_user = request.user
+            user = request.user
+            if user_id != '':
+                current_user = user
                 user = User.objects.filter(id=user_id.upper()).first()
             app_log.info(f"Test user id: {user}")
 
