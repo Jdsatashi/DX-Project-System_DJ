@@ -51,12 +51,12 @@ class BannerItemSerializer(serializers.ModelSerializer):
         file_instance = validated_data.get('file', instance.file)
 
         with transaction.atomic():
-            if file_upload_data:
-                file_instance = FileUpload.objects.create(file=file_upload_data)
-            validated_data['file'] = file_instance
-
+            # if file_upload_data:
+            #     file_instance = FileUpload.objects.create(file=file_upload_data)
+            # validated_data['file'] = file_instance
             for attr, value in validated_data.items():
-                setattr(instance, attr, value)
+                if attr in ['url', 'title', 'priority', 'note']:
+                    setattr(instance, attr, value)
             instance.save()
             return instance
 
@@ -109,11 +109,14 @@ class BannerSerializer(serializers.ModelSerializer):
             return instance
 
     def create_or_update_banner_items(self, banner, banner_items_data):
+        existing_items = {item.id: item for item in banner.banner_items.all()}
         for banner_item_data in banner_items_data:
-            file_upload = banner_item_data.pop('file_upload', None)
-            file = banner_item_data.pop('file', None)
-            if file_upload and file is None:
-                file = FileUpload.objects.create(file=file_upload)
-            banner_item_data['file'] = file
-            banner_item_data['banner'] = banner
-            BannerItem.objects.create(**banner_item_data)
+            item_id = banner_item_data.get('id')
+            if item_id and item_id in existing_items:
+                banner_item = existing_items[item_id]
+                for attr in ['url', 'title', 'priority', 'note']:
+                    if attr in banner_item_data:
+                        setattr(banner_item, attr, banner_item_data[attr])
+                banner_item.save()
+            else:
+                self.create_or_update_banner_items(banner, [banner_item_data])
