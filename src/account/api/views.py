@@ -599,12 +599,12 @@ class ApiGetManageUser(APIView):
         user_data = []
         user_type = 'daily'
         for user in users_list:
-            user_name = user.clientprofile.register_name or ''
+            user_name_ = user.clientprofile.register_name or ''
             if user.clientprofile.is_npp or user.group_user.filter(name='npp').exists():
                 user_type = 'npp'
             user_dict = {
                 'id': user.id,
-                'name': user_name,
+                'name': user_name_,
                 'user_type': user_type
             }
             user_data.append(user_dict)
