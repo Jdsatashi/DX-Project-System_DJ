@@ -1,4 +1,3 @@
-# models.py
 import datetime
 
 from django.apps import apps
@@ -11,7 +10,7 @@ from django.utils import timezone
 from pyodbc import IntegrityError
 
 from app.logs import app_log
-from utils.constants import maNhomND
+from utils.constants import maNhomND, admin_role
 from utils.helpers import self_id
 
 
@@ -36,9 +35,12 @@ class CustomUserManager(BaseUserManager):
         type_nv = "employee"
         extra_fields['user_type'] = type_nv
         user = self.create_user(username, email, phone_number, password, **extra_fields)
-        perms = Perm.objects.all()
-        for i, q in enumerate(perms):
-            user.perm_user.add(q)
+        group_admin = GroupPerm.objects.get(name=admin_role)
+        group_employee = GroupPerm.objects.get(name='employee')
+        user.group_user.set(group_admin, group_employee)
+        # perms = Perm.objects.all()
+        # for i, q in enumerate(perms):
+        #     user.perm_user.add(q)
         return user
 
 
