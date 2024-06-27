@@ -17,7 +17,7 @@ class ApiBanner(viewsets.GenericViewSet, mixins.ListModelMixin, mixins.CreateMod
     # permission_classes = [partial(ValidatePermRest, model=Banner)]
 
     def get_authenticators(self):
-        if self.action in ['create', 'update', 'partial_update', 'destroy']:
+        if self.request.method in ['POST', 'PUT', 'PATCH', 'DELETE']:
             self.authentication_classes = [JWTAuthentication, BasicAuthentication, SessionAuthentication]
         else:
             self.authentication_classes = []
@@ -44,7 +44,7 @@ class ApiBannerItem(viewsets.GenericViewSet, mixins.ListModelMixin, mixins.Creat
     # permission_classes = [partial(ValidatePermRest, model=BannerItem)]
 
     def get_authenticators(self):
-        if self.action in ['create', 'update', 'partial_update', 'destroy']:
+        if self.request.method in ['POST', 'PUT', 'PATCH', 'DELETE']:
             self.authentication_classes = [JWTAuthentication, BasicAuthentication, SessionAuthentication]
         else:
             self.authentication_classes = []
