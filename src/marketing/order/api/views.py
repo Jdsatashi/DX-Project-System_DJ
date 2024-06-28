@@ -89,16 +89,15 @@ class ProductStatisticsView(APIView):
             input_date = {'start_date_1': start_date_1, 'end_date_1': end_date_1,
                           'start_date_2': start_date_2, 'end_date_2': end_date_2}
 
-            nvtt_query = request.query_params.get('nvtt', '')
-            npp_query = request.query_params.get('npp', '')
-            daily_query = request.query_params.get('daily', '')
-            query = {'nvtt': nvtt_query, 'npp': npp_query, 'daily': daily_query}
+            product_query = request.query_params.get('products', '')
+            product_ids = product_query.split(',') if product_query else []
+
             # Get param variables data
             limit = request.query_params.get('limit', 10)
             page = int(request.query_params.get('page', 1))
 
             # Data set for statistic
-            statistics = get_product_statistics(user, input_date, query, type_statistic)
+            statistics = get_product_statistics(user, input_date, product_ids, type_statistic)
 
             statistics_list = [{"product_id": k, **v} for k, v in statistics.items()]
 
@@ -140,7 +139,7 @@ class ProductStatisticsView(APIView):
             # return Response({"error": str(e)}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
 
 
-def get_product_statistics(user, input_date, query, type_statistic):
+def get_product_statistics(user, input_date, product_ids, type_statistic):
     app_log.info(f"User id: {user} - {input_date} - {type_statistic}")
     # Convert date format
     start_date_1 = timezone.make_aware(datetime.strptime(input_date.get('start_date_1'), '%d/%m/%Y'),
@@ -160,34 +159,9 @@ def get_product_statistics(user, input_date, query, type_statistic):
     orders_2 = Order.objects.filter(client_id=user, date_get__gte=start_date_2, date_get__lte=end_date_2)
 
     # Apply query filters
-    # if query.get('nvtt') != '':
-    #     nvtt_list = query.get('nvtt').split(',')
-    #     nvtt_ids = EmployeeProfile.objects.filter(
-    #         (Q(register_name__in=nvtt_list) | Q(employee_id__in=nvtt_list)) & Q(employee_id__group_user__name="nvtt")
-    #     ).values_list('employee_id', flat=True)
-    #     client_profile_query = Q(client_id__clientprofile__nvtt_id__in=nvtt_ids)
-    #     orders_1 = orders_1.filter(client_profile_query)
-    #     orders_2 = orders_2.filter(client_profile_query)
-    #
-    # if query.get('npp') != '':
-    #     npp_list = query.get('npp').split(',')
-    #     npp_ids = ClientProfile.objects.filter(
-    #         (Q(register_name__in=npp_list, is_npp=True) | Q(client_id__in=npp_list, is_npp=True)) &
-    #         Q(client_id__group_user__name="npp")
-    #     ).values_list('client_id', flat=True)
-    #     client_profile_query = Q(client_id__in=npp_ids)
-    #     orders_1 = orders_1.filter(client_profile_query)
-    #     orders_2 = orders_2.filter(client_profile_query)
-    #
-    # if query.get('daily') != '':
-    #     daily_list = query.get('daily').split(',')
-    #     exclude_groups = ["NVTT", "TEST", maNhomND]
-    #     daily_ids = ClientProfile.objects.filter(
-    #         Q(register_name__in=daily_list) | Q(client_id__in=daily_list)
-    #     ).exclude(client_group_id__name__in=exclude_groups, is_npp=True).values_list('client_id', flat=True)
-    #     client_query = Q(client_id__in=daily_ids)
-    #     orders_1 = orders_1.filter(client_query)
-    #     orders_2 = orders_2.filter(client_query)
+    if product_ids:
+        orders_1 = orders_1.filter(order_detail__product_id__in=product_ids).distinct()
+        orders_2 = orders_2.filter(order_detail__product_id__in=product_ids).distinct()
 
     # Get orders for each date range with type_statistic
     match type_statistic:
@@ -195,18 +169,20 @@ def get_product_statistics(user, input_date, query, type_statistic):
             orders_1 = orders_1.filter(Q(new_special_offer__isnull=False) | Q(is_so=True))
             orders_2 = orders_2.filter(Q(new_special_offer__isnull=False) | Q(is_so=True))
         case 'normal':
-            orders_1 = orders_1.filter(Q(new_special_offer__isnull=True) & Q(is_so=False))
-            orders_2 = orders_2.filter(Q(new_special_offer__isnull=True) & Q(is_so=False))
+            orders_1 = orders_1.filter(Q(new_special_offer__isnull=True) & Q(Q(is_so=False) | Q(is_so__isnull=True)))
+            orders_2 = orders_2.filter(Q(new_special_offer__isnull=True) & Q(Q(is_so=False) | Q(is_so__isnull=True)))
+            # orders_1 = orders_1.exclude(Q(new_special_offer__isnull=False) & Q(is_so=True))
+            # orders_2 = orders_2.exclude(Q(new_special_offer__isnull=False) & Q(is_so=True))
 
     # Get order details for each date range
-    details_1 = OrderDetail.objects.filter(order_id__in=orders_1).values('product_id', 'product_id__name').annotate(
+    details_1 = OrderDetail.objects.filter(order_id__in=orders_1, product_id__in=product_ids).values('product_id', 'product_id__name').annotate(
         total_quantity=Sum('order_quantity'),
         total_point=Sum('point_get'),
         total_price=Sum('product_price'),
         total_box=Sum('order_box')
     )
 
-    details_2 = OrderDetail.objects.filter(order_id__in=orders_2).values('product_id', 'product_id__name').annotate(
+    details_2 = OrderDetail.objects.filter(order_id__in=orders_2, product_id__in=product_ids).values('product_id', 'product_id__name').annotate(
         total_quantity=Sum('order_quantity'),
         total_point=Sum('point_get'),
         total_price=Sum('product_price'),
