@@ -70,7 +70,7 @@ class ProductStatisticsView(APIView):
                 current_user = user
                 # user = User.objects.filter(id=user_id.upper()).first()
                 users = [User.objects.filter(id=user_id.upper()).first() for user_id in user_id.split(',')]
-
+            # test
             app_log.info(f"Test user id: {user}")
 
             now = datetime.now().date()
