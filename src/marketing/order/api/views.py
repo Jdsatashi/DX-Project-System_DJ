@@ -65,12 +65,9 @@ class ProductStatisticsView(APIView):
             # Get current user
             user_id = request.query_params.get('user', '')
             user = request.user
-            users = [user]
             if user_id != '':
                 current_user = user
-                # user = User.objects.filter(id=user_id.upper()).first()
-                users = [User.objects.filter(id=user_id.upper()).first() for user_id in user_id.split(',')]
-            # test
+                user = User.objects.filter(id=user_id.upper()).first()
             app_log.info(f"Test user id: {user}")
 
             now = datetime.now().date()
@@ -100,7 +97,7 @@ class ProductStatisticsView(APIView):
             page = int(request.query_params.get('page', 1))
 
             # Data set for statistic
-            statistics = get_product_statistics(users, input_date, product_ids, type_statistic)
+            statistics = get_product_statistics(user, input_date, product_ids, type_statistic)
 
             statistics_list = [{"product_id": k, **v} for k, v in statistics.items()]
 
@@ -158,8 +155,8 @@ def get_product_statistics(user, input_date, product_ids, type_statistic):
         timezone.get_current_timezone())
 
     # Get orders for each date range
-    orders_1 = Order.objects.filter(client_id__in=user, date_get__gte=start_date_1, date_get__lte=end_date_1)
-    orders_2 = Order.objects.filter(client_id__in=user, date_get__gte=start_date_2, date_get__lte=end_date_2)
+    orders_1 = Order.objects.filter(client_id=user, date_get__gte=start_date_1, date_get__lte=end_date_1)
+    orders_2 = Order.objects.filter(client_id=user, date_get__gte=start_date_2, date_get__lte=end_date_2)
 
     # Apply query filters
     if len(product_ids) > 0:
