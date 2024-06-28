@@ -3,6 +3,7 @@ from django.db.models import UniqueConstraint, Max
 from rest_framework.exceptions import ValidationError
 
 from account.models import User
+from app.logs import app_log
 from system.file_upload.models import FileUpload
 from utils.helpers import self_id
 
@@ -42,9 +43,12 @@ class NotificationFile(models.Model):
     def save(self, *args, **kwargs):
         notify_file = NotificationFile.objects.filter(notify=self.notify)
         if notify_file.exists() and self.id not in notify_file.values_list('id', flat=True):
-            prio_list = [p.priority for p in notify_file]
+            prio_list = [p.priority for p in notify_file if p.priority is not None]
             if self.priority in prio_list:
-                self.priority = max(prio_list) + 1
+                max_num = max(prio_list)
+                max_num = max_num if max_num else 0
+                app_log.info(f"Test max num: {max_num}")
+                self.priority = max_num + 1
         super().save(*args, **kwargs)
 
 

@@ -1,5 +1,6 @@
 from django.contrib.contenttypes.models import ContentType
 from django.db import transaction
+from firebase_admin import messaging
 from rest_framework import serializers
 from rest_framework.exceptions import ValidationError
 
@@ -44,7 +45,7 @@ class NotificationSerializer(serializers.ModelSerializer):
         representation['files'] = [(APP_SERVER + file.file.url) if file.file.url else None for file in
                                    FileUpload.objects.filter(file__in=files)]
 
-            # request = self.context.get('request')
+        # request = self.context.get('request')
         # if (request and request.method == 'GET'
         #         and hasattr(request, 'resolver_match')
         #         and request.resolver_match.kwargs.get('pk')):
@@ -64,6 +65,7 @@ class NotificationSerializer(serializers.ModelSerializer):
         users = validated_data.pop('users', [])
         groups = validated_data.pop('groups', [])
         files = validated_data.pop('files', [])
+        app_log.info(f"Number of files: {len(files)}")
         try:
             with transaction.atomic():
                 notify = super().create(validated_data)
@@ -169,6 +171,19 @@ class NotificationSerializer(serializers.ModelSerializer):
                 return notify
         except Exception as e:
             raise e
+
+    def send_firebase_notification(self, validated_data, users):
+        title = validated_data.get('title')
+        body = validated_data.get('short_description')
+        message = messaging.MulticastMessage(
+            notification=messaging.Notification(
+                title=title,
+                body=body,
+            ),
+            tokens=[user.device_token for user in users if user.device_token]
+        )
+        response = messaging.send_multicast(message)
+        app_log.info(f'Successfully sent message: {response}')
 
 
 class NotifyReadSerializer(serializers.ModelSerializer):
