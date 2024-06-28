@@ -189,7 +189,7 @@ class NotificationSerializer(serializers.ModelSerializer):
 class NotifyReadSerializer(serializers.ModelSerializer):
     class Meta:
         model = Notification
-        fields = ['id', 'title', 'short_description', 'alert_date', 'alert_time', 'content', 'type', 'files']
+        fields = ['id', 'title', 'short_description', 'alert_date', 'alert_time', 'content', 'type']
 
     def to_representation(self, instance):
         representation = super().to_representation(instance)
@@ -205,7 +205,7 @@ class NotifyReadSerializer(serializers.ModelSerializer):
             for file in FileUpload.objects.filter(file__in=files):
                 file_url = APP_SERVER + file.url if file.url else None
                 file_list.append(file_url)
-        representation['file_url'] = file_list
+        representation['files'] = file_list
         return representation
 
 
