@@ -15,6 +15,12 @@ from utils.env import APP_SERVER
 
 
 def send_firebase_notification(title, body, registration_tokens):
+    # Ensure registration_tokens is a list of strings
+    registration_tokens = list(map(str, registration_tokens))
+
+    if not registration_tokens:
+        return None
+
     message = messaging.MulticastMessage(
         notification=messaging.Notification(
             title=title,
@@ -22,7 +28,7 @@ def send_firebase_notification(title, body, registration_tokens):
         ),
         tokens=registration_tokens,
     )
-    response = messaging.send_multicast(message)
+    response = messaging.send_each_for_multicast(message)
     return response
 
 
