@@ -14,6 +14,18 @@ from utils.constants import acquy, admin_role
 from utils.env import APP_SERVER
 
 
+def send_firebase_notification(title, body, registration_tokens):
+    message = messaging.MulticastMessage(
+        notification=messaging.Notification(
+            title=title,
+            body=body,
+        ),
+        tokens=registration_tokens,
+    )
+    response = messaging.send_multicast(message)
+    return response
+
+
 class NotificationSerializer(serializers.ModelSerializer):
     users = serializers.ListField(child=serializers.CharField(), write_only=True, allow_null=True, required=False)
     groups = serializers.ListField(child=serializers.CharField(), write_only=True, allow_null=True, required=False)
@@ -94,11 +106,12 @@ class NotificationSerializer(serializers.ModelSerializer):
                 notify_users = [NotificationUser(notify=notify, user=user) for user in distinct_users]
                 # Create notification of user
                 NotificationUser.objects.bulk_create(notify_users)
+                send_firebase_notification(notify.title, notify.short_description, registration_tokens)
 
                 for file in files:
                     file_upload = FileUpload.objects.create(file=file)
                     NotificationFile.objects.create(notify=notify, file=file_upload)
-                self.send_firebase_notification(validated_data, distinct_users)
+
                 return notify
         except Exception as e:
             raise e
