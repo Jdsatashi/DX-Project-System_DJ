@@ -177,7 +177,8 @@ def get_product_statistics(user, input_date, product_ids, type_statistic):
     query_data_1 = Q()
     query_data_1 |= Q(order_id__in=orders_1)
     if len(product_ids) > 0:
-        query_data_1 |= Q(product_id__in=product_ids)
+        app_log.info(f"Test len: {product_ids}")
+        query_data_1 &= Q(product_id__in=product_ids)
     # Get order details for each date range
     details_1 = OrderDetail.objects.filter(query_data_1).values('product_id', 'product_id__name').annotate(
         total_quantity=Sum('order_quantity'),
@@ -188,7 +189,8 @@ def get_product_statistics(user, input_date, product_ids, type_statistic):
     query_data_2 = Q()
     query_data_2 |= Q(order_id__in=orders_2)
     if len(product_ids) > 0:
-        query_data_2 |= Q(product_id__in=product_ids)
+        app_log.info(f"Test len: {product_ids}")
+        query_data_2 &= Q(product_id__in=product_ids)
     details_2 = OrderDetail.objects.filter(query_data_2).values('product_id', 'product_id__name').annotate(
         total_quantity=Sum('order_quantity'),
         total_point=Sum('point_get'),
