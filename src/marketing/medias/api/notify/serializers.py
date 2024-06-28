@@ -40,12 +40,10 @@ class NotificationSerializer(serializers.ModelSerializer):
         # representation['files'] = [file.url if file.url else None for file in FileUpload.objects.filter(
         # file__in=files)]
         request = self.context.get('request')
-        if request:
-            representation['files'] = [request.build_absolute_uri(file.file.url) for file in
-                                       FileUpload.objects.filter(file__in=files)]
-        else:
-            representation['files'] = [(APP_SERVER + file.file.url) if file.file.url else None for file in
-                                       FileUpload.objects.filter(file__in=files)]
+        app_log.info(f"Test files: {files}")
+        representation['files'] = [(APP_SERVER + file.file.url) if file.file.url else None for file in
+                                   FileUpload.objects.filter(file__in=files)]
+
             # request = self.context.get('request')
         # if (request and request.method == 'GET'
         #         and hasattr(request, 'resolver_match')
