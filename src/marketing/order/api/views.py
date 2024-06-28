@@ -80,12 +80,10 @@ class ProductStatisticsView(APIView):
             end_date_1 = request.data.get('end_date_1', datetime.strftime(default_end_date, '%d/%m/%Y'))
 
             start_date_time = datetime.strptime(start_date_1, '%d/%m/%Y')
-            start_date_2 = request.data.get('start_date_2', None)
-            if start_date_2 is None:
-                start_date_2 = datetime.strftime(start_date_time - timedelta(days=365), '%d/%m/%Y')
-            end_date_2 = request.data.get('end_date_2', None)
-            if end_date_1 is None:
-                end_date_1 = datetime.strftime(start_date_time - timedelta(days=1), '%d/%m/%Y')
+            start_date_2 = request.data.get('start_date_2',
+                                            datetime.strftime(start_date_time - timedelta(days=365), '%d/%m/%Y'))
+            end_date_2 = request.data.get('end_date_2',
+                                          datetime.strftime(start_date_time - timedelta(days=1), '%d/%m/%Y'))
 
             type_statistic = request.data.get('type_statistic', 'all')
             input_date = {'start_date_1': start_date_1, 'end_date_1': end_date_1,
