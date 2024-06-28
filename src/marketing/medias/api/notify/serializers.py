@@ -10,6 +10,7 @@ from app.logs import app_log
 from marketing.medias.models import Notification, NotificationUser, NotificationFile
 from system.file_upload.models import FileUpload
 from utils.constants import acquy, admin_role
+from utils.env import APP_SERVER
 
 
 class NotificationSerializer(serializers.ModelSerializer):
@@ -164,15 +165,25 @@ class NotificationSerializer(serializers.ModelSerializer):
 
 
 class NotifyReadSerializer(serializers.ModelSerializer):
-    files = serializers.SerializerMethodField()
-
     class Meta:
         model = Notification
         fields = ['id', 'title', 'short_description', 'alert_date', 'alert_time', 'content', 'type', 'files']
 
-    def get_files(self, obj):
-        files = NotificationFile.objects.filter(notify=obj).values_list('file__file', flat=True)
-        return [file.url for file in FileUpload.objects.filter(file__in=files)]
+    def to_representation(self, instance):
+        representation = super().to_representation(instance)
+        request = self.context.get('request')
+        app_log.info(f"In request")
+        files = NotificationFile.objects.filter(notify=instance).values_list('file__file', flat=True)
+        app_log.info(f"Test files: {files}")
+        if request:
+            file_list = [request.build_absolute_uri(file.file.url) for file in FileUpload.objects.filter(file__in=files)]
+        else:
+            file_list = list()
+            for file in FileUpload.objects.filter(file__in=files):
+                file_url = APP_SERVER + file.url if file.url else None
+                file_list.append(file_url)
+        representation['file_url'] = file_list
+        return representation
 
 
 class NotificationUserSerializer(serializers.ModelSerializer):
