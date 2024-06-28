@@ -140,6 +140,145 @@ class ProductStatisticsView(APIView):
             # return Response({"error": str(e)}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
 
 
+def get_product_statistics(user, input_date, query, type_statistic):
+    app_log.info(f"User id: {user} - {input_date} - {type_statistic}")
+    # Convert date format
+    start_date_1 = timezone.make_aware(datetime.strptime(input_date.get('start_date_1'), '%d/%m/%Y'),
+                                       timezone.get_current_timezone())
+    end_date_1 = timezone.make_aware(
+        datetime.strptime(input_date.get('end_date_1'), '%d/%m/%Y') + timedelta(days=1) - timedelta(seconds=1),
+        timezone.get_current_timezone())
+
+    start_date_2 = timezone.make_aware(datetime.strptime(input_date.get('start_date_2'), '%d/%m/%Y'),
+                                       timezone.get_current_timezone())
+    end_date_2 = timezone.make_aware(
+        datetime.strptime(input_date.get('end_date_2'), '%d/%m/%Y') + timedelta(days=1) - timedelta(seconds=1),
+        timezone.get_current_timezone())
+
+    # Get orders for each date range
+    orders_1 = Order.objects.filter(client_id=user, date_get__gte=start_date_1, date_get__lte=end_date_1)
+    orders_2 = Order.objects.filter(client_id=user, date_get__gte=start_date_2, date_get__lte=end_date_2)
+
+    # Apply query filters
+    # if query.get('nvtt') != '':
+    #     nvtt_list = query.get('nvtt').split(',')
+    #     nvtt_ids = EmployeeProfile.objects.filter(
+    #         (Q(register_name__in=nvtt_list) | Q(employee_id__in=nvtt_list)) & Q(employee_id__group_user__name="nvtt")
+    #     ).values_list('employee_id', flat=True)
+    #     client_profile_query = Q(client_id__clientprofile__nvtt_id__in=nvtt_ids)
+    #     orders_1 = orders_1.filter(client_profile_query)
+    #     orders_2 = orders_2.filter(client_profile_query)
+    #
+    # if query.get('npp') != '':
+    #     npp_list = query.get('npp').split(',')
+    #     npp_ids = ClientProfile.objects.filter(
+    #         (Q(register_name__in=npp_list, is_npp=True) | Q(client_id__in=npp_list, is_npp=True)) &
+    #         Q(client_id__group_user__name="npp")
+    #     ).values_list('client_id', flat=True)
+    #     client_profile_query = Q(client_id__in=npp_ids)
+    #     orders_1 = orders_1.filter(client_profile_query)
+    #     orders_2 = orders_2.filter(client_profile_query)
+    #
+    # if query.get('daily') != '':
+    #     daily_list = query.get('daily').split(',')
+    #     exclude_groups = ["NVTT", "TEST", maNhomND]
+    #     daily_ids = ClientProfile.objects.filter(
+    #         Q(register_name__in=daily_list) | Q(client_id__in=daily_list)
+    #     ).exclude(client_group_id__name__in=exclude_groups, is_npp=True).values_list('client_id', flat=True)
+    #     client_query = Q(client_id__in=daily_ids)
+    #     orders_1 = orders_1.filter(client_query)
+    #     orders_2 = orders_2.filter(client_query)
+
+    # Get orders for each date range with type_statistic
+    match type_statistic:
+        case 'special_offer':
+            orders_1 = orders_1.filter(Q(new_special_offer__isnull=False) | Q(is_so=True))
+            orders_2 = orders_2.filter(Q(new_special_offer__isnull=False) | Q(is_so=True))
+        case 'normal':
+            orders_1 = orders_1.filter(Q(new_special_offer__isnull=True) & Q(is_so=False))
+            orders_2 = orders_2.filter(Q(new_special_offer__isnull=True) & Q(is_so=False))
+
+    # Get order details for each date range
+    details_1 = OrderDetail.objects.filter(order_id__in=orders_1).values('product_id', 'product_id__name').annotate(
+        total_quantity=Sum('order_quantity'),
+        total_point=Sum('point_get'),
+        total_price=Sum('product_price'),
+        total_box=Sum('order_box')
+    )
+
+    details_2 = OrderDetail.objects.filter(order_id__in=orders_2).values('product_id', 'product_id__name').annotate(
+        total_quantity=Sum('order_quantity'),
+        total_point=Sum('point_get'),
+        total_price=Sum('product_price'),
+        total_box=Sum('order_box')
+    )
+
+    # Combine results into a single dictionary
+    combined_results = {}
+    for detail in details_1:
+        # app_log.info("- - - - - ")
+        # app_log.info(f"Test detail: {detail}")
+        product_id = detail['product_id']
+        product_name = detail['product_id__name']
+        total_cashback = 0
+
+        # Calculate total cashback for current period
+        for order in orders_1:
+            # app_log.info("----------")
+            # app_log.info(f"Test product_id: {product_id}")
+            order_detail = OrderDetail.objects.filter(order_id=order, product_id=product_id).first()
+            special_offer = order.new_special_offer
+            app_log.info(f"Test order: {order}")
+            if special_offer and order_detail:
+                sop = SpecialOfferProduct.objects.filter(special_offer=special_offer, product_id=product_id).first()
+                if sop and sop.cashback:
+                    # app_log.info(f"Test sop: {sop}")
+                    # app_log.info(f"Test order_detail: {order_detail}")
+                    total_cashback += sop.cashback * order_detail.order_box
+
+        combined_results[product_id] = {
+            "product_name": product_name,
+            "current": {
+                "price": detail['total_price'],
+                "point": detail['total_point'],
+                "quantity": detail['total_quantity'],
+                "box": detail['total_box']
+            },
+            "total_cashback": total_cashback
+        }
+        # app_log.info(f"Test cashback details 1: {total_cashback}")
+    for detail in details_2:
+        product_id = detail['product_id']
+        product_name = detail['product_id__name']
+        total_cashback = 0
+
+        if product_id not in combined_results:
+            combined_results[product_id] = {
+                "product_name": product_name,
+                "one_year_ago": {}
+            }
+
+        # Calculate total cashback for previous period
+        for order in orders_2:
+            order_detail = OrderDetail.objects.filter(order_id=order, product_id=product_id).first()
+            special_offer = order.new_special_offer
+            if special_offer and order_detail:
+                sop = SpecialOfferProduct.objects.filter(special_offer=special_offer, product_id=product_id).first()
+                if sop and sop.cashback:
+                    total_cashback += sop.cashback * order_detail.order_box
+
+        combined_results[product_id]["one_year_ago"] = {
+            "price": detail['total_price'],
+            "point": detail['total_point'],
+            "quantity": detail['total_quantity'],
+            "box": detail['total_box']
+        }
+        combined_results[product_id]["total_cashback"] = total_cashback
+        # app_log.info(f"Test cashback details 2: {total_cashback}")
+
+    return combined_results
+
+
 class ExportReport(APIView):
     permission_classes = [partial(ValidatePermRest, model=Order)]
 
@@ -451,142 +590,3 @@ class OrderReportView(APIView):
             else:
                 fk_fields.remove(field_name)
         return field_dict
-
-
-def get_product_statistics(user, input_date, query, type_statistic):
-    app_log.info(f"User id: {user}")
-    # Convert date format
-    start_date_1 = timezone.make_aware(datetime.strptime(input_date.get('start_date_1'), '%d/%m/%Y'),
-                                       timezone.get_current_timezone())
-    end_date_1 = timezone.make_aware(
-        datetime.strptime(input_date.get('end_date_1'), '%d/%m/%Y') + timedelta(days=1) - timedelta(seconds=1),
-        timezone.get_current_timezone())
-
-    start_date_2 = timezone.make_aware(datetime.strptime(input_date.get('start_date_2'), '%d/%m/%Y'),
-                                       timezone.get_current_timezone())
-    end_date_2 = timezone.make_aware(
-        datetime.strptime(input_date.get('end_date_2'), '%d/%m/%Y') + timedelta(days=1) - timedelta(seconds=1),
-        timezone.get_current_timezone())
-
-    # Get orders for each date range
-    orders_1 = Order.objects.filter(client_id=user, date_get__gte=start_date_1, date_get__lte=end_date_1)
-    orders_2 = Order.objects.filter(client_id=user, date_get__gte=start_date_2, date_get__lte=end_date_2)
-
-    # Apply query filters
-    # if query.get('nvtt') != '':
-    #     nvtt_list = query.get('nvtt').split(',')
-    #     nvtt_ids = EmployeeProfile.objects.filter(
-    #         (Q(register_name__in=nvtt_list) | Q(employee_id__in=nvtt_list)) & Q(employee_id__group_user__name="nvtt")
-    #     ).values_list('employee_id', flat=True)
-    #     client_profile_query = Q(client_id__clientprofile__nvtt_id__in=nvtt_ids)
-    #     orders_1 = orders_1.filter(client_profile_query)
-    #     orders_2 = orders_2.filter(client_profile_query)
-    #
-    # if query.get('npp') != '':
-    #     npp_list = query.get('npp').split(',')
-    #     npp_ids = ClientProfile.objects.filter(
-    #         (Q(register_name__in=npp_list, is_npp=True) | Q(client_id__in=npp_list, is_npp=True)) &
-    #         Q(client_id__group_user__name="npp")
-    #     ).values_list('client_id', flat=True)
-    #     client_profile_query = Q(client_id__in=npp_ids)
-    #     orders_1 = orders_1.filter(client_profile_query)
-    #     orders_2 = orders_2.filter(client_profile_query)
-    #
-    # if query.get('daily') != '':
-    #     daily_list = query.get('daily').split(',')
-    #     exclude_groups = ["NVTT", "TEST", maNhomND]
-    #     daily_ids = ClientProfile.objects.filter(
-    #         Q(register_name__in=daily_list) | Q(client_id__in=daily_list)
-    #     ).exclude(client_group_id__name__in=exclude_groups, is_npp=True).values_list('client_id', flat=True)
-    #     client_query = Q(client_id__in=daily_ids)
-    #     orders_1 = orders_1.filter(client_query)
-    #     orders_2 = orders_2.filter(client_query)
-
-    # Get orders for each date range with type_statistic
-    match type_statistic:
-        case 'special_offer':
-            orders_1 = orders_1.filter(Q(new_special_offer__isnull=False) | Q(is_so=True))
-            orders_2 = orders_2.filter(Q(new_special_offer__isnull=False) | Q(is_so=True))
-        case 'normal':
-            orders_1 = orders_1.filter(Q(new_special_offer__isnull=True) & Q(is_so=False))
-            orders_2 = orders_2.filter(Q(new_special_offer__isnull=True) & Q(is_so=False))
-
-    # Get order details for each date range
-    details_1 = OrderDetail.objects.filter(order_id__in=orders_1).values('product_id', 'product_id__name').annotate(
-        total_quantity=Sum('order_quantity'),
-        total_point=Sum('point_get'),
-        total_price=Sum('product_price'),
-        total_box=Sum('order_box')
-    )
-
-    details_2 = OrderDetail.objects.filter(order_id__in=orders_2).values('product_id', 'product_id__name').annotate(
-        total_quantity=Sum('order_quantity'),
-        total_point=Sum('point_get'),
-        total_price=Sum('product_price'),
-        total_box=Sum('order_box')
-    )
-
-    # Combine results into a single dictionary
-    combined_results = {}
-    for detail in details_1:
-        app_log.info("- - - - - ")
-        app_log.info(f"Test detail: {detail}")
-        product_id = detail['product_id']
-        product_name = detail['product_id__name']
-        total_cashback = 0
-
-        # Calculate total cashback for current period
-        for order in orders_1:
-            app_log.info("----------")
-            app_log.info(f"Test product_id: {product_id}")
-            order_detail = OrderDetail.objects.filter(order_id=order, product_id=product_id).first()
-            special_offer = order.new_special_offer
-            app_log.info(f"Test order: {order}")
-            if special_offer and order_detail:
-                sop = SpecialOfferProduct.objects.filter(special_offer=special_offer, product_id=product_id).first()
-                if sop and sop.cashback:
-                    app_log.info(f"Test sop: {sop}")
-                    app_log.info(f"Test order_detail: {order_detail}")
-                    total_cashback += sop.cashback * order_detail.order_box
-
-        combined_results[product_id] = {
-            "product_name": product_name,
-            "current": {
-                "price": detail['total_price'],
-                "point": detail['total_point'],
-                "quantity": detail['total_quantity'],
-                "box": detail['total_box']
-            },
-            "total_cashback": total_cashback
-        }
-        app_log.info(f"Test cashback details 1: {total_cashback}")
-    for detail in details_2:
-        product_id = detail['product_id']
-        product_name = detail['product_id__name']
-        total_cashback = 0
-
-        if product_id not in combined_results:
-            combined_results[product_id] = {
-                "product_name": product_name,
-                "one_year_ago": {}
-            }
-
-        # Calculate total cashback for previous period
-        for order in orders_2:
-            order_detail = OrderDetail.objects.filter(order_id=order, product_id=product_id).first()
-            special_offer = order.new_special_offer
-            if special_offer and order_detail:
-                sop = SpecialOfferProduct.objects.filter(special_offer=special_offer, product_id=product_id).first()
-                if sop and sop.cashback:
-                    total_cashback += sop.cashback * order_detail.order_box
-
-        combined_results[product_id]["one_year_ago"] = {
-            "price": detail['total_price'],
-            "point": detail['total_point'],
-            "quantity": detail['total_quantity'],
-            "box": detail['total_box']
-        }
-        combined_results[product_id]["total_cashback"] = total_cashback
-        app_log.info(f"Test cashback details 2: {total_cashback}")
-
-    return combined_results
