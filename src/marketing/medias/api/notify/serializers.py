@@ -30,13 +30,17 @@ class NotificationSerializer(serializers.ModelSerializer):
         # Get groups with specific permissions
         content_type = ContentType.objects.get_for_model(instance)
         perms = Perm.objects.filter(content_type=content_type, object_id=instance.id)
-        groups = GroupPerm.objects.filter(perm__in=perms).exclude(name=admin_role).distinct().values_list('name', flat=True)
+        groups = GroupPerm.objects.filter(perm__in=perms).exclude(name=admin_role).distinct().values_list('name',
+                                                                                                          flat=True)
 
         # Get files from NotificationFile
         files = NotificationFile.objects.filter(notify=instance).values_list('file__file', flat=True)
         representation['users'] = list(users)
         representation['groups'] = list(groups)
-        representation['files'] = [file.url for file in FileUpload.objects.filter(file__in=files)]
+        # representation['files'] = [file.url if file.url else None for file in FileUpload.objects.filter(
+        # file__in=files)]
+        representation['files'] = [self.context['request'].build_absolute_uri(file.file.url) for file in
+                                   FileUpload.objects.filter(file__in=files)]
         # request = self.context.get('request')
         # if (request and request.method == 'GET'
         #         and hasattr(request, 'resolver_match')
@@ -176,7 +180,8 @@ class NotifyReadSerializer(serializers.ModelSerializer):
         files = NotificationFile.objects.filter(notify=instance).values_list('file__file', flat=True)
         app_log.info(f"Test files: {files}")
         if request:
-            file_list = [request.build_absolute_uri(file.file.url) for file in FileUpload.objects.filter(file__in=files)]
+            file_list = [request.build_absolute_uri(file.file.url) for file in
+                         FileUpload.objects.filter(file__in=files)]
         else:
             file_list = list()
             for file in FileUpload.objects.filter(file__in=files):
