@@ -224,16 +224,16 @@ def get_product_statistics(user, input_date, query, type_statistic):
 
         # Calculate total cashback for current period
         for order in orders_1:
-            # app_log.info("----------")
-            # app_log.info(f"Test product_id: {product_id}")
             order_detail = OrderDetail.objects.filter(order_id=order, product_id=product_id).first()
             special_offer = order.new_special_offer
-            app_log.info(f"Test order: {order}")
+            if product_id in ['AG80W8', 'AL10E2', 'BI15W1']:
+                app_log.info(f"Test order: {order}")
             if special_offer and order_detail:
                 sop = SpecialOfferProduct.objects.filter(special_offer=special_offer, product_id=product_id).first()
                 if sop and sop.cashback:
-                    # app_log.info(f"Test sop: {sop}")
-                    # app_log.info(f"Test order_detail: {order_detail}")
+                    if product_id in ['AG80W8', 'AL10E2', 'BI15W1']:
+                        app_log.info(f"Test sop: {sop}")
+                        app_log.info(f"Test order_detail: {order_detail}")
                     total_cashback += sop.cashback * order_detail.order_box
 
         combined_results[product_id] = {
@@ -260,11 +260,16 @@ def get_product_statistics(user, input_date, query, type_statistic):
 
         # Calculate total cashback for previous period
         for order in orders_2:
+            if product_id in ['AG80W8', 'AL10E2', 'BI15W1']:
+                app_log.info(f"Test order2: {order}")
             order_detail = OrderDetail.objects.filter(order_id=order, product_id=product_id).first()
             special_offer = order.new_special_offer
             if special_offer and order_detail:
                 sop = SpecialOfferProduct.objects.filter(special_offer=special_offer, product_id=product_id).first()
                 if sop and sop.cashback:
+                    if product_id in ['AG80W8', 'AL10E2', 'BI15W1']:
+                        app_log.info(f"Test sop2: {sop}")
+                        app_log.info(f"Test order_detail2: {order_detail}")
                     total_cashback += sop.cashback * order_detail.order_box
 
         combined_results[product_id]["one_year_ago"] = {
