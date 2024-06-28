@@ -203,7 +203,7 @@ class NotifyReadSerializer(serializers.ModelSerializer):
         else:
             file_list = list()
             for file in FileUpload.objects.filter(file__in=files):
-                file_url = APP_SERVER + file.url if file.url else None
+                file_url = APP_SERVER + file.file.url if file.file.url else None
                 file_list.append(file_url)
         representation['files'] = file_list
         return representation
