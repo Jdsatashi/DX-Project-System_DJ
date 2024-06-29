@@ -145,7 +145,7 @@ class User(AbstractBaseUser, PermissionsMixin):
             perm = self.perm_user.filter(name=permission).first()
             user_perm = UserPerm.objects.get(user=self, perm=perm)
             return user_perm.allow
-        return is_perm
+        return not is_perm
 
     def is_group_has_perm(self, permission):
         group_user = self.group_user.all()

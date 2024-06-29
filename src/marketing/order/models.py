@@ -30,6 +30,7 @@ class Order(models.Model):
 
     order_point = models.FloatField(null=True)
     order_price = models.FloatField(null=True, default=0)  # Default value to ensure it's not None
+    nvtt_id = models.CharField(max_length=64, null=True)
 
     created_by = models.CharField(max_length=64, null=True)
     note = models.TextField(null=True)
@@ -50,6 +51,8 @@ class Order(models.Model):
         is_new = self._state.adding
         if not self.pk:
             self.id = self.generate_pk()
+        if not self.nvtt_id and self.client_id:
+            self.nvtt_id = self.client_id.clientprofile.nvtt_id
         self.calculate_totals()
         super().save(*args, **kwargs)
 

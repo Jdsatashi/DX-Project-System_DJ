@@ -3,7 +3,9 @@ import math
 import time
 
 from django.contrib.auth.hashers import make_password
+from django.core.paginator import Paginator
 from django.db import IntegrityError, transaction
+from django.db.models import Exists, OuterRef
 from django.utils.timezone import make_aware
 
 from account.models import User, GroupPerm
@@ -537,8 +539,6 @@ def insert_special_offer():
         so = SpecialOffer(id=v[11], name=f'Uu đai {v[11]}', box_can_use=int(v[4]), created_by=v[8])
         special_offers.append(so)
 
-
-
         try:
             check_date = make_aware(v[0]).date()
         except AttributeError:
@@ -601,37 +601,112 @@ def insert_detail_order():
     app_log.info(f"Complete INSERT ORDER DETAILS time: {time.time() - start_time} seconds")
 
 
-def handle_detail_order(data):
-    with (transaction.atomic()):
-        for k, v in enumerate(data):
-            if k == 1:
-                app_log.info(f"{v}")
-            note = {}
+def update_order_details():
+    start_time = time.time()
+    app_log.info(f"Start update details")
 
-            try:
-                order = Order.objects.get(id=v[1])
-            except Order.DoesNotExist:
-                order = None
-                note['order_id'] = f"{v[1]} not found"
-            try:
-                product = Product.objects.get(id=v[2])
-            except Product.DoesNotExist:
-                product = None
-                note['product_id'] = f"{v[2]} not found"
+    orders_with_details = Order.objects.annotate(
+        has_details=Exists(OrderDetail.objects.filter(order_id=OuterRef('id')))
+    ).filter(has_details=True, order_price__isnull=False).exclude(order_price__gt=0).order_by('-id')
 
-            insert = {
-                "order_quantity": v[3],
-                "order_box": v[4],
-                "price_list_so": v[8],
-                "note": note
-            }
+    total_count = orders_with_details.count()
 
-            if order:
-                if product:
-                    if OrderDetail.objects.filter(order_id=order, product_id=product).exist():
-                        pass
-                    else:
-                        pass
+    chunk_size = 3000
+
+    time_loop = math.ceil(total_count / chunk_size)
+    for a in range(time_loop):
+        start_time_2 = time.time()
+
+        start_item = a * chunk_size
+        end_item = start_item + chunk_size
+        if end_item > total_count:
+            end_item = total_count
+
+        try:
+            app_log.info(f"--\nGet data from: {start_item} - {end_item} \n--\n")
+            paginator = Paginator(orders_with_details, chunk_size)
+            page = paginator.page(a + 1)
+
+            process_small_order_chunk(page.object_list)
+        except Exception as e:
+            app_log.error(f"\nWhen get data from: {start_item} - {end_item}\n")
+            raise e
+
+        app_log.info(f"Complete UPDATE ORDER items {start_item} - {end_item}: {time.time() - start_time_2} seconds")
+        if end_item == total_count:
+            break
+
+    app_log.info(f"Complete UPDATE ORDER time: {time.time() - start_time} seconds")
+
+
+def process_small_order_chunk(orders):
+    with transaction.atomic():
+        list_orders_update = []
+
+        for i, order in enumerate(orders):
+            order_details = order.order_detail.all()
+            total_price = 0
+            for detail in order_details:
+                product_price = detail.product_price or 0
+                total_price += product_price
+            order.order_price = total_price
+            list_orders_update.append(order)
+            app_log.info(f"{order.id} - {total_price}")
+        Order.objects.bulk_update(list_orders_update, ['order_price'])
+
+
+def update_nvtt():
+    start_time = time.time()
+    app_log.info(f"Start update details")
+
+    orders = Order.objects.filter(client_id__isnull=False).exclude(nvtt_id__isnull=False).order_by('-id')
+
+    total_count = orders.count()
+
+    chunk_size = 2000
+
+    time_loop = math.ceil(total_count / chunk_size)
+    for a in range(time_loop):
+        start_time_2 = time.time()
+
+        start_item = a * chunk_size
+        end_item = start_item + chunk_size
+        if end_item > total_count:
+            end_item = total_count
+
+        try:
+            app_log.info(f"--\nGet data from: {start_item} - {end_item} \n--\n")
+            paginator = Paginator(orders, chunk_size)
+            page = paginator.page(a + 1)
+
+            process_update_nvtt(page.object_list)
+        except Exception as e:
+            app_log.error(f"\nWhen get data from: {start_item} - {end_item}\n")
+            raise e
+
+        app_log.info(f"Complete UPDATE ORDER items {start_item} - {end_item}: {time.time() - start_time_2} seconds")
+        if a == 1:
+            break
+        if end_item == total_count:
+            break
+
+    app_log.info(f"Complete UPDATE ORDER time: {time.time() - start_time} seconds")
+
+
+def process_update_nvtt(orders):
+    with transaction.atomic():
+        list_orders_update = []
+        for i, order in enumerate(orders):
+            order.nvtt_id = order.client_id.clientprofile.nvtt_id
+            app_log.info(f"Test: {order.id} - {order.nvtt_id}")
+
+            list_orders_update.append(order)
+        Order.objects.bulk_update(list_orders_update, ['nvtt_id'])
+
+
+def update_order():
+    update_order_details()
+    update_nvtt()
 
 
 def insert_old_data():
