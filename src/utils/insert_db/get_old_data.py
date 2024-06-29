@@ -688,8 +688,7 @@ def update_nvtt():
             raise e
 
         app_log.info(f"Complete UPDATE ORDER items {start_item} - {end_item}: {time.time() - start_time_2} seconds")
-        if a == 1:
-            break
+
         if end_item == total_count:
             break
 
