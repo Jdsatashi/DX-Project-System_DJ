@@ -3,7 +3,7 @@ import math
 import time
 
 from django.contrib.auth.hashers import make_password
-from django.core.paginator import Paginator
+from django.core.paginator import Paginator, EmptyPage
 from django.db import IntegrityError, transaction
 from django.db.models import Exists, OuterRef
 from django.utils.timezone import make_aware
@@ -628,6 +628,9 @@ def update_order_details():
             page = paginator.page(a + 1)
 
             process_small_order_chunk(page.object_list)
+        except EmptyPage:
+            app_log.info(f"Complete UPDATE ORDER items {start_item} - {end_item}: {time.time() - start_time_2} seconds")
+            break
         except Exception as e:
             app_log.error(f"\nWhen get data from: {start_item} - {end_item}\n")
             raise e
@@ -659,7 +662,7 @@ def update_nvtt():
     start_time = time.time()
     app_log.info(f"Start update details")
 
-    orders = Order.objects.filter(client_id__isnull=False).exclude(nvtt_id__isnull=False).order_by('-id')
+    orders = Order.objects.filter(client_id__isnull=False, client_id__clientprofile__isnull=False).exclude(nvtt_id__isnull=False).order_by('-id')
 
     total_count = orders.count()
 
