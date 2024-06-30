@@ -222,12 +222,14 @@ def get_product_statistics(user, input_date, product_ids, type_statistic):
                 order_1_test.append(order.id)
                 # app_log.info(f"Test order: {order}")
             if special_offer and order_detail:
-                sop = SpecialOfferProduct.objects.filter(special_offer=special_offer, product_id=product_id).first()
-                if sop and sop.cashback:
-                    if product_id in ['AG80W8']:
-                        app_log.info(f"Test sop: {sop}")
-                        app_log.info(f"Test order_detail: {order_detail}")
-                    total_cashback += sop.cashback * order_detail.order_box
+                # sop = SpecialOfferProduct.objects.filter(special_offer=special_offer, product_id=product_id).first()
+                # if sop and sop.cashback:
+                #     if product_id in ['AG80W8']:
+                #         app_log.info(f"Test sop: {sop}")
+                #         app_log.info(f"Test order_detail: {order_detail}")
+                #     total_cashback += sop.cashback * order_detail.order_box
+                price_so = order_detail.price_list_so or 0
+                total_cashback += price_so * order_detail.order_box
         if product_id in ['AG80W8']:
             app_log.info(f"Test order 1: {order_1_test}")
 
