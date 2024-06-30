@@ -4,6 +4,7 @@ from rest_framework.authentication import BasicAuthentication, SessionAuthentica
 from rest_framework.response import Response
 from rest_framework_simplejwt.authentication import JWTAuthentication
 
+from app.logs import app_log
 from marketing.medias.api.banner.serializers import BannerSerializer, BannerItemSerializer
 from marketing.medias.models import Banner, BannerItem
 from utils.model_filter_paginate import filter_data
@@ -27,6 +28,7 @@ class ApiBanner(viewsets.GenericViewSet, mixins.ListModelMixin, mixins.CreateMod
     def list(self, request, *args, **kwargs):
         queryset = self.get_queryset()
 
+        # Get query params
         banner_type = request.query_params.get('type', None)
         display_type = request.query_params.get('display_type', None)
         # Get strict as boolean
@@ -80,5 +82,27 @@ class ApiBannerItem(viewsets.GenericViewSet, mixins.ListModelMixin, mixins.Creat
     #     return super().get_permissions()
 
     def list(self, request, *args, **kwargs):
-        response = filter_data(self, request, ['id', 'name'], **kwargs)
+        queryset = self.get_queryset()
+
+        # Get query params
+        banner_type = request.query_params.get('type', None)
+        display_type = request.query_params.get('display_type', None)
+        # Get strict as boolean
+        strict = request.data.get('strict') or request.query_params.get('strict', 0)
+        strict = int(strict)
+        strict = strict if strict in [0, 1] else 0
+        strict_mode = bool(strict)
+
+        query_filter = Q()
+        query_type = '__exact' if strict_mode else '__icontains'
+
+        if banner_type:
+            query_filter &= Q(**{f'banner__type{query_type}': banner_type})
+
+        if display_type:
+            query_filter &= Q(**{f'banner__display_type{query_type}': display_type})
+        app_log.info(f"TEST: {query_filter}")
+        queryset = queryset.filter(query_filter)
+
+        response = filter_data(self, request, ['id', 'name'], queryset=queryset, **kwargs)
         return Response(response, status.HTTP_200_OK)
