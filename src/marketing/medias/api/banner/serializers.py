@@ -32,10 +32,13 @@ class BannerItemSerializer(serializers.ModelSerializer):
     def create(self, validated_data):
         file_upload_data = validated_data.pop('file_upload', None)
         file_instance = validated_data.get('file', None)
-        banner = validated_data.get('banner')
-        if banner:
-            display_type = banner.display_type
+        banner_obj = validated_data.get('banner', None)
+
+        if banner_obj:
+            display_type = banner_obj.display_type
             if display_type == BannerDisplay.VIDEO:
+                file_upload_data = None
+                file_instance = None
                 video_url = validated_data.get('video_url', None)
                 if video_url is None:
                     raise serializers.ValidationError("Video_url is required.")
@@ -44,9 +47,12 @@ class BannerItemSerializer(serializers.ModelSerializer):
             raise serializers.ValidationError("File or file_upload is required.")
 
         with transaction.atomic():
-            if file_instance is None and file_upload_data:
-                file_instance = FileUpload.objects.create(file=file_upload_data)
-            app_log.info(f"Test file: {file_instance}")
+            if banner_obj:
+                display_type = banner_obj.display_type
+                if display_type == BannerDisplay.IMAGE:
+                    if file_instance is None and file_upload_data:
+                        file_instance = FileUpload.objects.create(file=file_upload_data)
+                app_log.info(f"Test file: {file_instance}")
             validated_data['file'] = file_instance
 
             banner_item = BannerItem.objects.create(**validated_data)
@@ -55,6 +61,12 @@ class BannerItemSerializer(serializers.ModelSerializer):
     def update(self, instance, validated_data):
         file_upload_data = validated_data.pop('file_upload', None)
         file_instance = validated_data.get('file', instance.file)
+        banner_obj = validated_data.get('banner', None)
+
+        if banner_obj:
+            display_type = banner_obj.display_type
+            if display_type == BannerDisplay.VIDEO:
+                video_url = validated_data.pop('video_url', None)
 
         with transaction.atomic():
             # if file_upload_data:
