@@ -95,6 +95,9 @@ class BannerSerializer(serializers.ModelSerializer):
         model = Banner
         fields = '__all__'
         read_only_fields = ('id', 'created_at', 'updated_at')
+        extra_kwargs = {
+            'display_type': {'required': True}
+        }
 
     def create(self, validated_data):
         banner_items_data = validated_data.pop('banner_items', [])
