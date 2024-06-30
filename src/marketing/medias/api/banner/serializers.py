@@ -49,9 +49,9 @@ class BannerItemSerializer(serializers.ModelSerializer):
         with transaction.atomic():
             if banner_obj:
                 display_type = banner_obj.display_type
-                if display_type == BannerDisplay.IMAGE:
-                    if file_instance is None and file_upload_data:
-                        file_instance = FileUpload.objects.create(file=file_upload_data)
+                # if display_type == BannerDisplay.IMAGE:
+                if file_instance is None and file_upload_data:
+                    file_instance = FileUpload.objects.create(file=file_upload_data)
                 app_log.info(f"Test file: {file_instance}")
             validated_data['file'] = file_instance
 
