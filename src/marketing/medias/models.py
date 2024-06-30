@@ -52,10 +52,20 @@ class NotificationFile(models.Model):
         super().save(*args, **kwargs)
 
 
+class BannerDisplay(models.TextChoices):
+    IMAGE = 'image', 'Image'
+    VIDEO = 'video', 'Video'
+
+
 class Banner(models.Model):
     id = models.CharField(max_length=32, primary_key=True, unique=True, null=False)
     name = models.CharField(max_length=255, null=False)
     description = models.CharField(max_length=255, null=True)
+
+    type = models.CharField(max_length=64, null=True, unique=True)
+
+    display_type = models.CharField(max_length=24, choices=BannerDisplay.choices,
+                                    default=BannerDisplay.IMAGE)
 
     note = models.TextField(null=True)
 
@@ -66,6 +76,8 @@ class Banner(models.Model):
     def save(self, *args, **kwargs):
         if not self.id:
             self.id = self_id('BANNER', self.__class__, 4)
+        if Banner.objects.filter(type=self.type, display_type=self.display_type).exists():
+            raise ValidationError({'message': 'error banner type and isplay type already existed'})
         super().save(*args, **kwargs)
 
     class Meta:
@@ -75,7 +87,9 @@ class Banner(models.Model):
 class BannerItem(models.Model):
     banner = models.ForeignKey(Banner, on_delete=models.CASCADE, related_name='banner_items')
     file = models.ForeignKey(FileUpload, null=True, on_delete=models.SET_NULL, related_name='banner_items')
-    url = models.CharField(max_length=255, null=True)
+    direct_url = models.CharField(max_length=255, null=True)
+
+    video_url = models.CharField(max_length=255, null=True)
 
     title = models.CharField(max_length=255, null=True)
     priority = models.IntegerField(null=True)

@@ -3,7 +3,7 @@ from rest_framework import serializers
 
 from app import settings
 from app.logs import app_log
-from marketing.medias.models import Banner, BannerItem
+from marketing.medias.models import Banner, BannerItem, BannerDisplay
 from system.file_upload.api.serializers import FileShortViewSerializer
 from system.file_upload.models import FileUpload
 from utils.env import APP_SERVER
@@ -17,24 +17,30 @@ class BannerItemSerializer(serializers.ModelSerializer):
         fields = '__all__'
         read_only_fields = ('id', 'created_at')
         extra_kwargs = {
-            'file': {'write_only': True}
+            'file': {'write_only': True},
+            'video_url': {'required': False}
         }
 
     def to_representation(self, instance):
         representation = super().to_representation(instance)
-        request = self.context.get('request')
-        if request:
-            app_log.info(f"In request")
-            representation['file_url'] = request.build_absolute_uri(instance.file.file.url)
-        else:
+        try:
             representation['file_url'] = APP_SERVER + instance.file.file.url if instance.file else None
+        except AttributeError:
+            pass
         return representation
 
     def create(self, validated_data):
         file_upload_data = validated_data.pop('file_upload', None)
         file_instance = validated_data.get('file', None)
+        banner = validated_data.get('banner')
+        if banner:
+            display_type = banner.display_type
+            if display_type == BannerDisplay.VIDEO:
+                video_url = validated_data.get('video_url', None)
+                if video_url is None:
+                    raise serializers.ValidationError("Video_url is required.")
 
-        if not file_instance and not file_upload_data:
+        elif not file_instance and not file_upload_data:
             raise serializers.ValidationError("File or file_upload is required.")
 
         with transaction.atomic():
@@ -69,22 +75,21 @@ class BannerItemWrite(serializers.ModelSerializer):
         exclude = ['id', 'banner', 'created_at']
         extra_kwargs = {
             'note': {'write_only': True},
-            'file': {'write_only': True}
+            'file': {'write_only': True},
+            'video_url': {'required': False}
         }
 
     def to_representation(self, instance):
         representation = super().to_representation(instance)
-        request = self.context.get('request')
-        if request:
-            app_log.info(f"In request")
-            representation['file_url'] = request.build_absolute_uri(instance.file.file.url)
-        else:
+        try:
             representation['file_url'] = APP_SERVER + instance.file.file.url if instance.file else None
+        except AttributeError:
+            pass
         return representation
 
 
 class BannerSerializer(serializers.ModelSerializer):
-    banner_items = BannerItemWrite(many=True)
+    banner_items = BannerItemWrite(many=True, required=False)
 
     class Meta:
         model = Banner
