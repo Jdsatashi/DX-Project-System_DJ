@@ -218,20 +218,17 @@ def get_product_statistics(user, input_date, product_ids, type_statistic):
         for order in orders_1:
             order_detail = OrderDetail.objects.filter(order_id=order, product_id=product_id).first()
             special_offer = order.new_special_offer
-            if product_id in ['AG80W8']:
-                order_1_test.append(order.id)
-                # app_log.info(f"Test order: {order}")
-            if special_offer and order_detail:
-                # sop = SpecialOfferProduct.objects.filter(special_offer=special_offer, product_id=product_id).first()
-                # if sop and sop.cashback:
-                #     if product_id in ['AG80W8']:
-                #         app_log.info(f"Test sop: {sop}")
-                #         app_log.info(f"Test order_detail: {order_detail}")
-                #     total_cashback += sop.cashback * order_detail.order_box
-                price_so = order_detail.price_list_so or 0
-                total_cashback += price_so * order_detail.order_box
-        if product_id in ['AG80W8']:
-            app_log.info(f"Test order 1: {order_1_test}")
+            # app_log.info(f"Test order: {order}")
+            # if special_offer and order_detail:
+            # sop = SpecialOfferProduct.objects.filter(special_offer=special_offer, product_id=product_id).first()
+            # if sop and sop.cashback:
+            #     if product_id in ['AG80W8']:
+            #         app_log.info(f"Test sop: {sop}")
+            #         app_log.info(f"Test order_detail: {order_detail}")
+            #     total_cashback += sop.cashback * order_detail.order_box
+            app_log.info(f"Test cashback 1: {order_detail.price_list_so}")
+            price_so = order_detail.price_list_so or 0
+            total_cashback += price_so * order_detail.order_box
 
         combined_results[product_id] = {
             "product_name": product_name,
@@ -258,18 +255,15 @@ def get_product_statistics(user, input_date, product_ids, type_statistic):
         order_2_test = []
         # Calculate total cashback for previous period
         for order in orders_2:
-            if product_id in ['AG80W8']:
-                order_2_test.append(order.id)
-                # app_log.info(f"Test order2: {order}")
             order_detail = OrderDetail.objects.filter(order_id=order, product_id=product_id).first()
             special_offer = order.new_special_offer
-            if special_offer and order_detail:
-                sop = SpecialOfferProduct.objects.filter(special_offer=special_offer, product_id=product_id).first()
-                if sop and sop.cashback:
-                    if product_id in ['AG80W8']:
-                        app_log.info(f"Test sop2: {sop}")
-                        app_log.info(f"Test order_detail2: {order_detail}")
-                    total_cashback += sop.cashback * order_detail.order_box
+            # if special_offer and order_detail:
+            #     sop = SpecialOfferProduct.objects.filter(special_offer=special_offer, product_id=product_id).first()
+            #     if sop and sop.cashback:
+            #         total_cashback += sop.cashback * order_detail.order_box
+            app_log.info(f"Test cashback 2: {order_detail.price_list_so}")
+            price_so = order_detail.price_list_so or 0
+            total_cashback += price_so * order_detail.order_box
         if product_id in ['AG80W8']:
             app_log.info(f"Test order2: {order_2_test}")
 
