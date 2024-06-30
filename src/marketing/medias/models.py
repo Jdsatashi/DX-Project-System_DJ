@@ -62,7 +62,7 @@ class Banner(models.Model):
     name = models.CharField(max_length=255, null=False)
     description = models.CharField(max_length=255, null=True)
 
-    type = models.CharField(max_length=64, null=True, unique=True)
+    type = models.CharField(max_length=64, null=True)
 
     display_type = models.CharField(max_length=24, choices=BannerDisplay.choices,
                                     default=BannerDisplay.IMAGE)
