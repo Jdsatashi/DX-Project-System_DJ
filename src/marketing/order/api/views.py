@@ -226,9 +226,10 @@ def get_product_statistics(user, input_date, product_ids, type_statistic):
             #         app_log.info(f"Test sop: {sop}")
             #         app_log.info(f"Test order_detail: {order_detail}")
             #     total_cashback += sop.cashback * order_detail.order_box
-            app_log.info(f"Test cashback 1: {order_detail.price_list_so}")
-            price_so = order_detail.price_list_so or 0
-            total_cashback += price_so * order_detail.order_box
+            if order_detail is not None:
+                app_log.info(f"Test cashback 1: {order_detail.price_list_so}")
+                price_so = order_detail.price_list_so or 0
+                total_cashback += price_so * order_detail.order_box
 
         combined_results[product_id] = {
             "product_name": product_name,
@@ -261,11 +262,12 @@ def get_product_statistics(user, input_date, product_ids, type_statistic):
             #     sop = SpecialOfferProduct.objects.filter(special_offer=special_offer, product_id=product_id).first()
             #     if sop and sop.cashback:
             #         total_cashback += sop.cashback * order_detail.order_box
-            app_log.info(f"Test cashback 2: {order_detail.price_list_so}")
-            price_so = order_detail.price_list_so or 0
-            total_cashback += price_so * order_detail.order_box
-        if product_id in ['AG80W8']:
-            app_log.info(f"Test order2: {order_2_test}")
+            if order_detail:
+                app_log.info(f"Test cashback 2: {order_detail.price_list_so}")
+                price_so = order_detail.price_list_so or 0
+                total_cashback += price_so * order_detail.order_box
+        # if product_id in ['AG80W8']:
+        #     app_log.info(f"Test order2: {order_2_test}")
 
         combined_results[product_id]["one_year_ago"] = {
             "price": detail['total_price'],
