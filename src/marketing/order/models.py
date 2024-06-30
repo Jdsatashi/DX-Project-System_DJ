@@ -53,6 +53,8 @@ class Order(models.Model):
             self.id = self.generate_pk()
         if not self.nvtt_id and self.client_id:
             self.nvtt_id = self.client_id.clientprofile.nvtt_id
+        if self.new_special_offer or self.id_so:
+            self.is_so = True
         self.calculate_totals()
         super().save(*args, **kwargs)
 

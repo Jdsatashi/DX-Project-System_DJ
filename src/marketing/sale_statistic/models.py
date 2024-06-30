@@ -16,11 +16,25 @@ class SaleStatisticManager(models.Manager):
             month=first_day_of_month,
         )
 
+        user_sale_statistic, _ = SaleStatistic.objects.get_or_create(user=order.client_id, month=first_day_of_month)
+        month_target = SaleTarget.objects.filter(month=first_day_of_month).first()
+
         total_turnover_increase = order.order_price if not order.new_special_offer or (
-                    order.new_special_offer and order.new_special_offer.count_turnover) else 0
+                order.new_special_offer and order.new_special_offer.count_turnover) else 0
+        used_turnover = 0
+
+        if order.new_special_offer or order.is_so:
+            order_details = order.order_detail.all()
+            for order_detail in order_details:
+                if order_detail.order_box:
+                    target = order.new_special_offer.target
+                    target = target if target > 0 else month_target.month_target
+                    app_log.info(f"Target: {target} | {order_detail.order_box}")
+                    used_turnover += target * order_detail.order_box
 
         self.filter(pk=sale_statistic.pk).update(
             total_turnover=F('total_turnover') + total_turnover_increase,
+            used_turnover=F('used_turnover') + used_turnover,
             available_turnover=F('total_turnover') - F('used_turnover') + total_turnover_increase,
         )
 
@@ -67,8 +81,25 @@ class SaleStatistic(models.Model):
         unique_together = ('user', 'month')
 
     def save(self, *args, **kwargs):
+        # Get old instance if exists
+        if self.pk:
+            old_instance = SaleStatistic.objects.get(pk=self.pk)
+            old_bonus_turnover = old_instance.bonus_turnover
+            old_available_turnover = old_instance.available_turnover
+        else:
+            old_bonus_turnover = 0
+            old_available_turnover = 0
+
+        # Calculate the difference in bonus_turnover
+        bonus_turnover_diff = self.bonus_turnover - old_bonus_turnover
+
+        # Update total_turnover with the difference
+        self.total_turnover += bonus_turnover_diff
+
+        self.available_turnover = self.total_turnover - self.used_turnover
+
         sale_target = SaleTarget.objects.get_or_create(month=self.month)
         super().save(*args, **kwargs)
 
     def __str__(self):
-        return f"{self.user.username} - {self.month.strftime('%Y-%m')}"
+        return f"{self.id}: {self.user.username} - {self.month.strftime('%Y-%m')}"

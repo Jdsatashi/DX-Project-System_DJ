@@ -3,6 +3,7 @@ from django.dispatch import receiver
 from django.utils import timezone
 
 from account.models import User
+from marketing.order.models import Order
 from marketing.sale_statistic.models import SaleStatistic
 
 updating_statistic = False
@@ -33,8 +34,10 @@ def create_monthly_turnover(sender, instance, created, **kwargs):
 # def update_sale_statistic(sender, instance, created, **kwargs):
 #     global updating_statistic
 #     if created and not updating_statistic:
+#         print(f"Testing signals -----------")
 #         updating_statistic = True
 #         try:
+#             print(f"HERE -----------")
 #             SaleStatistic.objects.update_from_order(instance)
 #         finally:
 #             updating_statistic = False

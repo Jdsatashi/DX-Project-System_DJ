@@ -21,7 +21,7 @@ class ApiSaleStatistic(viewsets.GenericViewSet, mixins.ListModelMixin,
     # permission_classes = [partial(ValidatePermRest, model=SaleStatistic)]
 
     def list(self, request, *args, **kwargs):
-        response = filter_data(self, request, ['user'],
+        response = filter_data(self, request, ['user__id'],
                                **kwargs)
         return Response(response, status=status.HTTP_200_OK)
 

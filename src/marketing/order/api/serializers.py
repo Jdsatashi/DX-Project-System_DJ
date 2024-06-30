@@ -20,7 +20,7 @@ class OrderDetailSerializer(BaseRestrictSerializer):
 
     class Meta:
         model = OrderDetail
-        fields = ['product_id', 'product_name', 'order_quantity', 'order_box', 'product_price', 'point_get']
+        fields = ['product_id', 'product_name', 'order_quantity', 'order_box', 'product_price', 'point_get', 'price_list_so']
 
 
 class OrderSerializer(BaseRestrictSerializer):
@@ -174,6 +174,7 @@ class OrderSerializer(BaseRestrictSerializer):
             if special_offer.type_list == 'consider_offer_user':
                 is_consider = True
                 # When ConsiderOffer, calculate via <SpecialOffer object> 'target' value
+                app_log.info(f"TEST:{user_sale_statistic.available_turnover} | {special_offer.target}")
                 number_box_can_buy = user_sale_statistic.available_turnover // special_offer.target
                 # Validate if all products in order are belonged to SO consider
                 order_product_ids = {str(detail_data.get('product_id').id) for detail_data in order_details_data}
@@ -248,6 +249,10 @@ class OrderSerializer(BaseRestrictSerializer):
             detail_data['product_price'] = prices
             detail_data['point_get'] = point
 
+            if order.is_so:
+                so_obj = SpecialOfferProduct.objects.get(special_offer=order.new_special_offer, product=product_id)
+                detail_data['price_list_so'] = so_obj.cashback
+
             # Prin logs
             app_log.info(f"Order details data: {detail_data}")
 
@@ -266,12 +271,16 @@ class OrderSerializer(BaseRestrictSerializer):
             if not sale_target:
                 raise serializers.ValidationError({'message': f'No SaleTarget found for the month {order_month}'})
             if is_so:
-                target = order.new_special_offer.target if is_consider or order.new_special_offer.target == 0 else sale_target.month_target
+                target = order.new_special_offer.target
+                target = target if target != 0 else sale_target.month_target
                 app_log.info(f"TESTING TARGET: {target}")
+
                 used_turnover = sum(
                     detail.order_box * target
                     for detail in order.order_detail.all()
                 )
+                if order.new_special_offer.count_turnover:
+                    user_sale_statistic.total_turnover += total_price
 
                 user_sale_statistic.used_turnover += used_turnover
                 user_sale_statistic.available_turnover = user_sale_statistic.total_turnover - user_sale_statistic.used_turnover
