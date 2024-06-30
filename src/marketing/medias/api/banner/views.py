@@ -19,10 +19,14 @@ class ApiBanner(viewsets.GenericViewSet, mixins.ListModelMixin, mixins.CreateMod
     # permission_classes = [partial(ValidatePermRest, model=Banner)]
 
     def get_authenticators(self):
-        if self.request.method in ['POST', 'PUT', 'PATCH', 'DELETE']:
-            self.authentication_classes = [JWTAuthentication, BasicAuthentication, SessionAuthentication]
-        else:
+        try:
+            if self.request.method in ['POST', 'PUT', 'PATCH', 'DELETE']:
+                self.authentication_classes = [JWTAuthentication, BasicAuthentication, SessionAuthentication]
+            else:
+                self.authentication_classes = []
+        except AttributeError:
             self.authentication_classes = []
+            return super().get_authenticators()
         return super().get_authenticators()
 
     def list(self, request, *args, **kwargs):
@@ -68,10 +72,14 @@ class ApiBannerItem(viewsets.GenericViewSet, mixins.ListModelMixin, mixins.Creat
     # permission_classes = [partial(ValidatePermRest, model=BannerItem)]
 
     def get_authenticators(self):
-        if self.request.method in ['POST', 'PUT', 'PATCH', 'DELETE']:
-            self.authentication_classes = [JWTAuthentication, BasicAuthentication, SessionAuthentication]
-        else:
+        try:
+            if self.request.method in ['POST', 'PUT', 'PATCH', 'DELETE']:
+                self.authentication_classes = [JWTAuthentication, BasicAuthentication, SessionAuthentication]
+            else:
+                self.authentication_classes = []
+        except AttributeError:
             self.authentication_classes = []
+            return super().get_authenticators()
         return super().get_authenticators()
 
     # def get_permissions(self):

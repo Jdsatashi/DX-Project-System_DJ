@@ -37,8 +37,8 @@ class BannerItemSerializer(serializers.ModelSerializer):
         if banner_obj:
             display_type = banner_obj.display_type
             if display_type == BannerDisplay.VIDEO:
-                file_upload_data = None
-                file_instance = None
+                # file_upload_data = None
+                # file_instance = None
                 video_url = validated_data.get('video_url', None)
                 if video_url is None:
                     raise serializers.ValidationError("Video_url is required.")
