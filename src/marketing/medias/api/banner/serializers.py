@@ -48,7 +48,7 @@ class BannerItemSerializer(serializers.ModelSerializer):
 
         with transaction.atomic():
             if banner_obj:
-                display_type = banner_obj.display_type
+                # display_type = banner_obj.display_type
                 # if display_type == BannerDisplay.IMAGE:
                 if file_instance is None and file_upload_data:
                     file_instance = FileUpload.objects.create(file=file_upload_data)
@@ -61,19 +61,19 @@ class BannerItemSerializer(serializers.ModelSerializer):
     def update(self, instance, validated_data):
         file_upload_data = validated_data.pop('file_upload', None)
         file_instance = validated_data.get('file', instance.file)
-        banner_obj = validated_data.get('banner', None)
+        # banner_obj = validated_data.get('banner', None)
 
-        if banner_obj:
-            display_type = banner_obj.display_type
-            if display_type == BannerDisplay.VIDEO:
-                video_url = validated_data.pop('video_url', None)
+        # if banner_obj:
+        #     display_type = banner_obj.display_type
+        #     if display_type == BannerDisplay.VIDEO:
+        #         video_url = validated_data.pop('video_url', None)
 
         with transaction.atomic():
             # if file_upload_data:
             #     file_instance = FileUpload.objects.create(file=file_upload_data)
             # validated_data['file'] = file_instance
             for attr, value in validated_data.items():
-                if attr in ['url', 'title', 'priority', 'note']:
+                if attr in ['url', 'title', 'video_url', 'priority', 'note']:
                     setattr(instance, attr, value)
             instance.save()
             return instance
@@ -131,7 +131,7 @@ class BannerSerializer(serializers.ModelSerializer):
             item_id = banner_item_data.get('id')
             if item_id and item_id in existing_items:
                 banner_item = existing_items[item_id]
-                for attr in ['url', 'title', 'priority', 'note']:
+                for attr in ['url', 'title', 'video_url', 'priority', 'note']:
                     if attr in banner_item_data:
                         setattr(banner_item, attr, banner_item_data[attr])
                 banner_item.save()
