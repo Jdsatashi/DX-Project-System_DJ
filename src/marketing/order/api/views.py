@@ -204,6 +204,8 @@ def get_product_statistics(user, input_date, product_ids, type_statistic):
         total_box=Sum('order_box')
     )
 
+    total_cashback = 0
+
     # Combine results into a single dictionary
     combined_results = {}
     for detail in details_1:
@@ -211,7 +213,6 @@ def get_product_statistics(user, input_date, product_ids, type_statistic):
         # app_log.info(f"Test detail: {detail}")
         product_id = detail['product_id']
         product_name = detail['product_id__name']
-        total_cashback = 0
 
         order_1_test = []
         # Calculate total cashback for current period
@@ -222,14 +223,11 @@ def get_product_statistics(user, input_date, product_ids, type_statistic):
             # if special_offer and order_detail:
             # sop = SpecialOfferProduct.objects.filter(special_offer=special_offer, product_id=product_id).first()
             # if sop and sop.cashback:
-            #     if product_id in ['AG80W8']:
-            #         app_log.info(f"Test sop: {sop}")
-            #         app_log.info(f"Test order_detail: {order_detail}")
             #     total_cashback += sop.cashback * order_detail.order_box
             if order_detail is not None:
                 app_log.info(f"Test cashback 1: {order_detail.price_list_so}")
                 price_so = order_detail.price_list_so or 0
-                total_cashback += price_so * order_detail.order_box
+                total_cashback += abs(price_so) * order_detail.order_box
 
         combined_results[product_id] = {
             "product_name": product_name,
@@ -245,7 +243,6 @@ def get_product_statistics(user, input_date, product_ids, type_statistic):
     for detail in details_2:
         product_id = detail['product_id']
         product_name = detail['product_id__name']
-        total_cashback = 0
 
         if product_id not in combined_results:
             combined_results[product_id] = {
