@@ -33,26 +33,38 @@ class UserSerializer(serializers.ModelSerializer):
         }
 
 
+class ClientProfileList(serializers.ModelSerializer):
+    class Meta:
+        model = ClientProfile
+        fields = ['register_name', 'address', 'client_group_id', 'is_npp', 'nvtt_id']
+
+
+class EmployeeProfileList(serializers.ModelSerializer):
+    class Meta:
+        model = EmployeeProfile
+        fields = ['register_name', 'address', 'department', 'position']
+
+
 class UserListSerializer(serializers.ModelSerializer):
-    register_name = serializers.SerializerMethodField()
     phone = serializers.SerializerMethodField()
+    profile = serializers.SerializerMethodField()
 
     class Meta:
         model = User
-        fields = ['id', 'email', 'status', 'user_type', 'register_name', 'phone', 'group_user']
-
-    def get_register_name(self, obj):
-        if obj.user_type == 'client':
-            client_profile = ClientProfile.objects.get(client_id=obj)
-            return client_profile.register_name
-        elif obj.user_type == 'employee':
-            employee_profile = EmployeeProfile.objects.get(employee_id=obj)
-            return employee_profile.register_name
-        return None
+        fields = ['id', 'email', 'status', 'user_type', 'phone', 'group_user', 'profile']
 
     def get_phone(self, obj):
         phone = obj.phone_numbers.filter().values_list('phone_number', flat=True)
         return list(phone)
+
+    def get_profile(self, obj):
+        if obj.user_type == 'client':
+            client_profile = obj.clientprofile
+            return ClientProfileList(client_profile).data
+        elif obj.user_type == 'employee':
+            employee_profile = obj.employeeprofile
+            return EmployeeProfileList(employee_profile).data
+        return None
 
 
 class ClientInfo(serializers.ModelSerializer):
