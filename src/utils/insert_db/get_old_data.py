@@ -607,10 +607,10 @@ def update_order_details():
 
     orders_with_details = Order.objects.annotate(
         has_details=Exists(OrderDetail.objects.filter(order_id=OuterRef('id')))
-    ).filter(has_details=True, order_price__isnull=False).exclude(order_price__gt=0).order_by('-id')
+    ).filter(has_details=True).exclude(order_price__gt=0).order_by('-id')
 
     total_count = orders_with_details.count()
-
+    app_log.info(f"Total item: {total_count}")
     chunk_size = 3000
 
     time_loop = math.ceil(total_count / chunk_size)
