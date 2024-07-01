@@ -224,7 +224,9 @@ class SpecialOfferSerializer(BaseRestrictSerializer):
         app_log.info(f"set_default_values")
         if 'price' not in product_data or product_data['price'] is None:
             app_log.info(f"When not have price")
-            product_price = ProductPrice.objects.filter(price_list=special_offer.price_list,
+
+            current_pl = PriceList.get_main_pl()
+            product_price = ProductPrice.objects.filter(price_list=current_pl,
                                                         product=product_data['product']).first()
             app_log.info(f"Test product price: {product_price}")
             if product_price:
@@ -235,5 +237,6 @@ class SpecialOfferSerializer(BaseRestrictSerializer):
     @staticmethod
     def check_product_in_price_list(special_offer, product):
         """Check if the product exists in the PriceList"""
-        if not ProductPrice.objects.filter(price_list=special_offer.price_list, product=product).exists():
+        current_pl = PriceList.get_main_pl()
+        if not ProductPrice.objects.filter(price_list=current_pl, product=product).exists():
             raise serializers.ValidationError({'message': f'Product {product.id} is not in the PriceList'})

@@ -12,7 +12,7 @@ from django.utils import timezone
 from openpyxl.styles import Font, Alignment, PatternFill
 from openpyxl.utils import get_column_letter
 from rest_framework import viewsets, mixins, status
-from rest_framework.authentication import BasicAuthentication
+from rest_framework.authentication import BasicAuthentication, SessionAuthentication
 from rest_framework.response import Response
 from rest_framework.views import APIView
 from rest_framework_simplejwt.authentication import JWTAuthentication
@@ -34,7 +34,7 @@ class GenericApiOrder(viewsets.GenericViewSet, mixins.ListModelMixin, mixins.Cre
                       mixins.RetrieveModelMixin, mixins.UpdateModelMixin, mixins.DestroyModelMixin):
     serializer_class = OrderSerializer
     queryset = Order.objects.all()
-    authentication_classes = [JWTAuthentication, BasicAuthentication]
+    authentication_classes = [JWTAuthentication, BasicAuthentication, SessionAuthentication]
 
     permission_classes = [partial(ValidatePermRest, model=Order)]
 
@@ -105,12 +105,7 @@ class ProductStatisticsView(APIView):
             limit = request.query_params.get('limit', 10)
             page = int(request.query_params.get('page', 1))
 
-            # Data set for statistic
-            # statistics = get_product_statistics(user, input_date, product_ids, type_statistic)
-
-            # statistics_list = [{"product_id": k, **v} for k, v in statistics.items()]
             # Get queries and paginate order
-
             details_1, details_2 = self.paginate_orders(user, input_date, product_ids, type_statistic, limit, page)
             # Process calculate cashback
             statistics = statistic_calculate(details_1, details_2)
@@ -126,8 +121,6 @@ class ProductStatisticsView(APIView):
                 }
                 return Response(response_data, status=status.HTTP_200_OK)
 
-            serializer = ProductStatisticsSerializer(statistics_list, many=True)
-
             # Paginate data
             paginator = Paginator(statistics_list, limit)
             page_obj = paginator.get_page(page)
@@ -141,11 +134,11 @@ class ProductStatisticsView(APIView):
             }
             if page < paginator.num_pages:
                 next_page = request.build_absolute_uri(
-                    f'?page={page + 1}&limit={limit}&user={user}&type_statistic={type_statistic}')
+                    f'?page={page + 1}&limit={limit}&user={user}&type_statistic={type_statistic}&products={product_query}')
                 response_data['next_page'] = next_page
             if page > 1:
                 prev_page = request.build_absolute_uri(
-                    f'?page={page - 1}&limit={limit}&user={user}&type_statistic={type_statistic}')
+                    f'?page={page - 1}&limit={limit}&user={user}&type_statistic={type_statistic}&products={product_query}')
                 response_data['prev_page'] = prev_page
             return Response(response_data, status=status.HTTP_200_OK)
         except ValueError as e:
