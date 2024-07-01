@@ -18,7 +18,7 @@ from rest_framework_simplejwt.exceptions import TokenError
 from rest_framework_simplejwt.tokens import RefreshToken as RestRefreshToken, AccessToken
 
 from account.api.serializers import UserSerializer, RegisterSerializer, response_verify_code, UserUpdateSerializer, \
-    UserWithPerm, PermSerializer, GroupPermSerializer
+    UserWithPerm, PermSerializer, GroupPermSerializer, UserListSerializer
 from account.models import User, Verify, PhoneNumber, RefreshToken, TokenMapping, GroupPerm, Perm
 from app.api_routes.handlers import get_token_for_user
 from app.logs import app_log
@@ -47,6 +47,8 @@ class ApiAccount(viewsets.GenericViewSet, mixins.ListModelMixin, mixins.CreateMo
     def list(self, request, *args, **kwargs):
         start_time = time.time()
         queryset = self.get_queryset()
+
+        self.serializer_class = UserListSerializer
 
         get_user = self.request.query_params.get('get_user', None)
         match get_user:
