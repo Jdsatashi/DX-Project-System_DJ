@@ -35,11 +35,10 @@ class UserSerializer(serializers.ModelSerializer):
 
 class UserListSerializer(serializers.ModelSerializer):
     register_name = serializers.SerializerMethodField()
-    phone_number = serializers.SerializerMethodField()
 
     class Meta:
         model = User
-        fields = ['id', 'email', 'status', 'user_type', 'register_name', 'phone_number']
+        fields = ['id', 'email', 'status', 'user_type', 'register_name', 'phone_numbers', 'group_user']
 
     def get_register_name(self, obj):
         if obj.user_type == 'client':
@@ -49,11 +48,6 @@ class UserListSerializer(serializers.ModelSerializer):
             employee_profile = EmployeeProfile.objects.get(employee_id=obj)
             return employee_profile.register_name
         return None
-
-    def get_phone_number(self, obj):
-        phone = obj.phone_numbers.filter().values_list('phone_number', flat=True)
-        return list(phone)
-
 
 class ClientInfo(serializers.ModelSerializer):
     class Meta:
