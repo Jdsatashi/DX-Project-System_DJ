@@ -5,7 +5,8 @@ from functools import partial
 import openpyxl
 from django.core.exceptions import FieldError
 from django.core.paginator import Paginator
-from django.db.models import Sum, Q
+from django.db.models import Sum, Q, Case, When, FloatField, F
+from django.db.models.functions import Abs, Coalesce
 from django.http import HttpResponse
 from django.utils import timezone
 from openpyxl.styles import Font, Alignment, PatternFill
@@ -90,12 +91,14 @@ class ProductStatisticsView(APIView):
                                             datetime.strftime(start_date_time - timedelta(days=365), '%d/%m/%Y'))
             end_date_2 = request.data.get('end_date_2',
                                           datetime.strftime(start_date_time - timedelta(days=1), '%d/%m/%Y'))
-
-            type_statistic = request.data.get('type_statistic', 'all')
+            # Get type to calculate
+            type_statistic = request.data.get('type_statistic') or request.query_params.get('type_statistic', 'all')
+            # Add date period compare to dict
             input_date = {'start_date_1': start_date_1, 'end_date_1': end_date_1,
                           'start_date_2': start_date_2, 'end_date_2': end_date_2}
-
+            # Get products as
             product_query = request.query_params.get('products', '')
+            # Combine products to list id
             product_ids = product_query.split(',') if product_query else []
 
             # Get param variables data
@@ -103,8 +106,15 @@ class ProductStatisticsView(APIView):
             page = int(request.query_params.get('page', 1))
 
             # Data set for statistic
-            statistics = get_product_statistics(user, input_date, product_ids, type_statistic)
+            # statistics = get_product_statistics(user, input_date, product_ids, type_statistic)
 
+            # statistics_list = [{"product_id": k, **v} for k, v in statistics.items()]
+            # Get queries and paginate order
+
+            details_1, details_2 = self.paginate_orders(user, input_date, product_ids, type_statistic, limit, page)
+            # Process calculate cashback
+            statistics = statistic_calculate(details_1, details_2)
+            # Add data to list
             statistics_list = [{"product_id": k, **v} for k, v in statistics.items()]
 
             if int(limit) == 0:
@@ -116,6 +126,8 @@ class ProductStatisticsView(APIView):
                 }
                 return Response(response_data, status=status.HTTP_200_OK)
 
+            serializer = ProductStatisticsSerializer(statistics_list, many=True)
+
             # Paginate data
             paginator = Paginator(statistics_list, limit)
             page_obj = paginator.get_page(page)
@@ -124,18 +136,16 @@ class ProductStatisticsView(APIView):
             response_data = {
                 'data': serializer.data,
                 'total_page': paginator.num_pages,
+                # 'total_page': self.total_pages,
                 'current_page': page
             }
-            if page_obj.has_next():
+            if page < paginator.num_pages:
                 next_page = request.build_absolute_uri(
-                    '?page={}&limit={}'.format(
-                        page_obj.next_page_number(), limit))
+                    f'?page={page + 1}&limit={limit}&user={user}&type_statistic={type_statistic}')
                 response_data['next_page'] = next_page
-            # If has previous page, add urls to response data
-            if page_obj.has_previous():
+            if page > 1:
                 prev_page = request.build_absolute_uri(
-                    '?page={}&limit={}'.format(
-                        page_obj.previous_page_number(), limit))
+                    f'?page={page - 1}&limit={limit}&user={user}&type_statistic={type_statistic}')
                 response_data['prev_page'] = prev_page
             return Response(response_data, status=status.HTTP_200_OK)
         except ValueError as e:
@@ -144,90 +154,88 @@ class ProductStatisticsView(APIView):
             raise e
             # return Response({"error": str(e)}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
 
+    def paginate_orders(self, user, input_date, product_ids, type_statistic, limit, page):
+        start_date_1, end_date_1, start_date_2, end_date_2 = self.convert_dates(input_date)
+        app_log.info(f"Paginate test page: {page} | {limit}")
+        app_log.info(f"Test datetime: {start_date_1} to {end_date_1} | {start_date_2} | to {end_date_2}")
+        orders_1 = Order.objects.filter(client_id=user, date_get__gte=start_date_1, date_get__lte=end_date_1)
+        orders_2 = Order.objects.filter(client_id=user, date_get__gte=start_date_2, date_get__lte=end_date_2)
 
-def get_product_statistics(user, input_date, product_ids, type_statistic):
-    app_log.info(f"User id: {user} - {input_date} - {type_statistic}")
-    # Convert date format
-    start_date_1 = timezone.make_aware(datetime.strptime(input_date.get('start_date_1'), '%d/%m/%Y'),
-                                       timezone.get_current_timezone())
-    end_date_1 = timezone.make_aware(
-        datetime.strptime(input_date.get('end_date_1'), '%d/%m/%Y') + timedelta(days=1) - timedelta(seconds=1),
-        timezone.get_current_timezone())
+        if len(product_ids) > 0:
+            orders_1 = orders_1.filter(order_detail__product_id__in=product_ids).distinct()
+            orders_2 = orders_2.filter(order_detail__product_id__in=product_ids).distinct()
 
-    start_date_2 = timezone.make_aware(datetime.strptime(input_date.get('start_date_2'), '%d/%m/%Y'),
-                                       timezone.get_current_timezone())
-    end_date_2 = timezone.make_aware(
-        datetime.strptime(input_date.get('end_date_2'), '%d/%m/%Y') + timedelta(days=1) - timedelta(seconds=1),
-        timezone.get_current_timezone())
+        match type_statistic:
+            case 'special_offer':
+                orders_1 = orders_1.filter(Q(new_special_offer__isnull=False) | Q(is_so=True))
+                orders_2 = orders_2.filter(Q(new_special_offer__isnull=False) | Q(is_so=True))
+            case 'normal':
+                orders_1 = orders_1.filter(
+                    Q(new_special_offer__isnull=True) & Q(Q(is_so=False) | Q(is_so__isnull=True)))
+                orders_2 = orders_2.filter(
+                    Q(new_special_offer__isnull=True) & Q(Q(is_so=False) | Q(is_so__isnull=True)))
 
-    # Get orders for each date range
-    orders_1 = Order.objects.filter(client_id=user, date_get__gte=start_date_1, date_get__lte=end_date_1)
-    orders_2 = Order.objects.filter(client_id=user, date_get__gte=start_date_2, date_get__lte=end_date_2)
+        orders_1 = orders_1.order_by('-id')
+        orders_2 = orders_2.order_by('-id')
 
-    # Apply query filters
-    if len(product_ids) > 0:
-        orders_1 = orders_1.filter(order_detail__product_id__in=product_ids).distinct()
-        orders_2 = orders_2.filter(order_detail__product_id__in=product_ids).distinct()
+        order_ids_1 = orders_1.values_list('id', flat=True)
+        order_ids_2 = orders_2.values_list('id', flat=True)
 
-    # Get orders for each date range with type_statistic
-    match type_statistic:
-        case 'special_offer':
-            orders_1 = orders_1.filter(Q(new_special_offer__isnull=False) | Q(is_so=True))
-            orders_2 = orders_2.filter(Q(new_special_offer__isnull=False) | Q(is_so=True))
-        case 'normal':
-            orders_1 = orders_1.filter(Q(new_special_offer__isnull=True) & Q(Q(is_so=False) | Q(is_so__isnull=True)))
-            orders_2 = orders_2.filter(Q(new_special_offer__isnull=True) & Q(Q(is_so=False) | Q(is_so__isnull=True)))
-            # orders_1 = orders_1.exclude(Q(new_special_offer__isnull=False) & Q(is_so=True))
-            # orders_2 = orders_2.exclude(Q(new_special_offer__isnull=False) & Q(is_so=True))
+        query_data_1 = Q(order_id__in=order_ids_1)
+        query_data_2 = Q(order_id__in=order_ids_2)
 
-    query_data_1 = Q()
-    query_data_1 |= Q(order_id__in=orders_1)
-    if len(product_ids) > 0:
-        app_log.info(f"Test len: {product_ids}")
-        query_data_1 &= Q(product_id__in=product_ids)
-    # Get order details for each date range
-    details_1 = OrderDetail.objects.filter(query_data_1).values('product_id', 'product_id__name').annotate(
-        total_quantity=Sum('order_quantity'),
-        total_point=Sum('point_get'),
-        total_price=Sum('product_price'),
-        total_box=Sum('order_box')
-    )
-    query_data_2 = Q()
-    query_data_2 |= Q(order_id__in=orders_2)
-    if len(product_ids) > 0:
-        app_log.info(f"Test len: {product_ids}")
-        query_data_2 &= Q(product_id__in=product_ids)
-    details_2 = OrderDetail.objects.filter(query_data_2).values('product_id', 'product_id__name').annotate(
-        total_quantity=Sum('order_quantity'),
-        total_point=Sum('point_get'),
-        total_price=Sum('product_price'),
-        total_box=Sum('order_box')
-    )
+        if len(product_ids) > 0:
+            query_data_1 &= Q(product_id__in=product_ids)
+            query_data_2 &= Q(product_id__in=product_ids)
 
-    total_cashback = 0
+        details_1 = OrderDetail.objects.filter(query_data_1).values('product_id', 'product_id__name').annotate(
+            total_quantity=Sum('order_quantity'),
+            total_point=Sum('point_get'),
+            total_price=Sum('product_price'),
+            total_box=Sum('order_box'),
+            total_cashback=Sum(Case(
+                When(price_list_so__isnull=False, then=Abs(Coalesce(F('price_list_so'), 0.0)) * F('order_box')),
+                default=0,
+                output_field=FloatField()
+            ))
+        )
+        details_2 = OrderDetail.objects.filter(query_data_2).values('product_id', 'product_id__name').annotate(
+            total_quantity=Sum('order_quantity'),
+            total_point=Sum('point_get'),
+            total_price=Sum('product_price'),
+            total_box=Sum('order_box'),
+            total_cashback=Sum(Case(
+                When(price_list_so__isnull=False, then=Abs(Coalesce(F('price_list_so'), 0.0)) * F('order_box')),
+                default=0,
+                output_field=FloatField()
+            ))
+        )
 
+        return details_1, details_2
+
+    def convert_dates(self, input_date):
+        start_date_1 = timezone.make_aware(datetime.strptime(input_date.get('start_date_1'), '%d/%m/%Y'),
+                                           timezone.get_current_timezone())
+        end_date_1 = timezone.make_aware(
+            datetime.strptime(input_date.get('end_date_1'), '%d/%m/%Y') + timedelta(days=1) - timedelta(seconds=1),
+            timezone.get_current_timezone())
+
+        start_date_2 = timezone.make_aware(datetime.strptime(input_date.get('start_date_2'), '%d/%m/%Y'),
+                                           timezone.get_current_timezone())
+        end_date_2 = timezone.make_aware(
+            datetime.strptime(input_date.get('end_date_2'), '%d/%m/%Y') + timedelta(days=1) - timedelta(seconds=1),
+            timezone.get_current_timezone())
+
+        return start_date_1, end_date_1, start_date_2, end_date_2
+
+
+def statistic_calculate(details_1, details_2):
     # Combine results into a single dictionary
     combined_results = {}
+
     for detail in details_1:
-        # app_log.info("- - - - - ")
-        # app_log.info(f"Test detail: {detail}")
         product_id = detail['product_id']
         product_name = detail['product_id__name']
-
-        order_1_test = []
-        # Calculate total cashback for current period
-        for order in orders_1:
-            order_detail = OrderDetail.objects.filter(order_id=order, product_id=product_id).first()
-            special_offer = order.new_special_offer
-            # app_log.info(f"Test order: {order}")
-            # if special_offer and order_detail:
-            # sop = SpecialOfferProduct.objects.filter(special_offer=special_offer, product_id=product_id).first()
-            # if sop and sop.cashback:
-            #     total_cashback += sop.cashback * order_detail.order_box
-            if order_detail is not None:
-                app_log.info(f"Test cashback 1: {order_detail.price_list_so}")
-                price_so = order_detail.price_list_so or 0
-                total_cashback += abs(price_so) * order_detail.order_box
 
         combined_results[product_id] = {
             "product_name": product_name,
@@ -235,11 +243,12 @@ def get_product_statistics(user, input_date, product_ids, type_statistic):
                 "price": detail['total_price'],
                 "point": detail['total_point'],
                 "quantity": detail['total_quantity'],
-                "box": detail['total_box']
+                "box": detail['total_box'],
+                "cashback": int(detail['total_cashback'])
             },
-            "total_cashback": total_cashback
+            "total_cashback": int(detail['total_cashback'])
         }
-        # app_log.info(f"Test cashback details 1: {total_cashback}")
+
     for detail in details_2:
         product_id = detail['product_id']
         product_name = detail['product_id__name']
@@ -249,31 +258,16 @@ def get_product_statistics(user, input_date, product_ids, type_statistic):
                 "product_name": product_name,
                 "one_year_ago": {}
             }
-
-        order_2_test = []
         # Calculate total cashback for previous period
-        for order in orders_2:
-            order_detail = OrderDetail.objects.filter(order_id=order, product_id=product_id).first()
-            special_offer = order.new_special_offer
-            # if special_offer and order_detail:
-            #     sop = SpecialOfferProduct.objects.filter(special_offer=special_offer, product_id=product_id).first()
-            #     if sop and sop.cashback:
-            #         total_cashback += sop.cashback * order_detail.order_box
-            if order_detail:
-                app_log.info(f"Test cashback 2: {order_detail.price_list_so}")
-                price_so = order_detail.price_list_so or 0
-                total_cashback += price_so * order_detail.order_box
-        # if product_id in ['AG80W8']:
-        #     app_log.info(f"Test order2: {order_2_test}")
-
+        first_cashback = combined_results[product_id].get("total_cashback", 0)
         combined_results[product_id]["one_year_ago"] = {
             "price": detail['total_price'],
             "point": detail['total_point'],
             "quantity": detail['total_quantity'],
-            "box": detail['total_box']
+            "box": detail['total_box'],
+            "cashback": int(detail['total_cashback'])
         }
-        combined_results[product_id]["total_cashback"] = total_cashback
-        # app_log.info(f"Test cashback details 2: {total_cashback}")
+        combined_results[product_id]["total_cashback"] = first_cashback + int(detail['total_cashback'])
 
     return combined_results
 
