@@ -159,7 +159,7 @@ class PermSerializer(serializers.ModelSerializer):
 class UserWithPerm(serializers.ModelSerializer):
     group = serializers.ListField(child=serializers.CharField(), write_only=True, required=False, allow_null=True)
     perm = serializers.ListField(child=serializers.CharField(), write_only=True, required=False, allow_null=True)
-    phone = serializers.ListField(child=serializers.CharField(), write_only=True, required=False, allow_null=True)
+    phone_numbers = serializers.ListField(child=serializers.CharField(), write_only=True, required=False, allow_null=True)
     profile = serializers.JSONField(write_only=True, required=False, allow_null=True)
 
     class Meta:
@@ -174,7 +174,7 @@ class UserWithPerm(serializers.ModelSerializer):
 
     def to_representation(self, instance):
         representation = super().to_representation(instance)
-        representation['phone'] = [phone.phone_number for phone in instance.phone_numbers.all()]
+        representation['phone_numbers'] = [phone.phone_number for phone in instance.phone_numbers.all()]
 
         # Add profile data to representation
         if instance.user_type == 'employee':
@@ -202,7 +202,7 @@ class UserWithPerm(serializers.ModelSerializer):
     def create(self, validated_data):
         group_data = validated_data.pop('group', None)
         perm_data = validated_data.pop('perm', None)
-        phone_data = validated_data.pop('phone', None)
+        phone_data = validated_data.pop('phone_numbers', None)
         profile_data = validated_data.pop('profile', None)
 
         try:
@@ -222,12 +222,12 @@ class UserWithPerm(serializers.ModelSerializer):
                         # Validate phone number
                         is_valid, phone_number = phone_validate(phone_number)
                         if not is_valid:
-                            raise serializers.ValidationError({'phone': f'Phone number "{phone_number}" is not valid'})
+                            raise serializers.ValidationError({'phone_numbers': f'Phone number "{phone_number}" is not valid'})
                         try:
                             PhoneNumber.objects.create(phone_number=phone_number, user=user)
                         except IntegrityError:
                             raise serializers.ValidationError(
-                                {'phone': f"Phone number '{phone_number}' already exists"})
+                                {'phone_numbers': f"Phone number '{phone_number}' already exists"})
                 handle_user(user, group_data, perm_data, profile_data)
 
         except Exception as e:
@@ -241,7 +241,7 @@ class UserWithPerm(serializers.ModelSerializer):
     def update(self, instance, validated_data):
         group_data = validated_data.pop('group', None)
         perm_data = validated_data.pop('perm', None)
-        phone_data = validated_data.pop('phone', None)
+        phone_data = validated_data.pop('phone_numbers', None)
         profile_data = validated_data.pop('profile', None)
 
         try:
@@ -257,12 +257,12 @@ class UserWithPerm(serializers.ModelSerializer):
                     for phone_number in phone_data:
                         is_valid, phone_number = phone_validate(phone_number)
                         if not is_valid:
-                            raise serializers.ValidationError({'phone': f'Phone number "{phone_number}" is not valid'})
+                            raise serializers.ValidationError({'phone_numbers': f'Phone number "{phone_number}" is not valid'})
                         try:
                             PhoneNumber.objects.create(phone_number=phone_number, user=instance)
                         except IntegrityError:
                             raise serializers.ValidationError(
-                                {'phone': f'Phone number "{phone_number}" already exists'})
+                                {'phone_numbers': f'Phone number "{phone_number}" already exists'})
 
                 handle_user(instance, group_data, perm_data, profile_data)
 
