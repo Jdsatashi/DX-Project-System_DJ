@@ -50,7 +50,7 @@ class ProductPriceReadSerializer(serializers.ModelSerializer):
 
 
 class PriceListSerializer(BaseRestrictSerializer):
-    products = ProductPriceSerializer(many=True, write_only=True)
+    products = ProductPriceSerializer(many=True, write_only=True, required=False)
 
     class Meta:
         model = PriceList
@@ -143,7 +143,6 @@ class PriceList2Serializer(serializers.ModelSerializer):
         products_list_serializer = ProductPriceReadSerializer(instance.productprice_set.all(), many=True)
         ret['products_list'] = products_list_serializer.data
         return ret
-
 
 
 class UserPointView(serializers.ModelSerializer):
