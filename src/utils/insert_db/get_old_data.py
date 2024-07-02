@@ -612,27 +612,34 @@ def update_order_details():
     total_count = orders_with_details.count()
     app_log.info(f"Total item: {total_count}")
     chunk_size = 3000
-    try:
-        process_small_order_chunk(orders_with_details)
-    except Exception as e:
-        app_log.error(f"\nWhen update data")
-        raise e
-    # time_loop = math.ceil(total_count / chunk_size)
-    # for a in range(time_loop):
-    #     start_time_2 = time.time()
-    #
-    #     start_item = a * chunk_size
-    #     end_item = start_item + chunk_size
-    #     if end_item > total_count:
-    #         end_item = total_count
-    #
-    #
-    #
-    #     app_log.info(f"Complete UPDATE ORDER items {start_item} - {end_item}: {time.time() - start_time_2} seconds")
-    #     if end_item == total_count:
-    #         break
 
-    app_log.info(f"Complete UPDATE {total_count} ORDERS, time: {time.time() - start_time} seconds")
+    time_loop = math.ceil(total_count / chunk_size)
+    for a in range(time_loop):
+        start_time_2 = time.time()
+
+        start_item = a * chunk_size
+        end_item = start_item + chunk_size
+        if end_item > total_count:
+            end_item = total_count
+
+        try:
+            app_log.info(f"--\nGet data from: {start_item} - {end_item} \n--\n")
+            paginator = Paginator(orders_with_details, chunk_size)
+            page = paginator.page(a + 1)
+
+            process_small_order_chunk(page.object_list)
+        except EmptyPage:
+            app_log.info(f"Complete UPDATE ORDER items {start_item} - {end_item}: {time.time() - start_time_2} seconds")
+            break
+        except Exception as e:
+            app_log.error(f"\nWhen get data from: {start_item} - {end_item}\n")
+            raise e
+
+        app_log.info(f"Complete UPDATE ORDER items {start_item} - {end_item}: {time.time() - start_time_2} seconds")
+        if end_item == total_count:
+            break
+
+    app_log.info(f"Complete UPDATE {total_count} ORDER time: {time.time() - start_time} seconds")
 
 
 def process_small_order_chunk(orders):
@@ -640,23 +647,16 @@ def process_small_order_chunk(orders):
         list_orders_update = []
 
         for i, order in enumerate(orders):
-            try:
-                order_details = order.order_detail.all()
-                total_price = 0
-                for detail in order_details:
-                    product_price = detail.product_price if detail.product_price is not None else 0
-                    total_price += product_price
-                order.order_price = total_price
-                list_orders_update.append(order)
-                app_log.info(f"{order.id} - {total_price}")
-            except Exception as e:
-                app_log.info(f"Error at order: {order.id}")
-                raise e
-        try:
-            Order.objects.bulk_update(list_orders_update, ['order_price'])
-        except Exception as e:
-            app_log.info(f"Error at bulk updating")
-            raise e
+            order_details = order.order_detail.all()
+            total_price = 0
+            for detail in order_details:
+                product_price = detail.product_price or 0
+                total_price += product_price
+            order.order_price = total_price
+            list_orders_update.append(order)
+            app_log.info(f"{order.id} - {total_price}")
+        Order.objects.bulk_update(list_orders_update, ['order_price'])
+
 
 def update_nvtt():
     start_time = time.time()
