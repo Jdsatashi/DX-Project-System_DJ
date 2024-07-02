@@ -80,7 +80,7 @@ class ApiImportProductPL(APIView):
     def post(self, request, *args, **kwargs):
         app_log.info(f"Importing product price list")
         excel_file = self.request.FILES.get('excel_file', None)
-
+        app_log.info(f"Test excel file: {str(excel_file)}")
         # Validate
         if excel_file is None:
             return Response({"message": "not found excel import file"}, status=status.HTTP_400_BAD_REQUEST)
@@ -89,6 +89,7 @@ class ApiImportProductPL(APIView):
         if file_extension not in ['.xls', '.xlsx']:
             return Response({"message": "Invalid file format. Only .xls and .xlsx files are supported."},
                             status=status.HTTP_400_BAD_REQUEST)
+
         price_list_id = self.request.data.get('price_list', None)
         if price_list_id is None:
             return Response({"message": "field price_list is required"}, status=status.HTTP_400_BAD_REQUEST)
