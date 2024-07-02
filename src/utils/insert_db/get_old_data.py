@@ -650,7 +650,7 @@ def process_small_order_chunk(orders):
             order_details = order.order_detail.all()
             total_price = 0
             for detail in order_details:
-                product_price = detail.product_price or 0
+                product_price = detail.product_price if detail.product_price is not None else 0
                 total_price += product_price
             order.order_price = total_price
             list_orders_update.append(order)
