@@ -37,6 +37,8 @@ class PriceList(models.Model):
                 raise ValueError({'id': 'Out of index'})
             _id = f"{char_id}{two_digit_year}{i:04d}"
             self.id = _id
+        if not self.status:
+            self.status = 'active'
         return super().save(*args, **kwargs)
 
     @staticmethod

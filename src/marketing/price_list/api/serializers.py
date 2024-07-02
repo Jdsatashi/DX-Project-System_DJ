@@ -61,9 +61,9 @@ class PriceListSerializer(BaseRestrictSerializer):
         """Modify the output representation based on the context."""
         ret = super().to_representation(instance)
         request = self.context.get('request')
-        if request and request.method == 'GET' and hasattr(request,
-                                                           'resolver_match') and request.resolver_match.kwargs.get(
-            'pk'):
+        if (request and request.method == 'GET'
+                and hasattr(request, 'resolver_match')
+                and request.resolver_match.kwargs.get('pk')):
             products_list_serializer = ProductPriceReadSerializer(instance.productprice_set.all(), many=True)
             ret['products_list'] = products_list_serializer.data
         return ret
@@ -129,6 +129,21 @@ class PriceListSerializer(BaseRestrictSerializer):
             self.handle_restrict(perm_data, instance.id, self.Meta.model)
 
         return instance
+
+
+class PriceList2Serializer(serializers.ModelSerializer):
+    class Meta:
+        model = PriceList
+        # fields = '__all__'
+        exclude = ('created_by', 'created_at', 'updated_at', 'products')
+
+    def to_representation(self, instance):
+        """Modify the output representation based on the context."""
+        ret = super().to_representation(instance)
+        products_list_serializer = ProductPriceReadSerializer(instance.productprice_set.all(), many=True)
+        ret['products_list'] = products_list_serializer.data
+        return ret
+
 
 
 class UserPointView(serializers.ModelSerializer):
