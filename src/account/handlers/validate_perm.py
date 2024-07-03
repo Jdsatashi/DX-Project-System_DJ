@@ -102,7 +102,6 @@ class ValidatePermRest(permissions.BasePermission):
         return has_perm and result
 
     def has_object_permission(self, request, view, obj):
-        app_log.info(f"SUPER TESTING FROM HERE")
         start_time = time.time()
         # Authenticate
         user = request.user
