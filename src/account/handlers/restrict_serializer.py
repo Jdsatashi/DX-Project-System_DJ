@@ -61,7 +61,7 @@ class BaseRestrictSerializer(serializers.ModelSerializer):
         # Get action for full CRUD perm
         user_actions = data.get('allow_actions', [])
         list_perm = create_full_perm(model, _id, user_actions)
-        app_log.info(list_perm)
+        app_log.info(f"Testing list perm: {list_perm}")
         # Get users has perm
         existed_user_allow = list_user_has_perm(list_perm, True)
         existed_user_restrict = list_user_has_perm(list_perm, False)
@@ -185,6 +185,7 @@ def list_group_has_perm(perms: list, allow: bool):
 
 def create_full_perm(model, _id=None, user_actions=None):
     content = ContentType.objects.get_for_model(model)
+    user_actions = user_actions or []
     # Generate string perm name
     actions = acquy.get('full')
     perm_name = f'{content.app_label}_{content.model}'
@@ -201,6 +202,6 @@ def create_full_perm(model, _id=None, user_actions=None):
             content_type=content
         )
         # Add perm to list_perm for register user/nhom
-        if len(user_actions) > 0 and user_actions[0] != '' and action in acquy.get(user_actions[0]):
+        if action in user_actions:
             list_perm.append(_perm_name)
     return list_perm

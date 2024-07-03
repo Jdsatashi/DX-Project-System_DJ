@@ -1,11 +1,13 @@
 from django.contrib.contenttypes.models import ContentType
 from django.db import models
+from django.db.models import Q
 from rest_framework import status
 from rest_framework.response import Response
 
-from account.models import Perm
+from account.models import Perm, User, UserGroupPerm, GroupPerm, UserPerm, GroupPermPerms
 from app.logs import app_log
 from utils.constants import acquy
+from utils.env import PGS_DB, PGS_USER, PGS_PASSWORD, PGS_HOST, PGS_PORT
 
 
 def get_action(view, method):
@@ -103,3 +105,59 @@ def perm_queryset(self):
     exclude_id = list(perm_req_id - set(has_perm_id))
     app_log.info(f"Query exclude: {exclude_id}")
     return model_class.objects.exclude(id__in=exclude_id)
+
+
+def get_full_permname(model, action, pk):
+    perm_name = get_perm_name(model)
+    if pk:
+        perm_name = f'{perm_name}_{pk}'
+    return f'{action}_{perm_name}'
+
+
+def get_user_by_permname(perm_name):
+    user_group = User.objects.filter(
+        Q(group_user__perm__name=perm_name, group_user__usergroupperm__allow=True) |
+        Q(perm_user__name=perm_name, perm_user__userperm__allow=True)
+    ).distinct().values_list('id', flat=True)
+    return list(user_group)
+
+
+def get_user_by_permname_sql(perm_name):
+    import psycopg2
+
+    conn = psycopg2.connect(
+        dbname=PGS_DB,
+        user=PGS_USER,
+        password=PGS_PASSWORD,
+        host=PGS_HOST,
+        port=PGS_PORT
+    )
+    cur = conn.cursor()
+
+    user_table = User._meta.db_table
+    user_group_perm_table = UserGroupPerm._meta.db_table
+    group_perm_table = GroupPerm._meta.db_table
+    user_perm_table = UserPerm._meta.db_table
+    perm_table = Perm._meta.db_table
+    groupperm_perm_table = GroupPermPerms._meta.db_table
+
+    query = f"""
+        SELECT DISTINCT u.id
+        FROM {user_table} u
+        LEFT JOIN {user_group_perm_table} ugp ON u.id = ugp.user_id
+        LEFT JOIN {group_perm_table} gp ON ugp.group_id = gp.name
+        LEFT JOIN {groupperm_perm_table} gpp ON gp.name = gpp.group_id
+        LEFT JOIN {perm_table} p1 ON gpp.perm_id = p1.name
+        LEFT JOIN {user_perm_table} up ON u.id = up.user_id
+        LEFT JOIN {perm_table} p2 ON up.perm_id = p2.name
+        WHERE (gpp.allow = TRUE AND p1.name = %s)
+           OR (up.allow = TRUE AND p2.name = %s)
+        """
+
+    cur.execute(query, (perm_name, perm_name))
+    user_ids = cur.fetchall()
+
+    cur.close()
+    conn.close()
+
+    return [user_id[0] for user_id in user_ids]

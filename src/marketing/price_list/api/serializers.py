@@ -1,6 +1,11 @@
+import time
+
+from django.db.models import Q
 from rest_framework import serializers
 
+from account.handlers.perms import get_full_permname, get_user_by_permname, get_user_by_permname_sql
 from account.handlers.restrict_serializer import BaseRestrictSerializer
+from account.models import GroupPerm, User
 from app.logs import app_log
 from marketing.price_list.models import PriceList, ProductPrice, PointOfSeason, SpecialOfferProduct, SpecialOffer
 from marketing.product.models import Product
@@ -66,6 +71,16 @@ class PriceListSerializer(BaseRestrictSerializer):
                 and request.resolver_match.kwargs.get('pk')):
             products_list_serializer = ProductPriceReadSerializer(instance.productprice_set.all(), many=True)
             ret['products_list'] = products_list_serializer.data
+        start_time = time.time()
+        perm_name = get_full_permname(self.Meta.model, 'create', instance.id)
+
+        start_time2 = time.time()
+        user_group = get_user_by_permname_sql(perm_name)
+        user_manage = list(user_group)
+        app_log.info(f"Get user with user group time: {time.time() - start_time2}")
+
+        ret['users'] = user_manage
+        app_log.info(f"Get user time: {time.time() - start_time}")
         return ret
 
     def create(self, validated_data):
@@ -142,6 +157,11 @@ class PriceList2Serializer(serializers.ModelSerializer):
         ret = super().to_representation(instance)
         products_list_serializer = ProductPriceReadSerializer(instance.productprice_set.all(), many=True)
         ret['products_list'] = products_list_serializer.data
+
+        perm_name = get_full_permname(self.Meta.model, 'create', instance.id)
+        user_group = get_user_by_permname(perm_name)
+        user_manage = list(user_group)
+        ret['users'] = user_manage
         return ret
 
 

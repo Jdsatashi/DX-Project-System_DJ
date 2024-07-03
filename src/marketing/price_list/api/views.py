@@ -107,11 +107,12 @@ class ApiImportProductPL(APIView):
                 product_ids_in_excel = []
 
                 for index, row in excel_data.iterrows():
+                    # Get data from excel file
                     product_id = row['maSanPham']
                     product_price = row['donGia']
                     quantity_in_box = row['soLuongTrenThung']
                     point = row['diemTrenThung']
-
+                    # Trying get product id
                     try:
                         product = Product.objects.get(id=product_id)
                     except Product.DoesNotExist:
@@ -121,11 +122,13 @@ class ApiImportProductPL(APIView):
                     product_ids_in_excel.append(product_id)
 
                     product_price_object = ProductPrice.objects.filter(price_list=price_list, product=product).first()
+                    # Update existed product price
                     if product_price_object:
                         product_price_object.price = product_price
                         product_price_object.quantity_in_box = quantity_in_box
                         product_price_object.point = point
                         bulk_update_list.append(product_price_object)
+                    # Create objects and append to create list
                     else:
                         product_price_object = ProductPrice(
                             price_list=price_list,
