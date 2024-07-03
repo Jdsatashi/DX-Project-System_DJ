@@ -114,7 +114,7 @@ class ValidatePermRest(permissions.BasePermission):
         app_log.info(f"Test reequired permission {required_permission}")
         # Checking perm with PK is exist
         perm = perm_exist(required_permission)
-        app_log.info(f"Check perm exist time: {perm}")
+        app_log.info(f"Check perm exist time: {time.time() - start_time}")
         # If perm PK exist, handling validate perm user
         if perm is not None:
             # Check if user or user_nhom has perm PK

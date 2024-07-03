@@ -144,6 +144,8 @@ def update_group_perm(item_data, perms, items, allow, exited):
     except models.ObjectDoesNotExist:
         field = 'allow' if allow else 'restrict'
         raise serializers.ValidationError({'error': f'Field error at "{field}_{items["type"]}"'})
+    app_log.info(f"Test update_group_perm: {perms}")
+    app_log.info(f"Test exited: {exited}")
     # Looping handle with permissions
     for perm in perms:
         is_perm = group.group_has_perm(perm)
