@@ -17,7 +17,7 @@ class GenericApiFileUpload(viewsets.GenericViewSet, mixins.ListModelMixin, mixin
     serializer_class = FileUploadSerializer
     queryset = FileUpload.objects.all()
     authentication_classes = [JWTAuthentication, BasicAuthentication, SessionAuthentication]
-    permission_classes = [partial(ValidatePermRest, model=FileUpload)]
+    # permission_classes = [partial(ValidatePermRest, model=FileUpload)]
 
     def list(self, request, *args, **kwargs):
         response = filter_data(self, request, ['name', 'type', 'note'],
