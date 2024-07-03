@@ -71,16 +71,11 @@ class PriceListSerializer(BaseRestrictSerializer):
                 and request.resolver_match.kwargs.get('pk')):
             products_list_serializer = ProductPriceReadSerializer(instance.productprice_set.all(), many=True)
             ret['products_list'] = products_list_serializer.data
-        start_time = time.time()
-        perm_name = get_full_permname(self.Meta.model, 'create', instance.id)
-
-        start_time2 = time.time()
-        user_group = get_user_by_permname_sql(perm_name)
-        user_manage = list(user_group)
-        app_log.info(f"Get user with user group time: {time.time() - start_time2}")
-
-        ret['users'] = user_manage
-        app_log.info(f"Get user time: {time.time() - start_time}")
+            # Get user added in price list
+            perm_name = get_full_permname(self.Meta.model, 'create', instance.id)
+            user_group = get_user_by_permname_sql(perm_name)
+            user_manage = list(user_group)
+            ret['users'] = user_manage
         return ret
 
     def create(self, validated_data):
@@ -159,7 +154,7 @@ class PriceList2Serializer(serializers.ModelSerializer):
         ret['products_list'] = products_list_serializer.data
 
         perm_name = get_full_permname(self.Meta.model, 'create', instance.id)
-        user_group = get_user_by_permname(perm_name)
+        user_group = get_user_by_permname_sql(perm_name)
         user_manage = list(user_group)
         ret['users'] = user_manage
         return ret
