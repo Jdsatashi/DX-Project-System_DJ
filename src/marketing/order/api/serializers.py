@@ -3,6 +3,7 @@ from django.db.models import Sum
 from django.utils import timezone
 from rest_framework import serializers
 from rest_framework.exceptions import ValidationError
+from rest_framework_simplejwt.tokens import AccessToken
 
 from account.handlers.restrict_serializer import BaseRestrictSerializer
 from account.models import PhoneNumber
@@ -43,7 +44,10 @@ class OrderSerializer(BaseRestrictSerializer):
         user_sale_statistic, is_so, is_consider = self.validate_special_offer(data, order_details_data)
         with transaction.atomic():
             order = Order.objects.create(**data)
-
+            order_by = self.update_order_by()
+            if order_by:
+                order.created_by = order_by
+                order.save()
             # Calculate total price and point
             details = self.calculate_total_price_and_point(order, order_details_data)
             if details:
@@ -100,6 +104,10 @@ class OrderSerializer(BaseRestrictSerializer):
             for attr, value in data.items():
                 setattr(instance, attr, value)
             instance.save()
+            order_by = self.update_order_by()
+            if order_by:
+                instance.created_by = instance.created_by + f"|{order_by}"
+                instance.save()
 
             # Update OrderDetail
             current_details_id = [detail.id for detail in instance.order_detail.all()]
@@ -290,6 +298,22 @@ class OrderSerializer(BaseRestrictSerializer):
                 user_sale_statistic.available_turnover = user_sale_statistic.total_turnover - user_sale_statistic.used_turnover
                 user_sale_statistic.save()
 
+    def update_order_by(self):
+        try:
+            request = self.context['request']
+            auth_header = request.headers.get('Authorization')
+
+            access_token = auth_header.split(' ')[1]
+
+            # Decode access token
+            token = AccessToken(str(access_token))
+            # Decode token
+            phone_number = token.get('phone_number')
+            app_log.info(f"Order by user {phone_number}")
+            return str(phone_number)
+        except Exception as e:
+            app_log.error(f"Get error at order by")
+            pass
 
 # class ProductStatisticsSerializer(serializers.Serializer):
 #     product_id = serializers.CharField()
