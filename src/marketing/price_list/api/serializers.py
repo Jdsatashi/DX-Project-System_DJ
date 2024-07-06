@@ -182,7 +182,7 @@ class SpecialOfferProductSerializer(serializers.ModelSerializer):
 
 
 class SpecialOfferSerializer(BaseRestrictSerializer):
-    special_offers = SpecialOfferProductSerializer(many=True)
+    special_offers = SpecialOfferProductSerializer(many=True, required=False)
 
     class Meta:
         model = SpecialOffer
@@ -194,12 +194,13 @@ class SpecialOfferSerializer(BaseRestrictSerializer):
         data, perm_data = self.split_data(validated_data)
         app_log.info(f"Test SpecialOfferSerializer ---------------")
 
-        products_data = data.pop('special_offers')
+        products_data = data.pop('special_offers', [])
+
         # Create new SpecialOffer
         special_offer = SpecialOffer.objects.create(**data)
         # Add product to SpecialOfferProduct
         for product_data in products_data:
-            self.check_product_in_price_list(special_offer, product_data['product'])
+            self.check_product_in_price_list(special_offer, product_data.get('product'))
             self.set_default_values(special_offer, product_data)
             app_log.info(f"Check product_data: {product_data}")
             SpecialOfferProduct.objects.create(special_offer=special_offer, **product_data)
@@ -213,7 +214,7 @@ class SpecialOfferSerializer(BaseRestrictSerializer):
     def update(self, instance, validated_data):
         # Split insert data
         data, perm_data = self.split_data(validated_data)
-        products_data = data.pop('special_offers')
+        products_data = data.pop('special_offers', [])
 
         # Update SpecialOffer fields
         for attr, value in data.items():
@@ -256,7 +257,7 @@ class SpecialOfferSerializer(BaseRestrictSerializer):
 
             current_pl = PriceList.get_main_pl()
             product_price = ProductPrice.objects.filter(price_list=current_pl,
-                                                        product=product_data['product']).first()
+                                                        product=product_data.get('product')).first()
             app_log.info(f"Test product price: {product_price}")
             if product_price:
                 product_data['price'] = product_price.price

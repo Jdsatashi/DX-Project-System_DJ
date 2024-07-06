@@ -2,7 +2,7 @@ from django.urls import path
 from rest_framework.routers import DefaultRouter
 
 from marketing.price_list.api.views import GenericApiPriceList, ApiSpecialOffer, ApiSpecialOfferConsider, \
-    ApiImportProductPL
+    ApiImportProductPL, ApiImportProductSO
 from utils.constants import actions_views, actions_detail
 
 app_name = 'api_price_list'
@@ -24,5 +24,6 @@ urlpatterns = [
     path('special-offer/', special_offer_views, name='api_special_offer_view'),
     path('special-offer/<pk>', special_offer_details, name='api_special_offer_detail'),
     path('special-offer/consider/', ApiSpecialOfferConsider.as_view({'get': 'list'}), name='api_special_offer_consider'),
-    path('import/', ApiImportProductPL.as_view(), name='api_price_list_import')
+    path('import/', ApiImportProductPL.as_view(), name='api_price_list_import'),
+    path('special-offer/import/', ApiImportProductSO.as_view())
 ]
