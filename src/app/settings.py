@@ -1,3 +1,4 @@
+import json
 import os
 import firebase_admin
 
@@ -20,17 +21,8 @@ SECRET_KEY = APP_SECRET
 # SECURITY WARNING: don't run with debug turned on in production!
 DEBUG = APP_DEBUG
 
-ALLOWED_HOSTS = ['0.0.0.0', 'localhost', '127.0.0.1', '192.168.1.17', 'jdserver.ddnsfree.com', 'sukiendongxanh.online',
-                 'christian.ns.cloudflare.com', 'sara.ns.cloudflare.com', '27.71.25.195', 'server.sukiendongxanh.online',
-                 'api.sukiendongxanh.online'
-                 ]
-CSRF_TRUSTED_ORIGINS = ['https://sukiendongxanh.online',
-                        'https://server.sukiendongxanh.online',
-                        'https://jdserver.ddnsfree.com',
-                        'https://jdserver.ddnsfree.com:3000',
-                        'http://jdserver.ddnsfree.com:8000',
-                        'https://api.sukiendongxanh.online'
-                        ]
+ALLOWED_HOSTS = json.loads(ALLOW_HOSTS)
+CSRF_TRUSTED_ORIGINS = json.loads(CSRF_TRUSTED_ORIGINS)
 
 # Firebase setup
 FIREBASE_CONFIG_FILE = PROJECT_DIR / FIREBASE_JSON
