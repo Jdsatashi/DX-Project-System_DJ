@@ -63,23 +63,25 @@ MY_APPS = [
 
 # Application definition
 INSTALLED_APPS = [
-                     'django.contrib.admin',
-                     'django.contrib.auth',
-                     'django.contrib.contenttypes',
-                     'django.contrib.sessions',
-                     'django.contrib.messages',
-                     'django.contrib.staticfiles',
+     'django.contrib.admin',
+     'django.contrib.auth',
+     'django.contrib.contenttypes',
+     'django.contrib.sessions',
+     'django.contrib.messages',
+     'django.contrib.staticfiles',
 
-                     # Django Rest Framework
-                     'rest_framework',
-                     'rest_framework_simplejwt.token_blacklist',
-                     'drf_spectacular',
-                     # Cors header
-                     'corsheaders',
-                     # System applications
-                     'system.file_upload',
-                     'system.status_group',
-                 ] + MY_APPS
+     # Django Rest Framework
+     'rest_framework',
+     'rest_framework_simplejwt.token_blacklist',
+     'drf_spectacular',
+     # Cors header
+     'corsheaders',
+     # System applications
+     'system.file_upload',
+     'system.status_group',
+     # Celery time management
+     'django_celery_beat',
+] + MY_APPS
 
 pusher_client = Pusher(app_id=PUS_ID, key=PUS_KEY, secret=PUS_SECRET, cluster=PUS_CLUSTER, ssl=True)
 
