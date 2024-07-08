@@ -1,10 +1,12 @@
+from datetime import datetime
+
 from django.contrib.contenttypes.models import ContentType
 from django.db import transaction
+from django.utils.timezone import make_aware
 from firebase_admin import messaging
 from rest_framework import serializers
-from rest_framework.exceptions import ValidationError
 
-from account.handlers.restrict_serializer import BaseRestrictSerializer, create_full_perm, list_user_has_perm, \
+from account.handlers.restrict_serializer import create_full_perm, list_user_has_perm, \
     list_group_has_perm, add_perm
 from account.models import Perm, User, GroupPerm
 from app.logs import app_log
@@ -12,28 +14,7 @@ from marketing.medias.models import Notification, NotificationUser, Notification
 from system.file_upload.models import FileUpload
 from utils.constants import acquy, admin_role
 from utils.env import APP_SERVER
-
-
-def send_firebase_notification(title, body, registration_tokens, data):
-    """
-    Function to send a Firebase notification with custom data.
-
-    :param title: Title of the notification
-    :param body: Body of the notification
-    :param registration_tokens: List of device registration tokens
-    :param data: Additional custom data to send with the notification
-    """
-    # Construct the message payload
-    message = messaging.MulticastMessage(
-        notification=messaging.Notification(
-            title=title,
-            body=body,
-        ),
-        data=data,
-        tokens=registration_tokens
-    )
-    response = messaging.send_multicast(message)
-    print('{0} messages were sent successfully'.format(response.success_count))
+from marketing.medias.tasks import send_notification_task
 
 
 class NotificationSerializer(serializers.ModelSerializer):
@@ -110,15 +91,21 @@ class NotificationSerializer(serializers.ModelSerializer):
                     file_upload = FileUpload.objects.create(file=file)
                     NotificationFile.objects.create(notify=notify, file=file_upload)
 
-                # Get registration tokens for FCM
-                registration_tokens = list(distinct_users.values_list('device_token', flat=True))
+                # # Get registration tokens for FCM
+                # registration_tokens = list(distinct_users.values_list('device_token', flat=True))
+                #
+                # # Send Firebase notification
+                # my_data = {
+                #     "notification_id": str(notify.id),
+                #     "click_action": "click_action"
+                # }
+                # send_firebase_notification(notify.title, notify.short_description, registration_tokens, my_data)
 
-                # Send Firebase notification
-                my_data = {
-                    "notification_id": str(notify.id),
-                    "click_action": "click_action"
-                }
-                send_firebase_notification(notify.title, notify.short_description, registration_tokens, my_data)
+                alert_datetime = datetime.combine(notify.alert_date, notify.alert_time)
+                aware_datetime = make_aware(alert_datetime)
+                time_until_alert = (aware_datetime - datetime.now()).total_seconds()
+                if time_until_alert > 0:
+                    send_notification_task.apply_async((notify.id,), countdown=time_until_alert)
 
                 return notify
         except Exception as e:
@@ -190,15 +177,20 @@ class NotificationSerializer(serializers.ModelSerializer):
                         file_upload = FileUpload.objects.create(file=file)
                         NotificationFile.objects.create(notify=notify, file=file_upload)
 
-                # Get registration tokens for FCM
-                registration_tokens = list(distinct_users.values_list('device_token', flat=True))
-
-                # Send Firebase notification
-                my_data = {
-                    "notification_id": str(notify.id),
-                    "click_action": "FLUTTER_NOTIFICATION_CLICK"
-                }
-                send_firebase_notification(notify.title, notify.short_description, registration_tokens, my_data)
+                # # Get registration tokens for FCM
+                # registration_tokens = list(distinct_users.values_list('device_token', flat=True))
+                #
+                # # Send Firebase notification
+                # my_data = {
+                #     "notification_id": str(notify.id),
+                #     "click_action": "FLUTTER_NOTIFICATION_CLICK"
+                # }
+                # send_firebase_notification(notify.title, notify.short_description, registration_tokens, my_data)
+                alert_datetime = datetime.combine(notify.alert_date, notify.alert_time)
+                aware_datetime = make_aware(alert_datetime)
+                time_until_alert = (aware_datetime - datetime.now()).total_seconds()
+                if time_until_alert > 0:
+                    send_notification_task.apply_async((notify.id,), countdown=time_until_alert)
 
                 return notify
         except Exception as e:
