@@ -1,6 +1,6 @@
 from django.urls import path
 
-from marketing.medias.api.notify.views import ApiNotification, ApiNotificationUser
+from marketing.medias.api.notify.views import ApiNotification, ApiNotificationUser, TestMail
 from utils.constants import actions_views, actions_detail
 
 
@@ -16,4 +16,5 @@ urlpatterns = [
     path('notify/', notify_view),
     path('notify/<pk>', notify_detail),
     path('notify/user/<pk>', notify_user_view),
+    path('mail/', TestMail.as_view())
 ]

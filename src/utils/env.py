@@ -55,3 +55,8 @@ CSRF_TRUSTED_ORIGINS = os.getenv('CSRF_TRUSTED_ORIGINS', '["http://localhost"]')
 
 REDIS_URL = os.environ.get('REDIS_URL')
 REDIS_BACKEND = os.environ.get('REDIS_BACKEND')
+
+EMAIL_HOST_USER = os.environ.get('EMAIL_HOST_USER')
+EMAIL_HOST_PASSWORD = os.environ.get('EMAIL_HOST_PASSWORD')
+EMAIL_SENDER = os.environ.get('EMAIL_SENDER', None)
+EMAIL_SENDER_NAME = os.environ.get('EMAIL_SENDER_NAME', None)
