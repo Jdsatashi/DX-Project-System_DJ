@@ -271,7 +271,7 @@ class ExportReport(APIView):
     def get(self, request):
         # Get data from OrderReport
         limit = request.query_params.get('limit', 10)
-        response_data, _, _ = OrderReportView().get_query_results(request)
+        response_data, _, _ = OrderReportView().get_query_results(request, True)
 
         # Add new workbook
         workbook = openpyxl.Workbook()
@@ -346,8 +346,11 @@ class ExportReport(APIView):
                         'register_lv1': None,
                         'nvtt': None
                     }
+                type_list = order['clients']['list_type']
+                if type_list == '' or type_list is None:
+                    type_list = 'Cấp 2 gửi'
                 sheet.append([
-                    '',
+                    type_list,
                     order['clients']['id'],
                     order['clients']['name'],
                     order['clients']['register_lv1'],
@@ -363,10 +366,10 @@ class ExportReport(APIView):
                     product_price,
                 ])
                 row_num += 1
-
+        filename = f"BangToa_{datetime.now().strftime('%d-%m-%Y')}.xlsx"
         # Tạo response với Content-Disposition để tải xuống tệp Excel
         response = HttpResponse(content_type='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet')
-        response['Content-Disposition'] = 'attachment; filename=orders.xlsx'
+        response['Content-Disposition'] = f'attachment; filename={filename}'
 
         # Lưu workbook vào response
         workbook.save(response)
@@ -391,7 +394,7 @@ class OrderReportView(APIView):
         app_log.info(f'OrderReport2 Query Time: {time.time() - start_time}')
         return Response(response_data, status=status.HTTP_200_OK)
 
-    def get_query_results(self, request):
+    def get_query_results(self, request, get_type_list=False):
         query, strict_mode, limit, page, order_by, from_date, to_date, date_field = get_query_parameters(request)
         nvtt_query = request.query_params.get('nvtt', '')
         npp_query = request.query_params.get('npp', '')
@@ -481,7 +484,7 @@ class OrderReportView(APIView):
         except FieldError:
             pass
         if limit == 0:
-            data = [self.get_order_fields(obj, Order) for obj in orders]
+            data = [self.get_order_fields(obj, Order, get_type_list) for obj in orders]
             return data, 1, 1
         paginator = Paginator(orders, limit)
         page_obj = paginator.get_page(page)
@@ -491,11 +494,10 @@ class OrderReportView(APIView):
             page = 1
         elif page > paginator.num_pages:
             page = paginator.num_pages
-
-        data = [self.get_order_fields(obj, Order) for obj in page_obj]
+        data = [self.get_order_fields(obj, Order, get_type_list) for obj in page_obj]
         return data, paginator.num_pages, page
 
-    def get_order_fields(self, obj, model):
+    def get_order_fields(self, obj, model, get_type_list):
         order_detail = OrderDetail.objects.filter(order_id=obj)
         try:
             client_profile = ClientProfile.objects.get(client_id=obj.client_id)
@@ -519,6 +521,9 @@ class OrderReportView(APIView):
                 'nvtt': nvtt_name,
                 'register_lv1': client_lv1_name
             }
+            if get_type_list:
+                app_log.info(f"Test ofject list type: {obj.list_type}")
+                client_data['list_type'] = obj.list_type
         except ClientProfile.DoesNotExist:
             app_log.info(f"Error user '{obj.client_id}' not has profile")
             client_data = None
