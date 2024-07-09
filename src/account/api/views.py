@@ -80,6 +80,7 @@ class ApiAccount(viewsets.GenericViewSet, mixins.ListModelMixin, mixins.CreateMo
             case _:
                 app_log.info(f"Case default")
                 pass
+        queryset = queryset.distinct()
         response = filter_data(self, request, ['id', 'username', 'email', 'phone_numbers__phone_number',
                                                'clientprofile__register_name', 'employeeprofile__register_name'],
                                queryset=queryset, **kwargs)
