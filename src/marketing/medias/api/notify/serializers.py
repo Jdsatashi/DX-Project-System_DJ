@@ -2,7 +2,7 @@ from datetime import datetime
 
 from django.contrib.contenttypes.models import ContentType
 from django.db import transaction
-from django.utils.timezone import make_aware
+from django.utils.timezone import make_aware, now
 from firebase_admin import messaging
 from rest_framework import serializers
 
@@ -103,7 +103,7 @@ class NotificationSerializer(serializers.ModelSerializer):
 
                 alert_datetime = datetime.combine(notify.alert_date, notify.alert_time)
                 aware_datetime = make_aware(alert_datetime)
-                time_until_alert = (aware_datetime - datetime.now()).total_seconds()
+                time_until_alert = (aware_datetime - now()).total_seconds()
                 if time_until_alert > 0:
                     send_notification_task.apply_async((notify.id,), countdown=time_until_alert)
 
