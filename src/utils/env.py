@@ -50,9 +50,6 @@ REF_TOKEN_LT = os.environ.get('REF_TOKEN_LIFE')
 # Firebase
 FIREBASE_JSON = os.environ.get('FIREBASE_KEY')
 
-ALLOW_HOSTS = os.getenv('ALLOWED_HOSTS', '["localhost"]')
-CSRF_TRUSTED_ORIGINS = os.getenv('CSRF_TRUSTED_ORIGINS', '["http://localhost"]')
-
 REDIS_URL = os.environ.get('REDIS_URL')
 REDIS_BACKEND = os.environ.get('REDIS_BACKEND')
 
