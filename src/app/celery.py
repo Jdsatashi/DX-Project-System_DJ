@@ -1,6 +1,6 @@
 from celery import Celery
 
-app_celery = Celery('projects')
+app_celery = Celery('app')
 
 app_celery.config_from_object('django.conf:settings', namespace='CELERY')
 
