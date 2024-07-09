@@ -109,6 +109,7 @@ class NotificationSerializer(serializers.ModelSerializer):
 
                 return notify
         except Exception as e:
+            app_log.error(e)
             raise e
 
     def update(self, instance, validated_data):
