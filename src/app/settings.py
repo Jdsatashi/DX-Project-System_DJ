@@ -38,12 +38,12 @@ SECRET_KEY = APP_SECRET
 # SECURITY WARNING: don't run with debug turned on in production!
 DEBUG = APP_DEBUG
 
-# Đọc cấu hình từ file config.json
-with open(os.path.join(BASE_DIR, 'config.json')) as config_file:
+# Add acceptable host and CSRF
+with open(os.path.join(PROJECT_DIR, 'exception.json')) as config_file:
     config = json.load(config_file)
 
-ALLOWED_HOSTS = json.loads(config.get('ALLOWED_HOSTS', []))
-CSRF_TRUSTED_ORIGINS = json.loads(config.get('CSRF_TRUSTED_ORIGINS', []))
+ALLOWED_HOSTS = config.get('ALLOWED_HOSTS', [])
+CSRF_TRUSTED_ORIGINS = config.get('CSRF_TRUSTED_ORIGINS', [])
 
 # Firebase setup
 FIREBASE_CONFIG_FILE = PROJECT_DIR / FIREBASE_JSON
