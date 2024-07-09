@@ -1,12 +1,15 @@
-from celery import Celery
+import os
 
-app_celery = Celery('app')
+from celery import Celery
+from django.conf import settings
+
+os.environ.setdefault('DJANGO_SETTINGS_MODULE', 'app.settings')
+
+app_celery = Celery('projects')
 
 app_celery.config_from_object('django.conf:settings', namespace='CELERY')
 
-# Load task modules from all registered Django app configs.
-app_celery.autodiscover_tasks()
-
+app_celery.autodiscover_tasks(lambda: settings.INSTALLED_APPS)
 
 @app_celery.task(bind=True)
 def debug_task(self):
