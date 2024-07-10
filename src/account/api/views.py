@@ -6,6 +6,7 @@ from django.contrib.auth import get_user_model
 from django.contrib.auth.hashers import check_password
 from django.db.models import Q, Max
 from django.http import HttpResponse
+from django.shortcuts import render
 from drf_spectacular.utils import extend_schema
 from rest_framework import mixins, viewsets, status
 from rest_framework.authentication import BasicAuthentication, SessionAuthentication
@@ -556,73 +557,75 @@ class ApiGetManageUser(APIView):
     def get(self, request):
         # Get user for checking manage group user
         user = request.user
+        if not request.user.is_authenticated:
+            ctx = {'message': "Bạn chưa đăng nhập."}
+            return render(request, 'errors/403.html', ctx)
         user_id = request.query_params.get('user', '')
         if user_id != '':
             try:
                 user = User.objects.get(id=user_id)
             except User.DoesNotExist:
-                return Response({'error': 'user id in query params not found'}, 400)
-        app_log.info(f"Test user: {user}")
+                return Response({'error': 'user id in query params not found'}, status=status.HTTP_400_BAD_REQUEST)
+
         # Check type of user
         user_type = check_user_type(user)
-        app_log.info(f"Test type: {user_type}")
         highest_group = get_highest_level_group(user)
-        app_log.info(f"Test group: {highest_group}")
 
         if user_type == 'nvtt':
             users_list = User.objects.filter(clientprofile__nvtt_id=user.id)
             get_user = request.query_params.get('get_user', '')
             if get_user == 'npp':
-                app_log.info(f"Case 'npp'")
-                # distinct_lv1_ids = ClientProfile.objects.values('client_lv1_id').distinct()
-                query = Q(clientprofile__is_npp=True) | Q(group_user__name='npp')
-                users_list = users_list.filter(query)
+                users_list = users_list.filter(Q(clientprofile__is_npp=True) | Q(group_user__name='npp'))
             elif get_user == 'daily':
-                app_log.info(f"Case 'daily'")
-                query = Q(clientprofile__is_npp=True) | Q(group_user__name='npp')
-                users_list = users_list.exclude(query)
-            else:
-                pass
+                users_list = users_list.exclude(Q(clientprofile__is_npp=True) | Q(group_user__name='npp'))
             user_name = user.employeeprofile.register_name
         elif user_type == 'npp':
             users_list = User.objects.filter(clientprofile__client_lv1_id=user.id)
             user_name = user.clientprofile.register_name
         else:
-            return Response({'data': []}, status.HTTP_200_OK)
+            return Response({'data': []}, status=status.HTTP_200_OK)
 
-        # Get query search
         query = request.query_params.get('query', '')
-
         if query != '':
-            search_queries = query.split(',')
-            search_fields = ['id', 'username', 'email', 'phone_numbers__phone_number', 'clientprofile__register_name']
-            q_objects = Q()
-            for search in search_queries:
-                for field in search_fields:
-                    q_objects |= Q(**{f"{field}__icontains": search})
-            users_list = users_list.filter(q_objects)
+            users_list = search_users(query, users_list)
 
-        # Get list user for response
-        user_data = []
-        user_type = 'daily'
-        for user in users_list:
-            user_name_ = user.clientprofile.register_name or ''
-            if user.clientprofile.is_npp or user.group_user.filter(name='npp').exists():
-                user_type = 'npp'
-            user_phones = user.phone_numbers.filter().values_list('phone_number', flat=True)
-            user_dict = {
-                'id': user.id,
-                'name': user_name_,
-                'phone': list(user_phones),
-                'user_type': user_type
-            }
-            user_data.append(user_dict)
+        user_data = format_user_data(users_list)
+
         response_data = {
             'user_id': user.id,
             'name': user_name,
             'group_manage': user_data
         }
-        return Response(response_data, status.HTTP_200_OK)
+
+        return Response(response_data, status=status.HTTP_200_OK)
+
+
+def search_users(query, users_list):
+    search_queries = query.split(',')
+    search_fields = ['id', 'username', 'email', 'phone_numbers__phone_number', 'clientprofile__register_name']
+    q_objects = Q()
+    for search in search_queries:
+        for field in search_fields:
+            q_objects |= Q(**{f"{field}__icontains": search})
+    return users_list.filter(q_objects)
+
+
+def format_user_data(users_list):
+    user_data = []
+    user_type = 'daily'
+    for user in users_list:
+        user_name_ = user.clientprofile.register_name or ''
+        if user.clientprofile.is_npp or user.group_user.filter(name='npp').exists():
+            user_type = 'npp'
+        user_phones = user.phone_numbers.filter().values_list('phone_number', flat=True)
+        user_dict = {
+            'id': user.id,
+            'name': user_name_,
+            'phone': list(user_phones),
+            'user_type': user_type
+        }
+        user_data.append(user_dict)
+    return user_data
 
 
 def get_client_npp(npp_id):
