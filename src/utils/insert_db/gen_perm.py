@@ -17,7 +17,7 @@ def user_perm():
         tasks = acquy['full']
         for task in tasks:
             perm_name_ = f'{task}_{perm_name}'
-            print(f"__Adding permission: {perm_name}")
+            print(f"__Adding permission: {perm_name_}")
             try:
                 perm_, _ = Perm.objects.get_or_create(
                     name=perm_name_,
@@ -49,14 +49,15 @@ def add_permissions(user_instance, managed_users):
     perm_name_retrieve = f'retrieve_{content_type.app_label}_{content_type.model}'
 
     for managed_user in managed_users:
+        perm_name_list_ = f"{perm_name_list}_{managed_user.id}"
+        perm_name_retrieve_ = f"{perm_name_retrieve}_{managed_user.id}"
         print(f"Handle user: {managed_user}")
-        perm_name_list = f"{perm_name_list}_{managed_user.id}"
-        perm_name_retrieve = f"{perm_name_retrieve}_{managed_user.id}"
+
         perm_list = Perm.objects.get(
-            name=perm_name_list,
+            name=perm_name_list_,
         )
         perm_retrieve = Perm.objects.get(
-            name=perm_name_retrieve,
+            name=perm_name_retrieve_,
         )
 
         user_instance.perm_user.add(perm_list, perm_retrieve)
