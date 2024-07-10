@@ -54,13 +54,13 @@ def add_permissions(user_instance, managed_users):
         perm_name_retrieve = f"{perm_name_retrieve}_{managed_user.id}"
         perm_list = Perm.objects.get_or_create(
             name=perm_name_list,
-            content_type=content_type,
-            object_id=managed_user.id
+            defaults={'content_type': content_type,
+                      'object_id': managed_user.id}
         )
         perm_retrieve = Perm.objects.get_or_create(
             name=perm_name_retrieve,
-            content_type=content_type,
-            object_id=managed_user.id
+            defaults={'content_type': content_type,
+                      'object_id': managed_user.id}
         )
 
         user_instance.perm_user.add(perm_list, perm_retrieve)
