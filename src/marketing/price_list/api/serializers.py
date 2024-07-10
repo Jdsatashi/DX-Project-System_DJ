@@ -3,9 +3,10 @@ import time
 from django.db.models import Q
 from rest_framework import serializers
 
-from account.handlers.perms import get_full_permname, get_user_by_permname, get_user_by_permname_sql
+from account.handlers.perms import get_full_permname, get_user_by_permname
 from account.handlers.restrict_serializer import BaseRestrictSerializer
 from account.models import GroupPerm, User
+from account.queries import get_user_by_permname_sql
 from app.logs import app_log
 from marketing.price_list.models import PriceList, ProductPrice, PointOfSeason, SpecialOfferProduct, SpecialOffer
 from marketing.product.models import Product
