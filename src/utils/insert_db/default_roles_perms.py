@@ -43,7 +43,7 @@ def set_user_perm(user_instance, add):
     tasks = acquy['full']
     for task in tasks:
         perm_name_ = f'{task}_{perm_name}'
-        app_log.info(f"__Adding permission: {perm_name}")
+        app_log.info(f"Adding permission: {perm_name}")
         try:
             perm_, _ = Perm.objects.get_or_create(
                 name=perm_name_,
