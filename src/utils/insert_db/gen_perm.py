@@ -52,14 +52,14 @@ def add_permissions(user_instance, managed_users):
         perm_name_list = f"{perm_name_list}_{managed_user.id}"
         perm_name_retrieve = f"{perm_name_retrieve}_{managed_user.id}"
         perm_list, created = Perm.objects.get_or_create(
-            codename=perm_name_list,
-            name=f'Can list {content_type.app_label} {content_type.model} {managed_user.id}',
-            content_type=content_type
+            name=perm_name_list,
+            content_type=content_type,
+            object_id=managed_user.id
         )
         perm_retrieve, created = Perm.objects.get_or_create(
-            codename=perm_name_retrieve,
-            name=f'Can retrieve {content_type.app_label} {content_type.model} {managed_user.id}',
-            content_type=content_type
+            name=perm_name_retrieve,
+            content_type=content_type,
+            object_id=managed_user.id
         )
 
         user_instance.perm_user.add(perm_list, perm_retrieve)
