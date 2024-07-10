@@ -21,7 +21,8 @@ def user_perm():
             try:
                 perm_, _ = Perm.objects.get_or_create(
                     name=perm_name_,
-                    defaults={'note': f'{task.capitalize()} {content_type.model}', 'content_type': content_type})
+                    defaults={'note': f'{task.capitalize()} {content_type.model}',
+                              'content_type': content_type, 'object_id': user.id})
                 if task != 'destroy':
                     user.perm_user.add(perm_, through_defaults={'allow': True})
             except IntegrityError:
@@ -51,15 +52,7 @@ def add_permissions(user_instance, managed_users):
         print(f"Handle user: {managed_user}")
         perm_name_list = f"{perm_name_list}_{managed_user.id}"
         perm_name_retrieve = f"{perm_name_retrieve}_{managed_user.id}"
-        perm_list, created = Perm.objects.get_or_create(
-            name=perm_name_list,
-            content_type=content_type,
-            object_id=managed_user.id
-        )
-        perm_retrieve, created = Perm.objects.get_or_create(
-            name=perm_name_retrieve,
-            content_type=content_type,
-            object_id=managed_user.id
-        )
+        perm_list = Perm.objects.get(name=perm_name_list)
+        perm_retrieve = Perm.objects.get(name=perm_name_retrieve)
 
         user_instance.perm_user.add(perm_list, perm_retrieve)
