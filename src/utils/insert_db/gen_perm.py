@@ -52,10 +52,10 @@ def add_permissions(user_instance, managed_users):
         print(f"Handle user: {managed_user}")
         perm_name_list = f"{perm_name_list}_{managed_user.id}"
         perm_name_retrieve = f"{perm_name_retrieve}_{managed_user.id}"
-        perm_list, created = Perm.objects.get_or_create(
+        perm_list = Perm.objects.get(
             name=perm_name_list,
         )
-        perm_retrieve, created = Perm.objects.get_or_create(
+        perm_retrieve = Perm.objects.get(
             name=perm_name_retrieve,
         )
 
