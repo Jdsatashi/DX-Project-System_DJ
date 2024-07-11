@@ -148,7 +148,7 @@ def update_group_perm(item_data, perms, items, allow, exited):
     # Looping handle with permissions
     for perm in perms:
         group_perm = group.perm.filter(name=perm)
-        is_perm = group_perm.exists() and group_perm.first().allow()
+        is_perm = group_perm.exists() and group_perm.first().allow
         # Remove when permission is existed and Group not in Updated list
         if exited is not None and is_perm and group.name in items['existed']:
             app_log.info(f"|__ Remove permissions '{group.name}' - '{perm}'")
@@ -195,14 +195,15 @@ def create_full_perm(model, _id=None, user_actions=None):
         perm_name = f'{perm_name}_{_id}'
     list_perm = list()
     # Processing create perm
-    _perm_name = f"{actions}_{perm_name}"
-    Perm.objects.get_or_create(
-        name=_perm_name,
-        note=f"{actions.capitalize()} {content.model} - {_id}",
-        object_id=str(_id),
-        content_type=content
-    )
-    # Add perm to list_perm for register user/nhom
-    if actions in user_actions:
-        list_perm.append(_perm_name)
+    for action in actions:
+        _perm_name = f"{action}_{perm_name}"
+        Perm.objects.get_or_create(
+            name=_perm_name,
+            note=f"{action.capitalize()} {content.model} - {_id}",
+            object_id=str(_id),
+            content_type=content
+        )
+        # Add perm to list_perm for register user/nhom
+        if actions in user_actions:
+            list_perm.append(_perm_name)
     return list_perm
