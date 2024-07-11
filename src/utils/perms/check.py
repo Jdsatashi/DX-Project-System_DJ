@@ -6,11 +6,8 @@ from app.logs import app_log
 
 def perm_exist(perm_name: str):
     # Validate perm is dictionary and perm has value
-    if not isinstance(perm_name, str) or perm_name is None:
-        raise ValueError("perm must be a string \"permission\".")
-
     q = Perm.objects.filter(name=perm_name)
-    return q.first() if q.exists() else None
+    return q.first()
 
 
 def user_id_from_token(token):

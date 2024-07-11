@@ -5,6 +5,7 @@ from django.shortcuts import render
 from rest_framework import permissions
 
 from account.handlers.perms import get_perm_name, get_action, get_required_permission, DataFKModel
+from account.models import UserPerm
 from app.logs import app_log
 from utils.constants import perm_actions
 from utils.perms.check import perm_exist
@@ -97,17 +98,17 @@ class ValidatePermRest(permissions.BasePermission):
         result, messages = self.validate_fk_perm(request, action, user)
         for message in messages:
             self.message['errors'] = {message['field']: message['value']}
-        app_log.info(f"Check permission time: {time.time() - start_time}")
 
         # Set valid if user is allowed
-        is_valid = user.is_allow(required_permission)
-
+        print(f"{required_permission}")
+        user_has_perm = user.is_perm(required_permission)
+        if user_has_perm:
+            if not user.is_allow(required_permission):
+                return False
         # Get user groups has permission
-        group_perm = user.group_user.filter(perm__name=required_permission)
-        if group_perm.exists() and is_valid:
-            highest_group = group_perm.order_by('-level').first()
-            is_valid = highest_group.allow
-
+        is_valid = user.is_group_allow(required_permission)
+        print(f"Test valid: {is_valid}")
+        app_log.info(f"Check permission time: {time.time() - start_time}")
         # If user or nhom user has perm, return True
         return result and is_valid
 
@@ -139,6 +140,7 @@ class ValidatePermRest(permissions.BasePermission):
     def validate_fk_perm(self, request, action, user):
         """ Check relation of model with ForeignKey and its perms"""
         start_time = time.time()
+        print(f"Check user: {user.id}")
         # Get list of ForeignKey fields
         fk_model = DataFKModel(self.model)
         list_fk = fk_model.get_fk_fields_models()
@@ -147,6 +149,8 @@ class ValidatePermRest(permissions.BasePermission):
         messages = []
         # Loop on list FK
         for fk_fields in list_fk:
+            # print(f"TEST FK Field: {fk_fields}")
+            # print(f"TEST FK Requires Permission: {required_permission}")
             # Create key - value with fields is key and value is dict
             field_name = fk_fields['field']
             perm_pk[field_name] = dict()
@@ -166,21 +170,23 @@ class ValidatePermRest(permissions.BasePermission):
             required_permission = f"{action}_{perm_name}_{fk_value}"
             # Validate is require permission exist
             if not perm_exist(required_permission):
-                app_log.info(f"Require permission '{required_permission}' not exist")
                 # If not exist, set perm to True
+                print(f"FK {field_name} perm not exist: {required_permission}")
                 perm_pk[field_name]['is_perm'] = True
                 continue
+
             # Validate user has perm
-            if user.is_perm(required_permission):
-                app_log.info(f"User has perm {required_permission}")
+            if user.is_allow(required_permission):
+                print(f"User has perm {required_permission}")
                 # If user has perm, set perm to True
                 perm_pk[field_name]['is_perm'] = True
             # Validate user group has perm
-            elif user.is_group_has_perm(required_permission):
-                app_log.info(f"User group has perm {required_permission}")
+            elif user.is_group_allow(required_permission):
+                print(f"User group has perm {required_permission}")
                 # If user group has perm, set perm to True
                 perm_pk[field_name]['is_perm'] = True
             else:
+                print(f"Error: {field_name}")
                 perm_pk[field_name]['is_perm'] = False
                 messages.append({
                     'field': field_name,

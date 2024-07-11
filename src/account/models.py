@@ -137,26 +137,22 @@ class User(AbstractBaseUser, PermissionsMixin):
                 self.group_user.add(group_perm, through_defaults={'allow': True})
 
     def is_perm(self, permission):
-        return self.perm_user.filter(name=permission).exists()
+        return self.userperm_set.filter(perm=permission).exists()
 
     def is_allow(self, permission):
-        is_perm = self.is_perm(permission)
-        if is_perm:
-            perm = self.perm_user.filter(name=permission).first()
-            user_perm = UserPerm.objects.get(user=self, perm=perm)
-            return user_perm.allow
-        return not is_perm
+        return self.userperm_set.filter(perm=permission, allow=True).exists()
 
     def is_group_has_perm(self, permission):
-        return self.group_user.filter(perm__name=permission).exists()
+        return self.usergroupperm_set.filter(group__perm__name=permission).exists()
 
     def is_group_allow(self, permission):
         is_group_has_perm = self.is_group_has_perm(permission)
+        valid = is_group_has_perm
         if is_group_has_perm:
             group = self.group_user.filter(perm__name=permission).order_by('-level').first()
-            user_group_perm = UserGroupPerm.objects.get(user=self, group=group)
-            return user_group_perm.allow
-        return not is_group_has_perm
+            user_group_perm = self.usergroupperm_set.filter(group=group).first()
+            valid = user_group_perm.allow
+        return valid
 
     def get_all_allow_perms(self):
         user_perms = set(self.perm_user.filter(userperm__allow=True).values_list('name', flat=True))
@@ -164,9 +160,8 @@ class User(AbstractBaseUser, PermissionsMixin):
         group_perms = set()
         for group in self.group_user.all():
             group_perms.update(
-                group.perm.filter(groupperm__allow=True, groupperm__usergroupperm__allow=True).values_list('name',
-                                                                                                           flat=True))
-
+                group.perm.filter(groupperm__allow=True, groupperm__usergroupperm__allow=True)
+                .values_list('name', flat=True))
         return user_perms.union(group_perms)
 
 
@@ -345,6 +340,23 @@ class GroupPermPerms(models.Model):
         if GroupPermPerms.objects.filter(perm=self.perm, group=self.group).exists():
             raise IntegrityError
         super().save(*args, **kwargs)
+
+
+class GrantAccess(models.Model):
+    manager = models.ForeignKey(User, related_name='managed_grants', on_delete=models.CASCADE)
+    grant_user = models.ForeignKey(User, related_name='granted_access', on_delete=models.CASCADE)
+
+    active = models.BooleanField(default=False)
+    grant_perms = models.ManyToManyField(Perm)
+
+    allow = models.BooleanField(default=False)
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        constraints = [
+            models.UniqueConstraint(fields=['manager', 'grant_user'], name='unique_manager_grant_user')
+        ]
 
 
 """

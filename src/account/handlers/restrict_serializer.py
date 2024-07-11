@@ -60,6 +60,7 @@ class BaseRestrictSerializer(serializers.ModelSerializer):
         """ Handle adding rule Perm for specific Object to created object """
         # Get action for full CRUD perm
         user_actions = data.get('allow_actions', [])
+        print(f"Test user actions: {user_actions}")
         list_perm = create_full_perm(model, _id, user_actions)
         app_log.info(f"Testing list perm: {list_perm}")
         # Get users has perm
@@ -203,7 +204,9 @@ def create_full_perm(model, _id=None, user_actions=None):
             object_id=str(_id),
             content_type=content
         )
+        print(f"Adding permission: {_perm_name}")
         # Add perm to list_perm for register user/nhom
-        if actions in user_actions:
+        if action in user_actions:
+            print(f"Adding permission for users: {_perm_name}")
             list_perm.append(_perm_name)
     return list_perm

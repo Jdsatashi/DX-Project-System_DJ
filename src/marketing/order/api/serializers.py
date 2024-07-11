@@ -15,6 +15,7 @@ from marketing.price_list.models import ProductPrice, SpecialOfferProduct
 from marketing.sale_statistic.models import SaleStatistic, SaleTarget
 from user_system.client_profile.models import ClientProfile
 from user_system.employee_profile.models import EmployeeProfile
+from utils.perms.check import perm_exist
 
 
 class OrderDetailSerializer(BaseRestrictSerializer):
@@ -158,8 +159,7 @@ class OrderSerializer(BaseRestrictSerializer):
 
         return instance
 
-    @staticmethod
-    def validate_special_offer(data, order_details_data):
+    def validate_special_offer(self, data, order_details_data):
         # Get user and phone from token
         user = data.get('client_id')
         # Get special offer
@@ -173,13 +173,7 @@ class OrderSerializer(BaseRestrictSerializer):
         # Validate Order if it was special_offer
         if special_offer:
             # Validate permission
-            so_perm = get_perm_name(special_offer)
-            so_perm = f"create_{so_perm}_{special_offer.id}"
-            user_obj = User.objects.get(id=user)
-            if user_obj.is_allow(so_perm):
-                raise serializers.ValidationError(
-                    {'message': f'user not have permission of special offer {special_offer.id}'}
-                )
+            self.validate_so_perm(special_offer, user)
             # Get phone of user
             phones = PhoneNumber.objects.filter(user=user)
             # Check if SpecialOffer of livestream
@@ -326,6 +320,16 @@ class OrderSerializer(BaseRestrictSerializer):
         except Exception as e:
             app_log.error(f"Get error at order by")
             pass
+
+    def validate_so_perm(self, special_offer, user):
+        so_perm = get_perm_name(special_offer)
+        so_perm = f"create_{so_perm}_{special_offer.id}"
+        user_obj = User.objects.get(id=user)
+
+        if user_obj.is_allow(so_perm) and perm_exist(so_perm):
+            raise serializers.ValidationError(
+                {'message': f'user not have permission of special offer {special_offer.id}'}
+            )
 
 
 # class ProductStatisticsSerializer(serializers.Serializer):
