@@ -5,8 +5,9 @@ from rest_framework import serializers
 from rest_framework.exceptions import ValidationError
 from rest_framework_simplejwt.tokens import AccessToken
 
+from account.handlers.perms import get_perm_name
 from account.handlers.restrict_serializer import BaseRestrictSerializer
-from account.models import PhoneNumber
+from account.models import PhoneNumber, User
 from app.logs import app_log
 from marketing.livestream.models import LiveStreamOfferRegister
 from marketing.order.models import Order, OrderDetail
@@ -21,7 +22,8 @@ class OrderDetailSerializer(BaseRestrictSerializer):
 
     class Meta:
         model = OrderDetail
-        fields = ['product_id', 'product_name', 'order_quantity', 'order_box', 'product_price', 'point_get', 'price_list_so']
+        fields = ['product_id', 'product_name', 'order_quantity', 'order_box', 'product_price', 'point_get',
+                  'price_list_so']
 
 
 class OrderSerializer(BaseRestrictSerializer):
@@ -115,6 +117,7 @@ class OrderSerializer(BaseRestrictSerializer):
             total_point = float(0)
             total_price = float(0)
 
+            # Update order details
             for detail_data in order_details_data:
                 detail_id = detail_data.get('id')
                 product_id = detail_data.get('product_id')
@@ -169,6 +172,15 @@ class OrderSerializer(BaseRestrictSerializer):
         is_consider = False
         # Validate Order if it was special_offer
         if special_offer:
+            # Validate permission
+            so_perm = get_perm_name(special_offer)
+            so_perm = f"create_{so_perm}_{special_offer.id}"
+            user_obj = User.objects.get(id=user)
+            if user_obj.is_allow(so_perm):
+                raise serializers.ValidationError(
+                    {'message': f'user not have permission of special offer {special_offer.id}'}
+                )
+            # Get phone of user
             phones = PhoneNumber.objects.filter(user=user)
             # Check if SpecialOffer of livestream
             if (special_offer.live_stream is not None and
@@ -315,6 +327,7 @@ class OrderSerializer(BaseRestrictSerializer):
             app_log.error(f"Get error at order by")
             pass
 
+
 # class ProductStatisticsSerializer(serializers.Serializer):
 #     product_id = serializers.CharField()
 #     total_quantity = serializers.IntegerField()
@@ -336,19 +349,6 @@ class ClientProfileSerializer(serializers.ModelSerializer):
     class Meta:
         model = ClientProfile
         fields = ['id', 'register_name', 'nvtt', 'register_lv1']
-
-
-class Order2Serializer(serializers.ModelSerializer):
-    class Meta:
-        model = Order
-        fields = ['id', 'date_get', 'date_company_get', 'date_delay', 'id_offer_consider',
-                  'order_point', 'order_price', 'note', 'created_at']
-
-
-class OrderDetail2Serializer(serializers.ModelSerializer):
-    class Meta:
-        model = OrderDetail
-        fields = ['product_id', 'order_quantity', 'order_box', 'product_price', 'point_get', 'note']
 
 
 class Order3Serializer(serializers.Serializer):

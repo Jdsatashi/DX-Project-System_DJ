@@ -23,10 +23,9 @@ from account.models import User
 from app.logs import app_log
 from marketing.order.api.serializers import OrderSerializer, ProductStatisticsSerializer
 from marketing.order.models import Order, OrderDetail
-from marketing.price_list.models import SpecialOfferProduct
 from user_system.client_profile.models import ClientProfile
 from user_system.employee_profile.models import EmployeeProfile
-from utils.constants import maNhomND, acquy
+from utils.constants import maNhomND
 from utils.model_filter_paginate import filter_data, get_query_parameters
 
 
@@ -70,8 +69,6 @@ class ProductStatisticsView(APIView):
                 current_user = user
                 user = User.objects.filter(id=user_id.upper()).first()
                 perm_name = get_perm_name(User)
-                perm_required = [f"{action}_{perm_name}_{user.id}" for action in acquy.get('view')]
-                app_log.info(f"Test required perm: {perm_required}")
                 if current_user.is_allow(perm_name) or current_user.is_group_has_perm(perm_name):
                     app_log.info(f"User {current_user.id} has permission of {user.id}")
                 #     return Response({"error": "User not has permission"}, status=status.HTTP_403_FORBIDDEN)
