@@ -4,10 +4,9 @@ from django.db.models import Q
 from rest_framework import status
 from rest_framework.response import Response
 
-from account.models import Perm, User, UserGroupPerm, GroupPerm, UserPerm, GroupPermPerms
+from account.models import Perm, User
 from app.logs import app_log
-from utils.constants import acquy
-from utils.env import PGS_DB, PGS_USER, PGS_PASSWORD, PGS_HOST, PGS_PORT
+from utils.constants import perm_actions
 
 
 def get_action(view, method):
@@ -86,7 +85,7 @@ def perm_queryset(self):
     has_perm_id = []
 
     content = ContentType.objects.get_for_model(model_class)
-    action_perm = acquy.get('list') if not pk else acquy.get('retrieve')
+    action_perm = perm_actions.get('view')
     perm_name = f'{content.app_label}_{content.model}'
     if pk:
         perm_name = f'{perm_name}_{pk}'

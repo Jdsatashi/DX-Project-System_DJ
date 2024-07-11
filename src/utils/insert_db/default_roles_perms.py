@@ -7,7 +7,7 @@ from marketing.order.models import Order, OrderDetail
 from marketing.price_list.models import SpecialOffer, SpecialOfferProduct, PriceList, ProductPrice
 from marketing.product.models import Product, ProductCategory, ProductType, RegistrationUnit, Producer, \
     RegistrationCert, UseObject, UseFor, CategoryDetail
-from utils.constants import acquy
+from utils.constants import perm_actions
 
 
 def create_initial_permission():
@@ -18,7 +18,7 @@ def create_initial_permission():
         app_log.info(f"Perm: {i} - {content_type.model}")
         if i > 6:
             perm_name = f'{content_type.app_label}_{content_type.model}'
-            tasks = acquy['full']
+            tasks = perm_actions['full']
             for task in tasks:
                 perm_name_ = f'{task}_{perm_name}'
                 try:
@@ -40,7 +40,7 @@ def set_user_perm(user_instance, add):
     user_ins = User.objects.get(username=user_instance)
     content_type = ContentType.objects.get_for_model(user_ins)
     perm_name = f'{content_type.app_label}_{content_type.model}_{user_instance.id}'
-    tasks = acquy['full']
+    tasks = perm_actions['full']
     for task in tasks:
         perm_name_ = f'{task}_{perm_name}'
         app_log.info(f"Adding permission: {perm_name}")
@@ -58,7 +58,7 @@ def set_farmer_role():
     farmer_group = GroupPerm.objects.get(name='farmer')
     view_group = [ProductType, RegistrationUnit, Producer, RegistrationCert, UseObject, UseFor, CategoryDetail,
                   ProductCategory]
-    add_group_perm(farmer_group, acquy['view'], view_group)
+    add_group_perm(farmer_group, [perm_actions['view']], view_group)
 
 
 # Role Khách hàng/ Đại lý
@@ -66,10 +66,10 @@ def set_client_role():
     client_group, _ = GroupPerm.objects.get_or_create(name='client', defaults={'allow': True})
     view_group = [ProductType, RegistrationUnit, Producer, RegistrationCert, UseObject, UseFor, CategoryDetail,
                   ProductCategory, Product, ProductPrice]
-    add_group_perm(client_group, acquy['view'], view_group)
+    add_group_perm(client_group, [perm_actions['view']], view_group)
 
     create_group = [Order, OrderDetail]
-    add_group_perm(client_group, [acquy['create']], create_group)
+    add_group_perm(client_group, [perm_actions['create']], create_group)
 
 
 def set_employee_role():
@@ -78,10 +78,10 @@ def set_employee_role():
                                                                   'level': 7})
     view_group = [ProductType, RegistrationUnit, Producer, RegistrationCert, UseObject, UseFor, CategoryDetail,
                   ProductCategory, Product, ProductPrice]
-    add_group_perm(employee_group, acquy['view'], view_group)
+    add_group_perm(employee_group, [perm_actions['view']], view_group)
 
     create_group = [Order, OrderDetail]
-    add_group_perm(employee_group, [acquy['create']], create_group)
+    add_group_perm(employee_group, [perm_actions['create']], create_group)
 
 
 def set_NVTT_role():
@@ -92,20 +92,20 @@ def set_NVTT_role():
                                                              'level': 7, 'parent_group': employee_group})
     view_group = [ProductType, RegistrationUnit, Producer, RegistrationCert, UseObject, UseFor, CategoryDetail,
                   ProductCategory, Product, ProductPrice]
-    add_group_perm(nvt_group, acquy['view'], view_group)
+    add_group_perm(nvt_group, [perm_actions['view']], view_group)
 
     view_special_group = [Product, PriceList, ProductPrice, SpecialOffer, SpecialOfferProduct]
-    add_group_perm(nvt_group, acquy['view'], view_special_group)
+    add_group_perm(nvt_group, [perm_actions['view']], view_special_group)
 
 
 def set_NPP_role():
     npp_group, _ = GroupPerm.objects.get_or_create(name='npp', defaults={'allow': True})
     view_group = [ProductType, RegistrationUnit, Producer, RegistrationCert, UseObject, UseFor, CategoryDetail,
                   ProductCategory, Product, ProductPrice]
-    add_group_perm(npp_group, acquy['view'], view_group)
+    add_group_perm(npp_group, perm_actions['view'], view_group)
 
     create_group = [Order, OrderDetail]
-    add_group_perm(npp_group, [acquy['create']], create_group)
+    add_group_perm(npp_group, [perm_actions['create']], create_group)
 
 
 def set_client_default():

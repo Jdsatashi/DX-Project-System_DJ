@@ -3,7 +3,7 @@ from django.db.models import Q
 from pyodbc import IntegrityError
 
 from account.models import User, Perm
-from utils.constants import acquy
+from utils.constants import perm_actions
 from utils.insert_db.default_roles_perms import set_user_perm
 
 
@@ -14,7 +14,7 @@ def user_perm():
 
         content_type = ContentType.objects.get_for_model(user)
         perm_name = f'{content_type.app_label}_{content_type.model}_{user.id}'
-        tasks = acquy['full']
+        tasks = perm_actions['full']
         for task in tasks:
             perm_name_ = f'{task}_{perm_name}'
             print(f"__Adding permission: {perm_name_}")

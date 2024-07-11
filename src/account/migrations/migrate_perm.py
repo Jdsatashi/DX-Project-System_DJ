@@ -4,7 +4,7 @@ from django.db import migrations
 from account.models import Perm, GroupPerm
 from app.logs import app_log
 from app.settings import MY_APPS
-from utils.constants import acquy, admin_role
+from utils.constants import perm_actions, admin_role
 
 
 def create_initial_permission(apps, schema_editor):
@@ -16,7 +16,7 @@ def create_initial_permission(apps, schema_editor):
         app_log.info(f"Perm: {i} - {content_type.model}")
         if i > 6:
             perm_name = f'{content_type.app_label}_{content_type.model}'
-            tasks = acquy['full']
+            tasks = perm_actions['full']
             for task in tasks:
                 perm_name_ = f'{task}_{perm_name}'
                 app_log.info(f"Adding permission: {perm_name}")

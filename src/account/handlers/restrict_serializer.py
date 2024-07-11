@@ -7,7 +7,7 @@ from rest_framework import serializers
 
 from account.models import User, GroupPerm, Perm, UserPerm, UserGroupPerm, PhoneNumber
 from app.logs import app_log
-from utils.constants import acquy, admin_role
+from utils.constants import perm_actions, admin_role
 from utils.helpers import phone_validate
 
 
@@ -84,7 +84,6 @@ def add_perm(items: dict, perms: list, allow: bool):
     exited = items.get('existed', [])
     # Upper data id when type == 'users'
     items_data = [item.upper() for item in items['data']] if items['type'] == 'users' else items['data']
-    field = 'allow' if allow else 'restrict'
     # Remove Updating Restrict users/groups
     if exited and len(exited) > 0:
         # Return users/groups that would be removed permissions
@@ -189,21 +188,20 @@ def create_full_perm(model, _id=None, user_actions=None):
     content = ContentType.objects.get_for_model(model)
     user_actions = user_actions or []
     # Generate string perm name
-    actions = acquy.get('full')
+    actions = perm_actions.get('full')
     perm_name = f'{content.app_label}_{content.model}'
     if _id is not None:
         perm_name = f'{perm_name}_{_id}'
     list_perm = list()
     # Processing create perm
-    for action in actions:
-        _perm_name = f"{action}_{perm_name}"
-        Perm.objects.get_or_create(
-            name=_perm_name,
-            note=f"{action.capitalize()} {content.model} - {_id}",
-            object_id=str(_id),
-            content_type=content
-        )
-        # Add perm to list_perm for register user/nhom
-        if action in user_actions:
-            list_perm.append(_perm_name)
+    _perm_name = f"{actions}_{perm_name}"
+    Perm.objects.get_or_create(
+        name=_perm_name,
+        note=f"{actions.capitalize()} {content.model} - {_id}",
+        object_id=str(_id),
+        content_type=content
+    )
+    # Add perm to list_perm for register user/nhom
+    if actions in user_actions:
+        list_perm.append(_perm_name)
     return list_perm

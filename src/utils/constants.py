@@ -20,16 +20,13 @@ old_data = {
 maNhomND = 'DMNKH000005'
 tenNhomND = 'Khách hàng Nông dân'
 # Action of Quyen
-acquy = {
-    'full': ['list', 'create', 'retrieve', 'update', 'partial_update', 'destroy'],
-    'self': ['list', 'create', 'retrieve', 'update', 'partial_update'],
-    'view': ['list', 'retrieve'],
-    'create': 'create',
-    'retrieve': 'retrieve',
-    'list': 'list',
-    'update': 'update',
-    'partial_update': 'partial_update',
-    'destroy': 'destroy'
+perm_actions = {
+    'full': ['all', 'view', 'create', 'update', 'destroy'],
+    'self': ['view', 'create', 'update'],
+    'view': ['view'],
+    'create': ['create'],
+    'update': ['update'],
+    'destroy': ['destroy']
 }
 status = ['active', 'deactivate', 'pending', 'draft']
 user_type = {

@@ -19,12 +19,15 @@ from rest_framework_simplejwt.exceptions import TokenError
 from rest_framework_simplejwt.tokens import RefreshToken as RestRefreshToken, AccessToken
 
 from account.api.serializers import UserSerializer, RegisterSerializer, response_verify_code, UserUpdateSerializer, \
-    UserWithPerm, PermSerializer, GroupPermSerializer, UserListSerializer
+    UserWithPerm, PermSerializer, GroupPermSerializer, UserListSerializer, AllowanceOrder
+from account.handlers.perms import get_perm_name
 from account.models import User, Verify, PhoneNumber, RefreshToken, TokenMapping, GroupPerm, Perm
+from account.queries import get_all_user_perms_sql
 from app.api_routes.handlers import get_token_for_user
 from app.logs import app_log
 from app.settings import pusher_client
-from marketing.price_list.models import PriceList, PointOfSeason
+from marketing.order.models import Order
+from marketing.price_list.models import PriceList, PointOfSeason, SpecialOffer
 from user_system.client_profile.api.serializers import ClientProfileSerializer
 from user_system.client_profile.models import ClientProfile
 from user_system.employee_profile.api.serializers import EmployeeProfileSerializer
@@ -598,6 +601,42 @@ class ApiGetManageUser(APIView):
         }
 
         return Response(response_data, status=status.HTTP_200_OK)
+
+    def post(self, request):
+        user = request.user
+        if not request.user.is_authenticated:
+            ctx = {'message': "Bạn chưa đăng nhập."}
+            return render(request, 'errors/403.html', ctx)
+        serializer = AllowanceOrder(data=request.data)
+        if serializer.is_valid():
+            manage_user = serializer.validated_data['manage_user']
+            entrust_users = serializer.validated_data['entrust_user']
+            try:
+                manage_user_obj = User.objects.get(id=manage_user)
+            except User.DoesNotExist:
+                return Response({'error': f'not found user {manage_user}'}, status=status.HTTP_400_BAD_REQUEST)
+
+            app_log.info(f"Manage user: {manage_user}")
+            app_log.info(f"Entrust user: {entrust_users}")
+            user_type = check_user_type(manage_user_obj)
+            print(f"Test user type: {user_type}")
+            # order_perm = get_perm_name(Order)
+            # pl_perm = get_perm_name(PriceList)
+            # so_perm = get_perm_name(SpecialOffer)
+            before_manage_perm = list(manage_user_obj.perm_user.filter().distinct())
+
+            if user_type == 'nvtt':
+                # user_obj = User.objects.get(id=entrust_users.get('user_id'))
+                user_perms = get_all_user_perms_sql(entrust_users.get('user_id'))
+
+            elif user_type == 'npp':
+                pass
+            else:
+                return Response({'error': f'user {manage_user} is not manager (nvtt, npp)'}, status=status.HTTP_200_OK)
+            print(before_manage_perm)
+            return Response({'message': 'ok'}, 200)
+        else:
+            return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
 
 
 def search_users(query, users_list):

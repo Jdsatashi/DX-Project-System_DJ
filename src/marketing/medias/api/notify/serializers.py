@@ -12,7 +12,7 @@ from account.models import Perm, User, GroupPerm
 from app.logs import app_log
 from marketing.medias.models import Notification, NotificationUser, NotificationFile
 from system.file_upload.models import FileUpload
-from utils.constants import acquy, admin_role
+from utils.constants import perm_actions, admin_role
 from utils.env import APP_SERVER
 from marketing.medias.tasks import send_notification_task
 
@@ -61,7 +61,7 @@ class NotificationSerializer(serializers.ModelSerializer):
             with transaction.atomic():
                 notify = super().create(validated_data)
                 # Create specific permission
-                list_perm = create_full_perm(Notification, notify.id, acquy['view'])
+                list_perm = create_full_perm(Notification, notify.id, perm_actions['view'])
 
                 # Get user has perm
                 existed_user_allow = list_user_has_perm(list_perm, True)
@@ -122,7 +122,7 @@ class NotificationSerializer(serializers.ModelSerializer):
                 existing_files = set(
                     NotificationFile.objects.filter(notify=instance).values_list('file__file', flat=True))
                 # Create specific permission
-                list_perm = create_full_perm(Notification, instance.id, acquy['view'])
+                list_perm = create_full_perm(Notification, instance.id, perm_actions['view'])
 
                 # Get user has perm
                 existed_user_allow = list_user_has_perm(list_perm, True)
