@@ -12,6 +12,7 @@ from user_system.employee_profile.api.serializers import EmployeeProfileUserSeri
 from user_system.employee_profile.models import EmployeeProfile
 from utils.constants import maNhomND, status
 from utils.helpers import phone_validate, generate_id, generate_digits_code
+from datetime import timedelta, datetime
 
 
 class PhoneNumberSerializer(serializers.ModelSerializer):
@@ -371,3 +372,13 @@ def send_sms(phone_number, message):
     # Make api call
     response = requests.get(url, params=params)
     return response
+
+
+class EntrustUser(serializers.Serializer):
+    user_id = serializers.CharField(required=True)
+    time_expire = serializers.TimeField(default=lambda: (datetime.now() + timedelta(hours=2)).time())
+
+
+class AllowanceOrder(serializers.Serializer):
+    manage_user = serializers.CharField(required=True)
+    entrust_user = EntrustUser()
