@@ -1,4 +1,5 @@
 from django.contrib.contenttypes.models import ContentType
+from django.db import transaction
 from pyodbc import IntegrityError
 
 from account.models import User, Perm, GroupPerm
@@ -102,7 +103,7 @@ def set_NPP_role():
     npp_group, _ = GroupPerm.objects.get_or_create(name='npp', defaults={'allow': True})
     view_group = [ProductType, RegistrationUnit, Producer, RegistrationCert, UseObject, UseFor, CategoryDetail,
                   ProductCategory, Product, ProductPrice]
-    add_group_perm(npp_group, perm_actions['view'], view_group)
+    add_group_perm(npp_group, [perm_actions['view']], view_group)
 
     create_group = [Order, OrderDetail]
     add_group_perm(npp_group, [perm_actions['create']], create_group)
@@ -143,12 +144,13 @@ def auto_role():
 
 
 def add_group_perm(group, actions: list, models):
-    for model in models:
-        model_content = ContentType.objects.get_for_model(model)
-        for action in actions:
-            app_log.info(f"Test models: {model_content}")
-            app_log.info(f"Test {action}")
-            perm_name = f'{action}_{model_content.app_label}_{model_content.model}'
-            app_log.info(f"Permission: {perm_name}")
-            perm = Perm.objects.get(name=perm_name)
-            group.perm.add(perm, through_defaults={'allow': True})
+    with transaction.atomic():
+        for model in models:
+            model_content = ContentType.objects.get_for_model(model)
+            for action in actions:
+                app_log.info(f"Test models: {model_content}")
+                app_log.info(f"Test {action}")
+                perm_name = f'{action}_{model_content.app_label}_{model_content.model}'
+                app_log.info(f"Permission: {perm_name}")
+                perm = Perm.objects.get(name=perm_name)
+                group.perm.add(perm, through_defaults={'allow': True})

@@ -64,8 +64,11 @@ def get_all_user_perms_sql(user_id):
     conn.close()
 
     # Kết hợp kết quả và loại bỏ các quyền trùng lặp
-    all_perms = {perm[0]: perm for perm in direct_perms + group_perms}
-    return list(all_perms.values())
+    # all_perms = {perm[0]: perm for perm in direct_perms + group_perms}
+    # return list(all_perms.values())
+    perm_names = [perm[0] for perm in direct_perms + group_perms]
+    perm_objs = Perm.objects.filter(name__in=perm_names).distinct()
+    return list(perm_objs)
 
 
 def get_user_by_permname_sql(perm_name):

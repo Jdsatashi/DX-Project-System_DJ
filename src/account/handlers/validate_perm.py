@@ -6,7 +6,8 @@ from rest_framework import permissions
 
 from account.handlers.perms import get_perm_name, get_action, get_required_permission, DataFKModel
 from app.logs import app_log
-from utils.perms.check import perm_exist, user_has_perm
+from utils.constants import perm_actions
+from utils.perms.check import perm_exist
 
 
 def perm(model, method):
@@ -76,6 +77,12 @@ class ValidatePermRest(permissions.BasePermission):
 
         app_log.info(f"--- Test Permission ---")
         perm_name = get_perm_name(self.model)
+
+        # Check all perm
+        all_perm = perm_actions['all'] + f"_{perm_name}"
+        if user.is_group_has_perm(all_perm) or user.is_perm(all_perm):
+            return True
+
         # Get full required permission (with action and PK), perm_name (without action and PK)
         required_permission = f"{action}_{perm_name}"
         # If function not required any permission, return True
@@ -83,23 +90,26 @@ class ValidatePermRest(permissions.BasePermission):
         if not is_perm:
             return True
 
-        # Get the action from required permission
-        action = required_permission.split('_')[0]
-
-        user_group_perm = user.is_group_has_perm(required_permission)
-        user_perm = user.is_perm(required_permission)
         # if action == "create" and 'pk' not in view.kwargs:
-        if action == 'list':
+        if action == perm_actions['view']:
             return True
-            # return user_group_perm or user_perm
 
-        has_perm = user_has_perm(user, required_permission)
         result, messages = self.validate_fk_perm(request, action, user)
         for message in messages:
             self.message['errors'] = {message['field']: message['value']}
         app_log.info(f"Check permission time: {time.time() - start_time}")
+
+        # Set valid if user is allowed
+        is_valid = user.is_allow(required_permission)
+
+        # Get user groups has permission
+        group_perm = user.group_user.filter(perm__name=required_permission)
+        if group_perm.exists() and is_valid:
+            highest_group = group_perm.order_by('-level').first()
+            is_valid = highest_group.allow
+
         # If user or nhom user has perm, return True
-        return has_perm and result
+        return result and is_valid
 
     def has_object_permission(self, request, view, obj):
         start_time = time.time()

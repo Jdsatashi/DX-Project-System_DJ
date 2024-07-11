@@ -147,7 +147,8 @@ def update_group_perm(item_data, perms, items, allow, exited):
     app_log.info(f"Test exited: {exited}")
     # Looping handle with permissions
     for perm in perms:
-        is_perm = group.group_has_perm(perm)
+        group_perm = group.perm.filter(name=perm)
+        is_perm = group_perm.exists() and group_perm.first().allow()
         # Remove when permission is existed and Group not in Updated list
         if exited is not None and is_perm and group.name in items['existed']:
             app_log.info(f"|__ Remove permissions '{group.name}' - '{perm}'")

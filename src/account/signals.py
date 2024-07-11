@@ -5,16 +5,11 @@ from account.models import Perm, User, UserGroupPerm, GroupPerm
 from utils.constants import admin_role
 
 
-@receiver(post_save, sender=Perm)
-def add_quyen_to_superuser(sender, instance, created, **kwargs):
-    if created:
-        # superusers = User.objects.filter(is_superuser=True)
-        #
-        # for user in superusers:
-        #     user.perm_user.add(instance, through_defaults={'allow': True})
-        #
-        admin_group, _ = GroupPerm.objects.get_or_create(name=admin_role)
-        admin_group.perm.add(instance, through_defaults={'allow': True})
+# @receiver(post_save, sender=Perm)
+# def add_quyen_to_superuser(sender, instance, created, **kwargs):
+#     if created:
+#         admin_group, _ = GroupPerm.objects.get_or_create(name=admin_role)
+#         admin_group.perm.add(instance, through_defaults={'allow': True})
 
 
 @receiver(post_save, sender=UserGroupPerm)

@@ -13,26 +13,6 @@ def perm_exist(perm_name: str):
     return q.first() if q.exists() else None
 
 
-def user_has_perm(user, perm_name: str):
-    # Check if user
-    has_obj_perm = user.perm_user.filter(name__icontains=perm_name)
-    if has_obj_perm.exists():
-        app_log.info(f"Perm in user name is {perm_name}")
-        for perm in has_obj_perm:
-            check = user.is_allow(perm.name)
-            if check:
-                return check
-    # Get group object permission
-    obj_group = user.group_user.filter(perm__name__icontains=perm_name).first()
-    if obj_group is not None:
-        obj_group_perm = obj_group.perm.filter(name__icontains=perm_name)
-        if obj_group_perm.exists():
-            for perm in obj_group_perm:
-                check = user.is_group_has_perm(perm.name)
-                if check:
-                    return check
-
-
 def user_id_from_token(token):
     try:
         decoded_data = AccessToken(token)

@@ -37,7 +37,7 @@ class CustomUserManager(BaseUserManager):
         user = self.create_user(username, email, phone_number, password, **extra_fields)
         group_admin = GroupPerm.objects.get(name=admin_role)
         group_employee = GroupPerm.objects.get(name='employee')
-        user.group_user.set(group_admin, group_employee)
+        user.group_user.set([group_admin, group_employee])
         # perms = Perm.objects.all()
         # for i, q in enumerate(perms):
         #     user.perm_user.add(q)
@@ -148,13 +148,15 @@ class User(AbstractBaseUser, PermissionsMixin):
         return not is_perm
 
     def is_group_has_perm(self, permission):
-        group_user = self.group_user.all()
-        valid = False
-        for group in group_user:
-            valid = group.group_has_perm(permission)
-            if valid:
-                break
-        return valid
+        return self.group_user.filter(perm__name=permission).exists()
+
+    def is_group_allow(self, permission):
+        is_group_has_perm = self.is_group_has_perm(permission)
+        if is_group_has_perm:
+            group = self.group_user.filter(perm__name=permission).order_by('-level').first()
+            user_group_perm = UserGroupPerm.objects.get(user=self, group=group)
+            return user_group_perm.allow
+        return not is_group_has_perm
 
     def get_all_allow_perms(self):
         user_perms = set(self.perm_user.filter(userperm__allow=True).values_list('name', flat=True))
@@ -290,6 +292,9 @@ class GroupPerm(models.Model):
     def group_has_perm(self, permission):
         perm = self.perm.filter(name=permission)
         return perm.exists() and self.allow
+
+    def get_highest_level(self, permission):
+        return GroupPerm.objects.filter(perm__name=permission).order_by('-level').first()
 
 
 # Table/Model middleman of Perm and User

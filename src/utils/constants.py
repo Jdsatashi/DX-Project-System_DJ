@@ -15,7 +15,9 @@ old_data = {
     "tb_chucDanhUser": "Sys_ChucDanhNhanVien",
     "tb_phongBan": "Sys_PhongBan",
     "tb_phongBanUser": "Sys_PhongBanNhanVien",
-    "tb_UuDai": "tbl_QLTT_UuDaiKhachHang"
+    "tb_UuDai": "tbl_QLTT_UuDaiKhachHang",
+    "tb_CTKM": "tbl_QLTT_ChuongTrinhKhuyenMai",
+    "tb_CTKM_SanPham": "tbl_QLTT_ChuongTrinhKhuyenMai_SanPham"
 }
 maNhomND = 'DMNKH000005'
 tenNhomND = 'Khách hàng Nông dân'
@@ -23,10 +25,11 @@ tenNhomND = 'Khách hàng Nông dân'
 perm_actions = {
     'full': ['all', 'view', 'create', 'update', 'destroy'],
     'self': ['view', 'create', 'update'],
-    'view': ['view'],
-    'create': ['create'],
-    'update': ['update'],
-    'destroy': ['destroy']
+    'all': 'all',
+    'view': 'view',
+    'create': 'create',
+    'update': 'update',
+    'destroy': 'destroy'
 }
 status = ['active', 'deactivate', 'pending', 'draft']
 user_type = {

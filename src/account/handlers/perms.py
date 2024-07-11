@@ -15,12 +15,12 @@ def get_action(view, method):
         action = view.action
     except AttributeError:
         action = {
-            'GET': 'retrieve' if 'pk' in view.kwargs else 'list',
+            'GET': 'view',
             'POST': 'create',
             'PUT': 'update',
-            'PATCH': 'partial_update',
+            'PATCH': 'update',
             'DELETE': 'destroy'
-        }.get(method, 'list')
+        }.get(method, 'view')
     return action
 
 
@@ -98,11 +98,8 @@ def perm_queryset(self):
         if perm.startswith(action_perm + '_' + perm_name):
             _, object_id = perm.rsplit('_', 1)
             has_perm_id.append(object_id)
-    app_log.info(f"Require perm: {perm_req_id}")
-    app_log.info(f"User has perm: {has_perm_id}")
     # Exclude item which use not has permission
     exclude_id = list(perm_req_id - set(has_perm_id))
-    app_log.info(f"Query exclude: {exclude_id}")
     return model_class.objects.exclude(id__in=exclude_id)
 
 
