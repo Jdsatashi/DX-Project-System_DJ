@@ -19,7 +19,7 @@ def create_initial_permission(apps, schema_editor):
             tasks = perm_actions['full']
             for task in tasks:
                 perm_name_ = f'{task}_{perm_name}'
-                app_log.info(f"Adding permission: {perm_name}")
+                app_log.info(f"Adding permission: {perm_name_}")
                 Perm.objects.create(name=perm_name_, note=f'{task.capitalize()} {content_type.model}',
                                     content_type=content_type)
 
@@ -33,7 +33,7 @@ def create_draft_perm(apps, schema_editor):
 
 
 def create_admin_perm(apps, schema_editor):
-    matching_perms = Perm.objects.all()
+    matching_perms = Perm.objects.filter(name__icontains='all')
     list_perms = list(matching_perms)
     group_perm, _ = GroupPerm.objects.get_or_create(name=admin_role)
     for q in list_perms:
@@ -42,12 +42,12 @@ def create_admin_perm(apps, schema_editor):
 
 
 class Migration(migrations.Migration):
-    depdc = [('account', '0001_initial'), ('admin', '0001_initial')]
-    # for i, v in enumerate(MY_APPS):
-    #     data = v.split('.')
-    #     v = data[-1]
-    #     a = (v, '0001_initial')
-    #     depdc.append(a)
+    depdc = [('account', '0001_groupperm_level'), ('admin', '0001_initial')]
+    for i, v in enumerate(MY_APPS):
+        data = v.split('.')
+        v = data[-1]
+        a = (v, '0001_initial')
+        depdc.append(a)
     dependencies = depdc
 
     operations = [
