@@ -4,6 +4,7 @@ import time
 import pytz
 from django.contrib.auth import get_user_model
 from django.contrib.auth.hashers import check_password
+from django.db import transaction
 from django.db.models import Q, Max
 from django.http import HttpResponse
 from django.shortcuts import render
@@ -21,7 +22,7 @@ from rest_framework_simplejwt.tokens import RefreshToken as RestRefreshToken, Ac
 from account.api.serializers import UserSerializer, RegisterSerializer, response_verify_code, UserUpdateSerializer, \
     UserWithPerm, PermSerializer, GroupPermSerializer, UserListSerializer, AllowanceOrder
 from account.handlers.perms import get_perm_name
-from account.models import User, Verify, PhoneNumber, RefreshToken, TokenMapping, GroupPerm, Perm
+from account.models import User, Verify, PhoneNumber, RefreshToken, TokenMapping, GroupPerm, Perm, GrantAccess
 from account.queries import get_all_user_perms_sql
 from app.api_routes.handlers import get_token_for_user
 from app.logs import app_log
@@ -66,14 +67,14 @@ class ApiAccount(viewsets.GenericViewSet, mixins.ListModelMixin, mixins.CreateMo
                 queryset = queryset.filter(user_type='client')
             case 'employee':
                 app_log.info(f"Case employee")
-                queryset = queryset.filter(user_type='employee').exclude(group_user__name='admin')
+                queryset = queryset.filter(user_type='employee').exclude(group_user__name=admin_role)
             case 'farmer':
                 app_log.info(f"Case farmer")
                 queryset = queryset.filter(user_type='farmer')
             case 'admin':
                 app_log.info(f"Case admin")
                 # queryset = queryset.filter(is_superuser=True)
-                queryset = queryset.filter(group_user__name='admin')
+                queryset = queryset.filter(group_user__name=admin_role)
             case 'npp':
                 app_log.info(f"Case npp")
                 queryset = queryset.filter(Q(clientprofile__is_npp=True) | Q(group_user__name='npp'))
@@ -620,20 +621,35 @@ class ApiGetManageUser(APIView):
             app_log.info(f"Entrust user: {entrust_users}")
             user_type = check_user_type(manage_user_obj)
             print(f"Test user type: {user_type}")
-            # order_perm = get_perm_name(Order)
-            # pl_perm = get_perm_name(PriceList)
-            # so_perm = get_perm_name(SpecialOffer)
-            before_manage_perm = list(manage_user_obj.perm_user.filter().distinct())
 
+            before_manage_perm = get_all_user_perms_sql(manage_user_obj.id)
+            print(f"Before: {before_manage_perm}")
             if user_type == 'nvtt':
-                # user_obj = User.objects.get(id=entrust_users.get('user_id'))
-                user_perms = get_all_user_perms_sql(entrust_users.get('user_id'))
+                with transaction.atomic():
+                    grant_user = User.objects.get(id=entrust_users['user_id'].upper())
+                    user_perms = get_all_user_perms_sql(entrust_users.get('user_id'))
+
+                    adding_perm = list(set(user_perms) - set(before_manage_perm))
+
+                    grant_access, created = GrantAccess.objects.get_or_create(
+                        manager=manage_user_obj,
+                        grant_user=grant_user
+                    )
+                    # if not grant_access.allow:
+                    #     return Response({'error': f'user manager {manage_user} not allow to'
+                    #                               f'grant access'},
+                    #                     status=status.HTTP_200_OK)
+                    grant_access.active = True
+                    grant_access.grant_perms.set(adding_perm)
+                    grant_access.save()
+                    for perm in adding_perm:
+                        perm_obj = grant_user.userperm_set.get(perm=perm)
+                        manage_user_obj.perm_user.add(perm, through_defaults={'allow': perm_obj.allow})
 
             elif user_type == 'npp':
                 pass
             else:
                 return Response({'error': f'user {manage_user} is not manager (nvtt, npp)'}, status=status.HTTP_200_OK)
-            print(before_manage_perm)
             return Response({'message': 'ok'}, 200)
         else:
             return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
