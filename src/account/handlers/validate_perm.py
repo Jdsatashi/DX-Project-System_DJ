@@ -53,9 +53,10 @@ class ValidatePermRest(permissions.BasePermission):
     """
     message = {'message': 'user not have permission for this action'}
 
-    def __init__(self, model):
+    def __init__(self, model, user=None):
         super().__init__()
         self.model = model
+        self.user = user
 
     def has_permission(self, request, view):
         start_time = time.time()
@@ -66,10 +67,12 @@ class ValidatePermRest(permissions.BasePermission):
         # Allow showing on api schema
         if request.path == '/api_schema':
             return True
-        # Authenticate
+        # Authenticate defaults user
         user = request.user
         if not user.is_authenticated:
             return False
+        user = user if self.user is None else self.user
+
         object_pk = view.kwargs.get('pk', None)
         # Return True (not required perm) when object with PK doesn't required perm PK
         if object_pk is not None:
@@ -198,3 +201,22 @@ class ValidatePermRest(permissions.BasePermission):
         app_log.info(f"Perm result: {result}")
         app_log.info(f"Time validate FK: {time.time() - start_time}")
         return result, messages
+
+
+def check_perm(user, permission: str, perm_name: str):
+    all_perm = perm_actions['all'] + f"_{perm_name}"
+    print(f"Check perm: {all_perm}")
+    if user.is_group_has_perm(all_perm) or user.is_perm(all_perm):
+        return True
+
+    is_perm = perm_exist(permission)
+    if not is_perm:
+        return True
+
+    user_has_perm = user.is_perm(permission)
+    if user_has_perm:
+        if not user.is_allow(permission):
+            return False
+    # Get user groups has permission
+    is_valid = user.is_group_allow(permission)
+    return is_valid

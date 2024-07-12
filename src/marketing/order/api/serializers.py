@@ -7,6 +7,7 @@ from rest_framework_simplejwt.tokens import AccessToken
 
 from account.handlers.perms import get_perm_name
 from account.handlers.restrict_serializer import BaseRestrictSerializer
+from account.handlers.validate_perm import ValidatePermRest
 from account.models import PhoneNumber, User
 from app.logs import app_log
 from marketing.livestream.models import LiveStreamOfferRegister
@@ -322,14 +323,8 @@ class OrderSerializer(BaseRestrictSerializer):
             pass
 
     def validate_so_perm(self, special_offer, user):
-        so_perm = get_perm_name(special_offer)
-        so_perm = f"create_{so_perm}_{special_offer.id}"
         user_obj = User.objects.get(id=user)
-
-        if user_obj.is_allow(so_perm) and perm_exist(so_perm):
-            raise serializers.ValidationError(
-                {'message': f'user not have permission of special offer {special_offer.id}'}
-            )
+        ValidatePermRest(special_offer, user_obj)
 
 
 # class ProductStatisticsSerializer(serializers.Serializer):

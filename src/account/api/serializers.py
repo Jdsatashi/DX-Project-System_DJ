@@ -3,7 +3,7 @@ from django.db import transaction, IntegrityError
 from django.db.models import Q
 from rest_framework import serializers
 
-from account.models import User, GroupPerm, Perm, Verify, PhoneNumber
+from account.models import User, GroupPerm, Perm, Verify, PhoneNumber, GrantAccess
 from app.logs import app_log
 from app.settings import SMS_SERVICE
 from user_system.client_profile.api.serializers import ClientProfileUserSerializer
@@ -380,5 +380,15 @@ class EntrustUser(serializers.Serializer):
 
 
 class AllowanceOrder(serializers.Serializer):
-    manage_user = serializers.CharField(required=True)
-    entrust_user = EntrustUser()
+    manager = serializers.CharField(required=True)
+    grant_user = serializers.CharField(required=True)
+    is_access = serializers.BooleanField(required=False)
+    is_allow = serializers.BooleanField(required=False)
+    time_expire = serializers.TimeField(default=lambda: (datetime.now() + timedelta(hours=2)).time())
+
+
+class GrantAccessSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = GrantAccess
+        fields = ['manager', 'grant_user', 'active', 'allow']
+        read_only_fields = ('manager', 'grant_user')

@@ -1,9 +1,12 @@
-from account.models import Perm, User, UserGroupPerm, GroupPerm, UserPerm, GroupPermPerms
+from django.apps import apps
+
 from utils.env import PGS_DB, PGS_PASSWORD, PGS_USER, PGS_HOST, PGS_PORT
 import psycopg2
 
 
 def get_all_user_perms(user):
+    Perm, User, UserGroupPerm, GroupPerm, UserPerm, GroupPermPerms = get_user_model()
+
     direct_perms = Perm.objects.filter(userperm__user=user)
 
     group_perms = Perm.objects.filter(
@@ -18,6 +21,7 @@ def get_all_user_perms(user):
 
 
 def get_all_user_perms_sql(user_id):
+    Perm, User, UserGroupPerm, GroupPerm, UserPerm, GroupPermPerms = get_user_model()
 
     conn = psycopg2.connect(
         dbname=PGS_DB,
@@ -52,26 +56,22 @@ def get_all_user_perms_sql(user_id):
         WHERE ugp.user_id = %s AND ugp.allow = TRUE
     """
 
-    # Thực hiện truy vấn và kết hợp kết quả
     cur.execute(direct_perms_query, (user_id,))
     direct_perms = cur.fetchall()
 
     cur.execute(group_perms_query, (user_id,))
     group_perms = cur.fetchall()
 
-    # Đóng kết nối
     cur.close()
     conn.close()
 
-    # Kết hợp kết quả và loại bỏ các quyền trùng lặp
-    # all_perms = {perm[0]: perm for perm in direct_perms + group_perms}
-    # return list(all_perms.values())
     perm_names = [perm[0] for perm in direct_perms + group_perms]
     perm_objs = Perm.objects.filter(name__in=perm_names).distinct()
     return list(perm_objs)
 
 
 def get_user_by_permname_sql(perm_name):
+    Perm, User, UserGroupPerm, GroupPerm, UserPerm, GroupPermPerms = get_user_model()
 
     conn = psycopg2.connect(
         dbname=PGS_DB,
@@ -109,3 +109,13 @@ def get_user_by_permname_sql(perm_name):
     conn.close()
 
     return [user_id[0] for user_id in user_ids]
+
+
+def get_user_model():
+    Perm = apps.get_model('account', 'Perm')
+    User = apps.get_model('account', 'User')
+    UserGroupPerm = apps.get_model('account', 'UserGroupPerm')
+    GroupPerm = apps.get_model('account', 'GroupPerm')
+    UserPerm = apps.get_model('account', 'UserPerm')
+    GroupPermPerms = apps.get_model('account', 'GroupPermPerms')
+    return Perm, User, UserGroupPerm, GroupPerm, UserPerm, GroupPermPerms

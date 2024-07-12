@@ -4,7 +4,6 @@ import time
 import pytz
 from django.contrib.auth import get_user_model
 from django.contrib.auth.hashers import check_password
-from django.db import transaction
 from django.db.models import Q, Max
 from django.http import HttpResponse
 from django.shortcuts import render
@@ -20,19 +19,17 @@ from rest_framework_simplejwt.exceptions import TokenError
 from rest_framework_simplejwt.tokens import RefreshToken as RestRefreshToken, AccessToken
 
 from account.api.serializers import UserSerializer, RegisterSerializer, response_verify_code, UserUpdateSerializer, \
-    UserWithPerm, PermSerializer, GroupPermSerializer, UserListSerializer, AllowanceOrder
-from account.handlers.perms import get_perm_name
+    UserWithPerm, PermSerializer, GroupPermSerializer, UserListSerializer, AllowanceOrder, GrantAccessSerializer
+from account.handlers.perms import get_full_permname, get_perm_name
+from account.handlers.validate_perm import ValidatePermRest, check_perm
 from account.models import User, Verify, PhoneNumber, RefreshToken, TokenMapping, GroupPerm, Perm, GrantAccess
-from account.queries import get_all_user_perms_sql
 from app.api_routes.handlers import get_token_for_user
 from app.logs import app_log
 from app.settings import pusher_client
-from marketing.order.models import Order
-from marketing.price_list.models import PriceList, PointOfSeason, SpecialOffer
+from marketing.price_list.models import PriceList, PointOfSeason
 from user_system.client_profile.api.serializers import ClientProfileSerializer
-from user_system.client_profile.models import ClientProfile
 from user_system.employee_profile.api.serializers import EmployeeProfileSerializer
-from utils.constants import status as user_status, maNhomND, admin_role, phone_magic, magic_verify_code
+from utils.constants import status as user_status, maNhomND, admin_role, phone_magic, magic_verify_code, perm_actions
 from utils.env import TOKEN_LT
 from utils.helpers import generate_digits_code, generate_id, phone_validate, local_time, check_email
 from utils.insert_db.default_roles_perms import set_user_perm
@@ -541,18 +538,6 @@ class ApiUpdateDeviceCode(APIView):
             # raise e
             return Response({'error': 'Invalid token or Token was expired', 'details': str(e)},
                             status=status.HTTP_401_UNAUTHORIZED)
-        # user_id = request.data.get('user_id', None)
-        # device_code = request.data.get('device_code', None)
-        # try:
-        #     user = User.objects.filter(id=user_id).first()
-        #     if not user:
-        #         return Response({'message': f'error not found user with id \'{user_id}\''})
-        #     user.device_token = device_code
-        #     user.save()
-        # except Exception as e:
-        #     app_log.error(f'Get error ApiUpdateDeviceCode post')
-        #     raise e
-        # return Response({'message': 'Success'}, status=status.HTTP_200_OK)
 
 
 class ApiGetManageUser(APIView):
@@ -593,11 +578,12 @@ class ApiGetManageUser(APIView):
         if query != '':
             users_list = search_users(query, users_list)
 
-        user_data = format_user_data(users_list)
+        user_data = format_user_data(users_list, user)
 
         response_data = {
             'user_id': user.id,
             'name': user_name,
+            'user_type': user_type,
             'group_manage': user_data
         }
 
@@ -610,47 +596,58 @@ class ApiGetManageUser(APIView):
             return render(request, 'errors/403.html', ctx)
         serializer = AllowanceOrder(data=request.data)
         if serializer.is_valid():
-            manage_user = serializer.validated_data['manage_user']
-            entrust_users = serializer.validated_data['entrust_user']
+            manage_user = serializer.validated_data['manager']
+            entrust_users = serializer.validated_data['grant_user']
+            is_access = serializer.validated_data.get('is_access')
+            is_allow = serializer.validated_data.get('is_allow')
+            time_expire = serializer.validated_data['time_expire']
+
             try:
-                manage_user_obj = User.objects.get(id=manage_user)
+                manage_user_obj = User.objects.get(id=manage_user.upper())
+            except User.DoesNotExist:
+                return Response({'error': f'not found user {manage_user}'}, status=status.HTTP_400_BAD_REQUEST)
+            try:
+                grant_user_obj = User.objects.get(id=entrust_users.upper())
             except User.DoesNotExist:
                 return Response({'error': f'not found user {manage_user}'}, status=status.HTTP_400_BAD_REQUEST)
 
-            app_log.info(f"Manage user: {manage_user}")
-            app_log.info(f"Entrust user: {entrust_users}")
-            user_type = check_user_type(manage_user_obj)
-            print(f"Test user type: {user_type}")
+            # Validate perm
+            manager_perm = get_full_permname(User, perm_actions['update'], manage_user_obj.id)
+            grant_user_perm = get_full_permname(User, perm_actions['update'], grant_user_obj.id)
+            is_manager_perm = check_perm(user, manager_perm, get_perm_name(User))
+            is_grant_user_perm = check_perm(user, grant_user_perm, get_perm_name(User))
+            print(f"Test perm: {is_manager_perm} | {is_grant_user_perm}")
+            print(f"Cehck active allow: {is_access} | {is_allow}")
+            if not is_manager_perm and not is_grant_user_perm:
+                return Response({'error': 'permission deny'}, status=status.HTTP_403_FORBIDDEN)
 
-            before_manage_perm = get_all_user_perms_sql(manage_user_obj.id)
-            print(f"Before: {before_manage_perm}")
-            if user_type == 'nvtt':
-                with transaction.atomic():
-                    grant_user = User.objects.get(id=entrust_users['user_id'].upper())
-                    user_perms = get_all_user_perms_sql(entrust_users.get('user_id'))
+            grant_access, _ = GrantAccess.objects.get_or_create(
+                manager=manage_user_obj, grant_user=grant_user_obj)
 
-                    adding_perm = list(set(user_perms) - set(before_manage_perm))
+            if is_allow is not None:
+                # Validate for grant user
+                if not is_grant_user_perm:
+                    return Response({'error': f'{user.id} not allow to access '
+                                              f'{grant_user_obj.id}'}, status=status.HTTP_403_FORBIDDEN)
+                print(f"Check is allow: {is_allow}")
+                grant_access.allow = is_allow
+                grant_access.save()
 
-                    grant_access, created = GrantAccess.objects.get_or_create(
-                        manager=manage_user_obj,
-                        grant_user=grant_user
-                    )
-                    # if not grant_access.allow:
-                    #     return Response({'error': f'user manager {manage_user} not allow to'
-                    #                               f'grant access'},
-                    #                     status=status.HTTP_200_OK)
-                    grant_access.active = True
-                    grant_access.grant_perms.set(adding_perm)
+            if is_access is not None:
+                # Validate for manager
+                if not is_manager_perm:
+                    return Response({'error': f'{user.id} not allow to access '
+                                              f'{manage_user_obj.id}'}, status=status.HTTP_403_FORBIDDEN)
+                print(f"Check is access: {is_access}")
+                if is_allow:
+                    grant_access.active = is_access
                     grant_access.save()
-                    for perm in adding_perm:
-                        perm_obj = grant_user.userperm_set.get(perm=perm)
-                        manage_user_obj.perm_user.add(perm, through_defaults={'allow': perm_obj.allow})
+                else:
+                    grant_access.active = is_allow
+                    grant_access.save()
 
-            elif user_type == 'npp':
-                pass
-            else:
-                return Response({'error': f'user {manage_user} is not manager (nvtt, npp)'}, status=status.HTTP_200_OK)
-            return Response({'message': 'ok'}, 200)
+            response_data = GrantAccessSerializer(grant_access).data
+            return Response(response_data, 200)
         else:
             return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
 
@@ -665,7 +662,7 @@ def search_users(query, users_list):
     return users_list.filter(q_objects)
 
 
-def format_user_data(users_list):
+def format_user_data(users_list, manager):
     user_data = []
     user_type = 'daily'
     for user in users_list:
@@ -673,11 +670,14 @@ def format_user_data(users_list):
         if user.clientprofile.is_npp or user.group_user.filter(name='npp').exists():
             user_type = 'npp'
         user_phones = user.phone_numbers.filter().values_list('phone_number', flat=True)
+        grant_access, _ = GrantAccess.objects.get_or_create(manager=manager, grant_user=user)
         user_dict = {
             'id': user.id,
             'name': user_name_,
             'phone': list(user_phones),
-            'user_type': user_type
+            'user_type': user_type,
+            'is_access': grant_access.active,
+            'is_allow': grant_access.allow
         }
         user_data.append(user_dict)
     return user_data

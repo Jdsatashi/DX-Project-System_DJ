@@ -9,6 +9,7 @@ from django.db import models
 from django.utils import timezone
 from pyodbc import IntegrityError
 
+from account.queries import get_all_user_perms_sql
 from app.logs import app_log
 from utils.constants import maNhomND, admin_role
 from utils.helpers import self_id
@@ -38,9 +39,6 @@ class CustomUserManager(BaseUserManager):
         group_admin = GroupPerm.objects.get(name=admin_role)
         group_employee = GroupPerm.objects.get(name='employee')
         user.group_user.set([group_admin, group_employee])
-        # perms = Perm.objects.all()
-        # for i, q in enumerate(perms):
-        #     user.perm_user.add(q)
         return user
 
 
@@ -106,35 +104,35 @@ class User(AbstractBaseUser, PermissionsMixin):
         self.clean()
         super().save(*args, **kwargs)
 
-        match self.user_type:
-            case 'employee':
-                EmployeeProfile = apps.get_model('employee_profile', 'EmployeeProfile')
-                profile = EmployeeProfile.objects.filter(employee_id=self).first()
-                if not profile:
-                    EmployeeProfile.objects.create(employee_id=self)
-                group_perm = GroupPerm.objects.filter(name='employee').first()
-                self.group_user.add(group_perm, through_defaults={'allow': True})
-            case 'client':
-                ClientProfile = apps.get_model('client_profile', 'ClientProfile')
-                ClientGroup = apps.get_model('client_profile', 'ClientGroup')
-                new_client, _ = ClientGroup.objects.get_or_create(name='Khách hàng chưa xếp loại')
-                profile = ClientProfile.objects.filter(client_id=self).first()
-                if not profile:
-                    ClientProfile.objects.create(client_id=self, client_group_id=new_client,
-                                                 register_name=f"Khách hàng {self.id}")
-                group_perm = GroupPerm.objects.filter(name='client').first()
-                self.group_user.add(group_perm, through_defaults={'allow': True})
-            # case 'farmer':
-            case _:
-                ClientProfile = apps.get_model('client_profile', 'ClientProfile')
-                ClientGroup = apps.get_model('client_profile', 'ClientGroup')
-                farmer_group = ClientGroup.objects.filter(id=maNhomND).first()
-                profile = ClientProfile.objects.filter(client_id=self).first()
-                if not profile:
-                    ClientProfile.objects.create(client_id=self, client_group_id=farmer_group,
-                                                 register_name=f"Nông dân {self.id}")
-                group_perm = GroupPerm.objects.filter(name='farmer').first()
-                self.group_user.add(group_perm, through_defaults={'allow': True})
+        # match self.user_type:
+        #     case 'employee':
+        #         EmployeeProfile = apps.get_model('employee_profile', 'EmployeeProfile')
+        #         profile = EmployeeProfile.objects.filter(employee_id=self).first()
+        #         if not profile:
+        #             EmployeeProfile.objects.create(employee_id=self)
+        #         group_perm = GroupPerm.objects.filter(name='employee').first()
+        #         self.group_user.add(group_perm, through_defaults={'allow': True})
+        #     case 'client':
+        #         ClientProfile = apps.get_model('client_profile', 'ClientProfile')
+        #         ClientGroup = apps.get_model('client_profile', 'ClientGroup')
+        #         new_client, _ = ClientGroup.objects.get_or_create(name='Khách hàng chưa xếp loại')
+        #         profile = ClientProfile.objects.filter(client_id=self).first()
+        #         if not profile:
+        #             ClientProfile.objects.create(client_id=self, client_group_id=new_client,
+        #                                          register_name=f"Khách hàng {self.id}")
+        #         group_perm = GroupPerm.objects.filter(name='client').first()
+        #         self.group_user.add(group_perm, through_defaults={'allow': True})
+        #     # case 'farmer':
+        #     case _:
+        #         ClientProfile = apps.get_model('client_profile', 'ClientProfile')
+        #         ClientGroup = apps.get_model('client_profile', 'ClientGroup')
+        #         farmer_group = ClientGroup.objects.filter(id=maNhomND).first()
+        #         profile = ClientProfile.objects.filter(client_id=self).first()
+        #         if not profile:
+        #             ClientProfile.objects.create(client_id=self, client_group_id=farmer_group,
+        #                                          register_name=f"Nông dân {self.id}")
+        #         group_perm = GroupPerm.objects.filter(name='farmer').first()
+        #         self.group_user.add(group_perm, through_defaults={'allow': True})
 
     def is_perm(self, permission):
         return self.userperm_set.filter(perm=permission).exists()
@@ -357,6 +355,31 @@ class GrantAccess(models.Model):
         constraints = [
             models.UniqueConstraint(fields=['manager', 'grant_user'], name='unique_manager_grant_user')
         ]
+
+    def save(self, *args, **kwargs):
+        if self.active and not self.allow:
+            self.active = self.allow
+        super().save(*args, **kwargs)
+        if self.allow and self.active:
+            self.grant_perm_manager()
+        else:
+            self.remove_grant_perm()
+
+    def grant_perm_manager(self):
+        before_manage_perm = get_all_user_perms_sql(self.manager.id)
+        user_perms = get_all_user_perms_sql(self.grant_user.id)
+
+        adding_perm = list(set(user_perms) - set(before_manage_perm))
+        self.grant_perms.set(adding_perm)
+        for perm in adding_perm:
+            perm_obj = self.grant_user.userperm_set.get(perm=perm)
+            self.manager.perm_user.add(perm, through_defaults={'allow': perm_obj.allow})
+
+    def remove_grant_perm(self):
+        grant_perm = self.grant_perms.all()
+        for perm in grant_perm:
+            self.manager.perm_user.remove(perm)
+        self.grant_perms.clear()
 
 
 """
