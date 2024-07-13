@@ -50,6 +50,7 @@ def handle_phone():
     for phone in phones1:
         print(f"Handle phone: {phone.phone_number}")
         replace_phone = re.sub(r'\s|\.', '', phone.phone_number)
+        print(f"Test replace phone: {replace_phone}")
         if PhoneNumber.objects.filter(phone_number=replace_phone).exists():
             phone.delete()
         else:
