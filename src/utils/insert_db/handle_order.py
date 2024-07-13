@@ -1,5 +1,8 @@
+import re
+
 from django.db.models import Q
 
+from account.models import PhoneNumber
 from app.logs import app_log
 from marketing.order.models import Order
 from marketing.price_list.models import SpecialOffer, SpecialOfferProduct
@@ -38,3 +41,27 @@ def count_cashback(order_id):
 
 def count_cashback_2(od_object):
     pass
+
+
+def handle_phone():
+    phones1 = PhoneNumber.objects.filter(Q(phone_number__regex=r'\s') | Q(phone_number__regex=r'\.') | Q(phone_number__regex=r'-'))
+    phones2 = PhoneNumber.objects.filter(Q(phone_number__icontains='E8') | Q(phone_number__icontains='E9'))
+
+    for phone in phones1:
+        print(f"Handle phone: {phone.phone_number}")
+        replace_phone = re.sub(r'\s|\.', '', phone.phone_number)
+        if PhoneNumber.objects.filter(phone_number=replace_phone).exists():
+            phone.delete()
+        else:
+            phone.phone_number = replace_phone
+            print(f"Handle phone 2: {phone.phone_number}")
+            phone.save()
+
+    for phone in phones2:
+        replace_phone = phone.phone_number.replace('E8', '').replace('E9', '')
+        if PhoneNumber.objects.filter(phone_number=replace_phone).exists():
+            phone.delete()
+        else:
+            phone.phone_number = replace_phone
+            print(f"Handle phone 2: {phone.phone_number}")
+            phone.save()
