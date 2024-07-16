@@ -41,10 +41,10 @@ class BannerItemSerializer(serializers.ModelSerializer):
                 # file_instance = None
                 video_url = validated_data.get('video_url', None)
                 if video_url is None:
-                    raise serializers.ValidationError("Video_url is required.")
+                    raise serializers.ValidationError({'error': 'video_url is required.'})
 
         elif not file_instance and not file_upload_data:
-            raise serializers.ValidationError("File or file_upload is required.")
+            raise serializers.ValidationError({'error': 'file or file_upload is required.'})
 
         with transaction.atomic():
             if banner_obj:
