@@ -1,3 +1,5 @@
+import traceback
+
 from django.db import models
 from django.db.models import UniqueConstraint, Max
 from rest_framework.exceptions import ValidationError
@@ -30,7 +32,7 @@ class NotificationUser(models.Model):
 
     def save(self, *args, **kwargs):
         if NotificationUser.objects.filter(notify=self.notify, user=self.user).exists():
-            raise ValidationError({'message': 'error when save notification user'})
+            raise ValidationError({'error': f'notify {self.notify_id} and user {self.user_id} is existed'})
 
 
 class NotificationFile(models.Model):
@@ -41,14 +43,23 @@ class NotificationFile(models.Model):
     created_at = models.DateTimeField(auto_now_add=True)
 
     def save(self, *args, **kwargs):
-        notify_file = NotificationFile.objects.filter(notify=self.notify)
-        if notify_file.exists() and self.id not in notify_file.values_list('id', flat=True):
-            prio_list = [p.priority for p in notify_file if p.priority is not None]
-            if self.priority in prio_list:
-                max_num = max(prio_list)
-                max_num = max_num if max_num else 0
-                app_log.info(f"Test max num: {max_num}")
-                self.priority = max_num + 1
+        try:
+            # Get all notify file
+            notify_file = NotificationFile.objects.filter(notify=self.notify)
+            # Validate id of notify
+            if notify_file.exists() and self.id not in notify_file.exclude(id=self.id).values_list('id', flat=True):
+                # Get all file priority
+                prio_list = [p.priority for p in notify_file if p.priority is not None]
+                # Check when self.priority in list
+                if self.priority in prio_list:
+                    # Get largest priority
+                    max_num = max(prio_list)
+                    max_num = max_num if max_num else 0
+                    self.priority = max_num + 1
+        except Exception as e:
+            error_message = traceback.format_exc().splitlines()[-1]
+            app_log.error(f"Error when save notification file: \n{e}")
+            raise ValidationError({'error': 'cannot save notification file', 'error_message': error_message})
         super().save(*args, **kwargs)
 
 
@@ -74,10 +85,12 @@ class Banner(models.Model):
     updated_at = models.DateTimeField(auto_now=True)
 
     def save(self, *args, **kwargs):
+        # Create id for banner if not exist
         if not self.id:
             self.id = self_id('BANNER', self.__class__, 4)
+        # Constraint Banner can be 1 type and display type for 1 object
         if Banner.objects.filter(type=self.type, display_type=self.display_type).exists():
-            raise ValidationError({'message': 'error banner type and isplay type already existed'})
+            raise ValidationError({'error': 'banner with this ype and display type already existed'})
         super().save(*args, **kwargs)
 
     class Meta:
@@ -103,10 +116,14 @@ class BannerItem(models.Model):
         db_table = 'medias_banners_item'
 
     def save(self, *args, **kwargs):
+        # Check priority
         if not self.priority:
+            # Find self priority
             max_priority = BannerItem.objects.filter(banner=self.banner).aggregate(Max('priority'))['priority__max']
             if max_priority is not None:
+                # If exist max priority, +1 current priority
                 self.priority = max_priority + 1
             else:
+                # When not have priority, default is 1
                 self.priority = 1
         super().save(*args, **kwargs)
