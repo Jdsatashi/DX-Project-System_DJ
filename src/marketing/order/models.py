@@ -94,7 +94,7 @@ class Order(models.Model):
         else:
             latest_id = 1
         if latest_id > 99999:
-            raise ValueError({'id': 'Out of index'})
+            raise ValidationError({'id': 'Out of index'})
         return f"{prefix}{str(latest_id).zfill(5)}"
 
 

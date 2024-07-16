@@ -37,6 +37,7 @@ def dynamic_q(queries, fields, strict_mode):
 def filter_data(self, request, query_fields, **kwargs):
     # Get query set if exists or get default
     queryset = kwargs.get('queryset', self.get_queryset())
+    order_by_required = kwargs.get('order_by_required', True)
     # Split query search, strict mode, limit, page, order_by
     query, strict_mode, limit, page, order_by, from_date, to_date, date_field = get_query_parameters(request)
     # If query exists, filter queryset
@@ -65,6 +66,8 @@ def filter_data(self, request, query_fields, **kwargs):
     try:
         if order_by in valid_fields or order_by.lstrip('-') in valid_fields:
             queryset = queryset.order_by(order_by)
+        elif not order_by_required:
+            pass
         else:
             try:
                 queryset = queryset.order_by('created_at')

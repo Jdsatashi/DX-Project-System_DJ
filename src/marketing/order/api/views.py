@@ -476,8 +476,8 @@ class OrderReportView(APIView):
                 except FieldError:
                     orders = orders.order_by('id')
                 except Exception as e:
-                    app_log.error(f"Error order_by fields")
-                    return Response({'message': 'error field order_by not in model'}, status=200)
+                    app_log.error(f"Error order_by fields: \n {e}")
+                    return Response({'error': 'error field order_by not in model', 'detail': e}, status=200)
         except FieldError:
             pass
         if limit == 0:

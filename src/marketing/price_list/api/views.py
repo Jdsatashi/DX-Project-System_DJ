@@ -3,6 +3,7 @@ from functools import partial
 
 import pandas
 from django.db import transaction
+from django.db.models import F
 from django.utils import timezone
 from rest_framework import viewsets, mixins, status
 from rest_framework.authentication import BasicAuthentication, SessionAuthentication
@@ -15,7 +16,8 @@ from rest_framework_simplejwt.authentication import JWTAuthentication
 from account.handlers.perms import perm_queryset
 from account.handlers.validate_perm import ValidatePermRest
 from app.logs import app_log
-from marketing.price_list.api.serializers import PriceListSerializer, SpecialOfferSerializer, PriceList2Serializer
+from marketing.price_list.api.serializers import PriceListSerializer, SpecialOfferSerializer, PriceList2Serializer, \
+    SpecialOfferProductSerializer
 from marketing.price_list.models import PriceList, SpecialOffer, ProductPrice, SpecialOfferProduct
 from marketing.product.models import Product
 from utils.model_filter_paginate import filter_data
@@ -194,7 +196,8 @@ class ApiImportProductSO(APIView):
                     point = row['diemTrenThung']
                     cashback = row['hoanTien']
                     max_box = row['thungMuaToiDa']
-                    app_log.info(f"Test : {product_id} | {product_price} | {quantity_in_box} | {point} | {cashback} | {max_box}")
+                    app_log.info(
+                        f"Test : {product_id} | {product_price} | {quantity_in_box} | {point} | {cashback} | {max_box}")
                     # Trying get product id
                     try:
                         product = Product.objects.get(id=product_id)
@@ -203,7 +206,8 @@ class ApiImportProductSO(APIView):
                                         status=status.HTTP_400_BAD_REQUEST)
 
                     product_in_excel.append(product_id)
-                    so_product = SpecialOfferProduct.objects.filter(special_offer=special_offer, product=product).first()
+                    so_product = SpecialOfferProduct.objects.filter(special_offer=special_offer,
+                                                                    product=product).first()
                     app_log.info(f"test product & so: {product} | {so_product}")
                     if so_product:
                         so_product.price = product_price
@@ -233,7 +237,8 @@ class ApiImportProductSO(APIView):
                 SpecialOfferProduct.objects.bulk_create(so_create)
                 # Bulk update existing entries
                 app_log.info(f"test so_update: {so_update}")
-                SpecialOfferProduct.objects.bulk_update(so_update, ['price', 'quantity_in_box', 'point', 'cashback', 'max_order_box'])
+                SpecialOfferProduct.objects.bulk_update(so_update, ['price', 'quantity_in_box', 'point', 'cashback',
+                                                                    'max_order_box'])
 
                 # Remove products not in the current Excel file
                 SpecialOfferProduct.objects.filter(special_offer=special_offer).exclude(
@@ -244,3 +249,25 @@ class ApiImportProductSO(APIView):
         except Exception as e:
             app_log.error(f"Get error when import data for ")
             raise e
+
+
+class ApiSOProduct(viewsets.GenericViewSet, mixins.ListModelMixin):
+    serializer_class = SpecialOfferProductSerializer
+    queryset = SpecialOfferProduct.objects.all()
+    authentication_classes = [JWTAuthentication, BasicAuthentication, SessionAuthentication]
+
+    permission_classes = [partial(ValidatePermRest, model=SpecialOfferProduct)]
+
+    # def get_queryset(self):
+    #     app_log.info(f"Getting query set")
+    #     return perm_queryset(self)
+
+    def list(self, request, *args, **kwargs):
+        queryset = SpecialOfferProduct.objects.annotate(
+            special_offer_created_at=F('special_offer__created_at')
+        ).order_by('-special_offer_created_at')
+        response = filter_data(self, request, ['special_offer__id', 'product__name', 'product__id'],
+                               queryset=queryset, order_by_required=False,
+                               **kwargs)
+
+        return Response(response, status.HTTP_200_OK)
