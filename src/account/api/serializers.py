@@ -2,6 +2,7 @@ import requests
 from django.db import transaction, IntegrityError
 from django.db.models import Q
 from rest_framework import serializers
+from rest_framework.exceptions import ValidationError
 
 from account.models import User, GroupPerm, Perm, Verify, PhoneNumber, GrantAccess
 from app.logs import app_log
@@ -208,9 +209,9 @@ class UserWithPerm(serializers.ModelSerializer):
         perm_user = [perm.name for perm in instance.perm_user.all()]
 
         request = self.context.get('request')
-        if request and request.method == 'GET' and hasattr(request,
-                                                           'resolver_match') and request.resolver_match.kwargs.get(
-            'pk'):
+        if (request and request.method == 'GET'
+                and hasattr(request, 'resolver_match')
+                and request.resolver_match.kwargs.get('pk')):
             representation['perm_user'] = perm_user
         else:
             perm_user = perm_user[:5]
@@ -241,19 +242,19 @@ class UserWithPerm(serializers.ModelSerializer):
                         # Validate phone number
                         is_valid, phone_number = phone_validate(phone_number)
                         if not is_valid:
-                            raise serializers.ValidationError({'phone': f'Phone number "{phone_number}" is not valid'})
+                            raise serializers.ValidationError({'phone': f'"{phone_number}" không hợp lệ'})
                         try:
                             PhoneNumber.objects.create(phone_number=phone_number, user=user)
                         except IntegrityError:
                             raise serializers.ValidationError(
-                                {'phone': f"Phone number '{phone_number}' already exists"})
+                                {'phone': f'"{phone_number}" đã tồn tại'})
                 handle_user(user, group_data, perm_data, profile_data)
 
         except Exception as e:
             # Log the exception if needed
             app_log.error(f"Error creating user: {e}")
             # Rollback transaction and re-raise the exception
-            raise e
+            raise ValidationError({'error': 'lỗi bất ngờ khi create user'})
 
         return user
 
@@ -276,12 +277,12 @@ class UserWithPerm(serializers.ModelSerializer):
                     for phone_number in phone_data:
                         is_valid, phone_number = phone_validate(phone_number)
                         if not is_valid:
-                            raise serializers.ValidationError({'phone': f'Phone number "{phone_number}" is not valid'})
+                            raise serializers.ValidationError({'phone': f'"{phone_number}" không hợp lệ'})
                         try:
                             PhoneNumber.objects.create(phone_number=phone_number, user=instance)
                         except IntegrityError:
                             raise serializers.ValidationError(
-                                {'phone': f'Phone number "{phone_number}" already exists'})
+                                {'phone': f'"{phone_number}" đã tồn tại'})
 
                 handle_user(instance, group_data, perm_data, profile_data)
 
@@ -289,7 +290,7 @@ class UserWithPerm(serializers.ModelSerializer):
             # Log the exception if needed
             app_log.error(f"Error updating user: {e}")
             # Rollback transaction and re-raise the exception
-            raise e
+            raise ValidationError({'error': f'lỗi bật ngờ khi update user {instance.id}'})
 
         return instance
 
@@ -300,7 +301,7 @@ def handle_user(user, group_data, perm_data, profile_data):
         group_objs = GroupPerm.objects.filter(name__in=group_data)
         missing_groups = list(set(group_data) - set(group_objs.values_list('name', flat=True)))
         if missing_groups:
-            raise serializers.ValidationError({'group': f'These group ids do not exist: {missing_groups}'})
+            raise serializers.ValidationError({'group': f'các groups không tồn tại: {missing_groups}'})
         user.group_user.set(group_objs, through_defaults={'allow': True})
 
     # Add perm to user
@@ -308,7 +309,7 @@ def handle_user(user, group_data, perm_data, profile_data):
         perm_objs = Perm.objects.filter(name__in=perm_data)
         missing_perms = list(set(perm_data) - set(perm_objs.values_list('name', flat=True)))
         if missing_perms:
-            raise serializers.ValidationError({'perm': f'These perm ids do not exist: {missing_perms}'})
+            raise serializers.ValidationError({'perm': f'các perms không tồn tại: {missing_perms}'})
         user.perm_user.set(perm_objs, through_defaults={'allow': True})
 
     # Handle when user is employee
@@ -327,7 +328,7 @@ def handle_user(user, group_data, perm_data, profile_data):
         try:
             client_group = ClientGroup.objects.get(id=client_group_id)
         except ClientGroup.DoesNotExist:
-            raise serializers.ValidationError({'client_group_id': 'not found client group with id'})
+            raise serializers.ValidationError({'client_group_id': f'{client_group_id} không tồn tại'})
         # Get nvtt id
         nvtt_id = profile_data.pop('nvtt_id', '')
         # Get user as nvtt object
@@ -336,7 +337,7 @@ def handle_user(user, group_data, perm_data, profile_data):
             (Q(id=nvtt_id) & Q(user_type='employee') & Q(employeeprofile__position__id='NVTT'))
         ).select_related('employeeprofile').prefetch_related('employeeprofile__position').distinct().first()
         if nvtt is None:
-            raise serializers.ValidationError({'nvtt_id': 'not found nvtt with id'})
+            raise serializers.ValidationError({'nvtt_id': f'{nvtt_id} không tồn tại'})
         # Get profile was created with user
         profile, created = ClientProfile.objects.update_or_create(client_id=user, defaults=profile_data)
         # Update profile with data

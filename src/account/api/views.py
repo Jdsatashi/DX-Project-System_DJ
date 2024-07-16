@@ -194,7 +194,7 @@ def otp_verify(request, pk):
         app_log.info("OTP code is expired")
         return Response({'message': 'Mã otp đã hết hạn'}, status=status.HTTP_200_OK)
 
-    return Response({'message': 'GET method not supported'}, status=status.HTTP_405_METHOD_NOT_ALLOWED)
+    return Response({'message': f'phương thức {request.method} không hợp lệ'}, status=status.HTTP_405_METHOD_NOT_ALLOWED)
 
 
 @extend_schema(
@@ -238,7 +238,7 @@ def phone_login_2(request):
                 new_token = create_access_token_from_refresh(refresh_token, phone_number)
             except TokenError:
                 # If get new token error, refresh_token error
-                return Response({'message': 'Phiên đăng nhập đã hết hạn, vui lòng đăng nhập lại'},
+                return Response({'message': 'Phiên đăng nhập đã hết hạn'},
                                 status=status.HTTP_401_UNAUTHORIZED)
             pusher_login(user)
             # Return token when not error
@@ -251,7 +251,7 @@ def phone_login_2(request):
                                                verify_type="SMS OTP")
             response = response_verify_code(new_verify)
             return Response(response, status.HTTP_200_OK)
-    return Response({'message': 'method not allowed'}, status=status.HTTP_405_METHOD_NOT_ALLOWED)
+    return Response({'message': f'phương thức {request.method} không hợp lệ'}, status=status.HTTP_405_METHOD_NOT_ALLOWED)
 
 
 @extend_schema(
@@ -277,17 +277,17 @@ def admin_login(request):
         password = request.data.get('password', None)
 
         if not check_email(email):
-            return Response({'message': 'invalid email'}, status=status.HTTP_400_BAD_REQUEST)
+            return Response({'message': 'email không hợp lệ'}, status=status.HTTP_400_BAD_REQUEST)
         user = User.objects.filter(email=email).first()
         # Validating user
         if user is None:
-            return Response({'message': 'email is not found in system'}, status=status.HTTP_400_BAD_REQUEST)
+            return Response({'message': 'email không tồn tại'}, status=status.HTTP_400_BAD_REQUEST)
         if not check_password(password, user.password):
             return Response({'message': 'wrong password'}, status=status.HTTP_400_BAD_REQUEST)
         # Check if user is admin
         app_log.info(f"Test role exist: {user.group_user.filter(name=admin_role).exists()}")
         if not user.is_superuser and not user.group_user.filter(name=admin_role).exists():
-            return Response({'message': 'user not allow to access this page'}, status=status.HTTP_406_NOT_ACCEPTABLE)
+            return Response({'message': 'user không có quyền truy cập'}, status=status.HTTP_406_NOT_ACCEPTABLE)
         # Generate new token for user
         refresh = RestRefreshToken.for_user(user)
         access_token = refresh.access_token
@@ -304,7 +304,7 @@ def admin_login(request):
         pusher_login(user)
         return Response({'refresh': str(refresh), 'access': str(access_token)}, status=status.HTTP_200_OK)
 
-    return Response({'message': 'method not allowed'}, status=status.HTTP_405_METHOD_NOT_ALLOWED)
+    return Response({'message': f'phương thức {request.method} không hợp lệ'}, status=status.HTTP_405_METHOD_NOT_ALLOWED)
 
 
 @extend_schema(
@@ -333,10 +333,10 @@ def logout(request):
                 current_token.save()
                 token = RestRefreshToken(current_token.refresh_token)
                 token.blacklist()
-                return Response({'message': 'Logout successful'}, status.HTTP_200_OK)
+                return Response({'message': 'logout thành công'}, status.HTTP_200_OK)
             return Response({'message': 'Token không tồn tại'}, status.HTTP_400_BAD_REQUEST)
         return Response({'message': 'Bạn cần nhập refresh token'}, status.HTTP_400_BAD_REQUEST)
-    return Response({'message': 'GET method not supported'}, status=status.HTTP_405_METHOD_NOT_ALLOWED)
+    return Response({'message': f'phương thức {request.method} không hợp lệ'}, status=status.HTTP_405_METHOD_NOT_ALLOWED)
 
 
 @extend_schema(
@@ -362,7 +362,7 @@ def check_token(request):
             # Get access token from headers
             access_token = auth_header.split(' ')[1]
         else:
-            return Response({"error": "Access token not provided"}, status=status.HTTP_400_BAD_REQUEST)
+            return Response({"error": "access_token chưa được cung cấp"}, status=status.HTTP_400_BAD_REQUEST)
         try:
             # Decode access token
             token = AccessToken(str(access_token))
@@ -400,11 +400,11 @@ def check_token(request):
                 response_data['user'] = user_data
                 return Response(response_data, status=status.HTTP_200_OK)
             else:
-                return Response({'error': 'Token expired'}, status=status.HTTP_401_UNAUTHORIZED)
+                return Response({'error': 'Token đã hết hạn'}, status=status.HTTP_401_UNAUTHORIZED)
 
         except Exception as e:
             # raise e
-            return Response({'error': 'Invalid token or Token was expired', 'details': str(e)},
+            return Response({'error': 'Token không hợp lệ hoặc đã hết hạn', 'details': str(e)},
                             status=status.HTTP_401_UNAUTHORIZED)
     return Response({'message': 'GET method not supported'}, status=status.HTTP_405_METHOD_NOT_ALLOWED)
 
@@ -524,7 +524,7 @@ class ApiUpdateDeviceCode(APIView):
             # Get access token from headers
             access_token = auth_header.split(' ')[1]
         else:
-            return Response({"error": "Access token not provided"}, status=status.HTTP_400_BAD_REQUEST)
+            return Response({"error": "không tìm thấy access token"}, status=status.HTTP_400_BAD_REQUEST)
         try:
             # Decode access token
             token = AccessToken(str(access_token))
@@ -536,7 +536,7 @@ class ApiUpdateDeviceCode(APIView):
             return Response({'user_id': user.id, 'device_token': user.device_token}, status=status.HTTP_200_OK)
         except Exception as e:
             # raise e
-            return Response({'error': 'Invalid token or Token was expired', 'details': str(e)},
+            return Response({'error': 'token không hợp lệ hoặc đã hết hạn', 'details': str(e)},
                             status=status.HTTP_401_UNAUTHORIZED)
 
 
@@ -554,7 +554,7 @@ class ApiGetManageUser(APIView):
             try:
                 user = User.objects.get(id=user_id)
             except User.DoesNotExist:
-                return Response({'error': 'user id in query params not found'}, status=status.HTTP_400_BAD_REQUEST)
+                return Response({'error': f'user {user_id} không tồn tại'}, status=status.HTTP_400_BAD_REQUEST)
 
         # Check type of user
         user_type = check_user_type(user)
@@ -592,8 +592,7 @@ class ApiGetManageUser(APIView):
     def post(self, request):
         user = request.user
         if not request.user.is_authenticated:
-            ctx = {'message': "Bạn chưa đăng nhập."}
-            return render(request, 'errors/403.html', ctx)
+            return ValidationError({'message': 'tài khoản chưa xác thực'})
         serializer = AllowanceOrder(data=request.data)
         if serializer.is_valid():
             manage_user = serializer.validated_data['manager']
@@ -605,21 +604,23 @@ class ApiGetManageUser(APIView):
             try:
                 manage_user_obj = User.objects.get(id=manage_user.upper())
             except User.DoesNotExist:
-                return Response({'error': f'not found user {manage_user}'}, status=status.HTTP_400_BAD_REQUEST)
+                return Response({'error': f'user {manage_user} không tồn tại'}, status=status.HTTP_400_BAD_REQUEST)
             try:
                 grant_user_obj = User.objects.get(id=entrust_users.upper())
             except User.DoesNotExist:
-                return Response({'error': f'not found user {manage_user}'}, status=status.HTTP_400_BAD_REQUEST)
+                return Response({'error': f'user {manage_user} không tồn tại'}, status=status.HTTP_400_BAD_REQUEST)
 
             # Validate perm
             manager_perm = get_full_permname(User, perm_actions['update'], manage_user_obj.id)
             grant_user_perm = get_full_permname(User, perm_actions['update'], grant_user_obj.id)
             is_manager_perm = check_perm(user, manager_perm, get_perm_name(User))
             is_grant_user_perm = check_perm(user, grant_user_perm, get_perm_name(User))
+
             print(f"Test perm: {is_manager_perm} | {is_grant_user_perm}")
             print(f"Cehck active allow: {is_access} | {is_allow}")
+
             if not is_manager_perm and not is_grant_user_perm:
-                return Response({'error': 'permission deny'}, status=status.HTTP_403_FORBIDDEN)
+                return Response({'error': 'không có quyền truy cập'}, status=status.HTTP_403_FORBIDDEN)
 
             grant_access, _ = GrantAccess.objects.get_or_create(
                 manager=manage_user_obj, grant_user=grant_user_obj)
@@ -627,7 +628,7 @@ class ApiGetManageUser(APIView):
             if is_allow is not None:
                 # Validate for grant user
                 if not is_grant_user_perm:
-                    return Response({'error': f'{user.id} not allow to access '
+                    return Response({'error': f'user {user.id} không có quyền cho '
                                               f'{grant_user_obj.id}'}, status=status.HTTP_403_FORBIDDEN)
                 print(f"Check is allow: {is_allow}")
                 grant_access.allow = is_allow
@@ -636,7 +637,7 @@ class ApiGetManageUser(APIView):
             if is_access is not None:
                 # Validate for manager
                 if not is_manager_perm:
-                    return Response({'error': f'{user.id} not allow to access '
+                    return Response({'error': f'{user.id} không có quyền cho '
                                               f'{manage_user_obj.id}'}, status=status.HTTP_403_FORBIDDEN)
                 print(f"Check is access: {is_access}")
                 if is_allow:
