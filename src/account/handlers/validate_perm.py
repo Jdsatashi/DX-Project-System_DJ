@@ -51,7 +51,7 @@ class ValidatePermRest(permissions.BasePermission):
     ValidatePermRest is a custom permission for Rest Framework API, use functools.partial to add attribute.
     Example: partial(ValidatePermRest, model=models.Test)
     """
-    message = {'message': 'user not have permission for this action'}
+    message = {'message': ''}
 
     def __init__(self, model, user=None):
         super().__init__()
@@ -70,6 +70,7 @@ class ValidatePermRest(permissions.BasePermission):
         # Authenticate defaults user
         user = request.user
         if not user.is_authenticated:
+            self.message['message'] = 'Bạn chưa đăng nhập.'
             return False
         user = user if self.user is None else self.user
 
@@ -81,7 +82,6 @@ class ValidatePermRest(permissions.BasePermission):
 
         app_log.info(f"--- Test Permission ---")
         perm_name = get_perm_name(self.model)
-
         # Check all perm
         all_perm = perm_actions['all'] + f"_{perm_name}"
         if user.is_group_has_perm(all_perm) or user.is_perm(all_perm):
@@ -112,6 +112,9 @@ class ValidatePermRest(permissions.BasePermission):
         is_valid = user.is_group_allow(required_permission)
         print(f"Test valid: {is_valid}")
         app_log.info(f"Check permission time: {time.time() - start_time}")
+        if not result or not is_valid:
+            message = f"bạn không đủ quyền để thực hiện {action} {perm_name}"
+            self.message['message'] = message
         # If user or nhom user has perm, return True
         return result and is_valid
 

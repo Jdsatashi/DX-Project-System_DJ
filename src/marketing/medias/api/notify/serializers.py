@@ -3,7 +3,6 @@ from datetime import datetime
 from django.contrib.contenttypes.models import ContentType
 from django.db import transaction
 from django.utils.timezone import make_aware, now
-from firebase_admin import messaging
 from rest_framework import serializers
 
 from account.handlers.restrict_serializer import create_full_perm, list_user_has_perm, \
@@ -11,10 +10,10 @@ from account.handlers.restrict_serializer import create_full_perm, list_user_has
 from account.models import Perm, User, GroupPerm
 from app.logs import app_log
 from marketing.medias.models import Notification, NotificationUser, NotificationFile
+from marketing.medias.tasks import send_notification_task
 from system.file_upload.models import FileUpload
 from utils.constants import perm_actions, admin_role
 from utils.env import APP_SERVER
-from marketing.medias.tasks import send_notification_task
 
 
 class NotificationSerializer(serializers.ModelSerializer):
@@ -91,26 +90,20 @@ class NotificationSerializer(serializers.ModelSerializer):
                     file_upload = FileUpload.objects.create(file=file)
                     NotificationFile.objects.create(notify=notify, file=file_upload)
 
-                # # Get registration tokens for FCM
-                # registration_tokens = list(distinct_users.values_list('device_token', flat=True))
-                #
-                # # Send Firebase notification
-                # my_data = {
-                #     "notification_id": str(notify.id),
-                #     "click_action": "click_action"
-                # }
-                # send_firebase_notification(notify.title, notify.short_description, registration_tokens, my_data)
-
+                # Setting time for alarm notification
                 alert_datetime = datetime.combine(notify.alert_date, notify.alert_time)
                 aware_datetime = make_aware(alert_datetime)
                 time_until_alert = (aware_datetime - now()).total_seconds()
+                # Timer count down when time > 0
                 if time_until_alert > 0:
                     send_notification_task.apply_async((notify.id,), countdown=time_until_alert)
-
+                # Send notification immediately
+                else:
+                    send_notification_task.apply_async((notify.id,))
                 return notify
         except Exception as e:
             app_log.error(e)
-            raise e
+            raise serializers.ValidationError({'error': 'gặp lỗi khi create notify'})
 
     def update(self, instance, validated_data):
         users = validated_data.pop('users', [])
@@ -178,24 +171,19 @@ class NotificationSerializer(serializers.ModelSerializer):
                         file_upload = FileUpload.objects.create(file=file)
                         NotificationFile.objects.create(notify=notify, file=file_upload)
 
-                # # Get registration tokens for FCM
-                # registration_tokens = list(distinct_users.values_list('device_token', flat=True))
-                #
-                # # Send Firebase notification
-                # my_data = {
-                #     "notification_id": str(notify.id),
-                #     "click_action": "FLUTTER_NOTIFICATION_CLICK"
-                # }
-                # send_firebase_notification(notify.title, notify.short_description, registration_tokens, my_data)
+                # Setting time for alarm notification
                 alert_datetime = datetime.combine(notify.alert_date, notify.alert_time)
                 aware_datetime = make_aware(alert_datetime)
                 time_until_alert = (aware_datetime - datetime.now()).total_seconds()
+                # Timer count down when time > 0
                 if time_until_alert > 0:
                     send_notification_task.apply_async((notify.id,), countdown=time_until_alert)
-
+                # Send notification immediately
+                else:
+                    send_notification_task.apply_async((notify.id,))
                 return notify
         except Exception as e:
-            raise e
+            raise serializers.ValidationError({'error': 'gặp lỗi khi update notify'})
 
 
 class NotifyReadSerializer(serializers.ModelSerializer):
@@ -206,9 +194,9 @@ class NotifyReadSerializer(serializers.ModelSerializer):
     def to_representation(self, instance):
         representation = super().to_representation(instance)
         request = self.context.get('request')
-        app_log.info(f"In request")
+        # Get all file path
         files = NotificationFile.objects.filter(notify=instance).values_list('file__file', flat=True)
-        app_log.info(f"Test files: {files}")
+        # Create url path for file
         if request:
             file_list = [request.build_absolute_uri(file.file.url) for file in
                          FileUpload.objects.filter(file__in=files)]
