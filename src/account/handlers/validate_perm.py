@@ -84,7 +84,6 @@ class ValidatePermRest(permissions.BasePermission):
         perm_name = get_perm_name(self.model)
         # Check all perm
         all_perm = perm_actions['all'] + f"_{perm_name}"
-        print(f"Test all perm: {all_perm}")
         if user.is_group_has_perm(all_perm) or user.is_perm(all_perm):
             return True
 
@@ -126,20 +125,37 @@ class ValidatePermRest(permissions.BasePermission):
         if not user.is_authenticated:
             return False
         object_pk = view.kwargs.get('pk', None)
-        required_permission = get_required_permission(self.model, view, request)
+
+        action = get_action(view, request.method)
+
+        app_log.info(f"--- Test Permission ---")
+        perm_name = get_perm_name(self.model)
+
+        all_perm = perm_actions['all'] + f"_{perm_name}"
+        if user.is_group_has_perm(all_perm) or user.is_perm(all_perm):
+            return True
+
         # Add PK to string perm
-        required_permission = f"{required_permission}_{object_pk}"
+        required_permission = f"{action}_{perm_name}_{object_pk}"
         app_log.info(f"Test reequired permission {required_permission}")
         # Checking perm with PK is exist
         perm = perm_exist(required_permission)
-        app_log.info(f"Check perm exist time: {time.time() - start_time}")
+
         # If perm PK exist, handling validate perm user
         if perm is not None:
-            # Check if user or user_nhom has perm PK
-            user_perm = user.is_allow(required_permission)
-            user_nhom_perm = user.is_group_has_perm(required_permission)
+            user_has_perm = user.is_perm(required_permission)
+            if user_has_perm:
+                if not user.is_allow(required_permission):
+                    return False
+            # Get user groups has permission
+            is_valid = user.is_group_allow(required_permission)
+            print(f"Test valid: {is_valid}")
+            app_log.info(f"Check permission time: {time.time() - start_time}")
+            if not is_valid:
+                message = f"bạn không đủ quyền để thực hiện {action} {perm_name}"
+                self.message['message'] = message
             # If user or nhom user has perm, return True
-            return user_nhom_perm or user_perm
+            return is_valid
         app_log.info(f"Check objects permission time: {time.time() - start_time}")
         # Check if user has the permission
         return True
