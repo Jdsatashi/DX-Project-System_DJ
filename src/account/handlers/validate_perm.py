@@ -84,6 +84,7 @@ class ValidatePermRest(permissions.BasePermission):
         perm_name = get_perm_name(self.model)
         # Check all perm
         all_perm = perm_actions['all'] + f"_{perm_name}"
+        print(f"Test all perm: {all_perm}")
         if user.is_group_has_perm(all_perm) or user.is_perm(all_perm):
             return True
 
