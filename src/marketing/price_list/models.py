@@ -93,7 +93,7 @@ class SpecialOffer(models.Model):
     product = models.ManyToManyField(Product, through='SpecialOfferProduct')
 
     type_list = models.CharField(max_length=24, null=False, default='manual')  # Chọn giữa ['manual',
-    # 'consider_offer_user']
+    # 'consider_offer_user', 'template']
     live_stream = models.ForeignKey(LiveStream, null=True, on_delete=models.SET_NULL, related_name='offers')
     count_turnover = models.BooleanField(default=False)  # Khuyến mãi sẽ tính doanh số hay không
 

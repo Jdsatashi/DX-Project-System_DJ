@@ -266,7 +266,7 @@ class ApiSOProduct(viewsets.GenericViewSet, mixins.ListModelMixin):
         queryset = SpecialOfferProduct.objects.annotate(
             special_offer_created_at=F('special_offer__created_at')
         ).order_by('-special_offer_created_at')
-        response = filter_data(self, request, ['special_offer__id', 'product__name', 'product__id'],
+        response = filter_data(self, request, ['special_offer__id', 'special_offer__type_list', 'product__name', 'product__id'],
                                queryset=queryset, order_by_required=False,
                                **kwargs)
 
