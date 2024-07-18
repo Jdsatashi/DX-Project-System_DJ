@@ -60,7 +60,7 @@ class ApiSpecialOffer(viewsets.GenericViewSet, mixins.ListModelMixin, mixins.Cre
         return perm_queryset(self)
 
     def list(self, request, *args, **kwargs):
-        response = filter_data(self, request, ['id', 'name', 'status', 'type_list'],
+        response = filter_data(self, request, ['id', 'name', 'status', 'type_list', 'priority'],
                                **kwargs)
         return Response(response, status.HTTP_200_OK)
 
@@ -266,7 +266,9 @@ class ApiSOProduct(viewsets.GenericViewSet, mixins.ListModelMixin):
         queryset = SpecialOfferProduct.objects.annotate(
             special_offer_created_at=F('special_offer__created_at')
         ).order_by('-special_offer_created_at')
-        response = filter_data(self, request, ['special_offer__id', 'special_offer__type_list', 'product__name', 'product__id'],
+        response = filter_data(self, request,
+                               ['special_offer__id', 'special_offer__type_list', 'special_offer__priority',
+                                'product__name', 'product__id'],
                                queryset=queryset, order_by_required=False,
                                **kwargs)
 

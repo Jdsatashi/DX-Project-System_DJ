@@ -17,7 +17,8 @@ from marketing.product.models import Product, UseObject, UseFor, ProductCategory
     Producer, RegistrationUnit, ProductType
 from user_system.client_profile.models import ClientProfile, ClientGroup
 from user_system.employee_profile.models import EmployeeProfile, Position, Department
-from utils.helpers import table_data, normalize_vietnamese, table_data_2, count_table_items
+from utils.helpers import table_data, normalize_vietnamese, table_data_2, count_table_items, get_new_orders, \
+    execute_query
 from utils.constants import (old_data, maNhomND as farmerID, tenNhomND as farmerGroupName)
 
 
@@ -385,62 +386,63 @@ def process_order(data):
         list_order = list()
         list_order_update = list()
         for k, v in enumerate(data):
-            app_log.info(f"Processing order: {v[0]}")
-            date_company_get = make_aware(v[2]) if v[2] is not None else None
-            check_date = make_aware(v[8]).date()
-            price_lists = PriceList.objects.filter(date_start__lte=check_date, date_end__gte=check_date)
-            price_list = price_lists.first().id if price_lists.exists() else str(None)
-            insert_backup = {
-                'order_id': v[0],
-                'date_get': v[1],
-                'date_company_get': date_company_get,
-                'client_id': v[3],
-                'date_delay': v[5],
-                'price_list_id': price_list,
-                'clientlv1_id': v[11],
-                'list_type': v[12],
-                'is_so': v[14],
-                'id_so': v[15],
-                'id_offer_consider': v[16],
-                'note': v[6],
-                'created_by': v[7],
-                'created_at': make_aware(v[8]),
-            }
-            list_data_backup.append(OrderBackup(**insert_backup))
+            if k < 5:
+                print(f"Processing order: {v[0]}")
+                date_company_get = make_aware(v[2]) if v[2] is not None else None
+                check_date = make_aware(v[8]).date()
+                price_lists = PriceList.objects.filter(date_start__lte=check_date, date_end__gte=check_date)
+                price_list = price_lists.first().id if price_lists.exists() else str(None)
+                insert_backup = {
+                    'order_id': v[0],
+                    'date_get': v[1],
+                    'date_company_get': date_company_get,
+                    'client_id': v[3],
+                    'date_delay': v[5],
+                    'price_list_id': price_list,
+                    'clientlv1_id': v[11],
+                    'list_type': v[12],
+                    'is_so': v[14],
+                    'id_so': v[15],
+                    'id_offer_consider': v[16],
+                    'note': v[6],
+                    'created_by': v[7],
+                    'created_at': make_aware(v[8]),
+                }
+                list_data_backup.append(OrderBackup(**insert_backup))
 
-            try:
-                client = User.objects.get(id=v[3])
-            except User.DoesNotExist:
-                client = None
-            notes = json.dumps({"notes": str(v[6])}) if client is not None else json.dumps(
-                {"notes": str(v[6]), "client_id": v[3]})
-            # app_log.info(f"Check character: note - {len(str(notes))} | id_so - {len(str(v[15]))} | "
-            #              f"id_offer_consider - {len(str(v[16]))}")
-            date_company_get = make_aware(v[2]) if v[2] is not None else None
-            insert = {
-                "date_get": v[1],
-                "date_company_get": date_company_get,
-                "client_id": client,
-                "date_delay": v[5],
-                "list_type": v[12],
-                "is_so": v[14],
-                "id_so": v[15],
-                "id_offer_consider": v[16],
-                "created_by": v[7],
-                "note": notes,
-                "status": v[9],
-            }
-            create_at = make_aware(v[8])
-            order = Order(id=v[0], **insert)
-            list_order.append(order)
-            check_date = make_aware(v[8]).date()
-            price_lists = PriceList.objects.filter(date_start__lte=check_date, date_end__gte=check_date).first()
-            order_update = Order(id=v[0], price_list_id=price_lists, created_at=create_at)
-            list_order_update.append(order_update)
+                try:
+                    client = User.objects.get(id=v[3])
+                except User.DoesNotExist:
+                    client = None
+                notes = json.dumps({"notes": str(v[6])}) if client is not None else json.dumps(
+                    {"notes": str(v[6]), "client_id": v[3]})
+                # app_log.info(f"Check character: note - {len(str(notes))} | id_so - {len(str(v[15]))} | "
+                #              f"id_offer_consider - {len(str(v[16]))}")
+                date_company_get = make_aware(v[2]) if v[2] is not None else None
+                insert = {
+                    "date_get": v[1],
+                    "date_company_get": date_company_get,
+                    "client_id": client,
+                    "date_delay": v[5],
+                    "list_type": v[12],
+                    "is_so": v[14],
+                    "id_so": v[15],
+                    "id_offer_consider": v[16],
+                    "created_by": v[7],
+                    "note": notes,
+                    "status": v[9],
+                }
+                create_at = make_aware(v[8])
+                order = Order(id=v[0], **insert)
+                list_order.append(order)
+                check_date = make_aware(v[8]).date()
+                price_lists = PriceList.objects.filter(date_start__lte=check_date, date_end__gte=check_date).first()
+                order_update = Order(id=v[0], price_list_id=price_lists, created_at=create_at)
+                list_order_update.append(order_update)
         app_log.info(f"Inserting backup")
-        Order.objects.bulk_create(list_order, ignore_conflicts=True)
-        Order.objects.bulk_update(list_order_update, ['price_list_id', 'created_at'])
-        OrderBackup.objects.bulk_create(list_data_backup, ignore_conflicts=True)
+        # Order.objects.bulk_create(list_order, ignore_conflicts=True)
+        # Order.objects.bulk_update(list_order_update, ['price_list_id', 'created_at'])
+        # OrderBackup.objects.bulk_create(list_data_backup, ignore_conflicts=True)
 
 
 def insert_order_detail():
@@ -511,9 +513,9 @@ def process_order_detail(data):
                 order_details_list.append(order_detail)
         except AttributeError:
             pass
-
-    OrderDetail.objects.bulk_create(order_details_list, ignore_conflicts=True)
-    OrderBackupDetail.objects.bulk_create(order_backup_details, ignore_conflicts=True)
+    #
+    # OrderDetail.objects.bulk_create(order_details_list, ignore_conflicts=True)
+    # OrderBackupDetail.objects.bulk_create(order_backup_details, ignore_conflicts=True)
 
 
 def insert_special_offer():
@@ -663,7 +665,8 @@ def update_nvtt():
     start_time = time.time()
     app_log.info(f"Start update details")
 
-    orders = Order.objects.filter(client_id__isnull=False, client_id__clientprofile__isnull=False).exclude(nvtt_id__isnull=False).order_by('-id')
+    orders = Order.objects.filter(client_id__isnull=False, client_id__clientprofile__isnull=False).exclude(
+        nvtt_id__isnull=False).order_by('-id')
 
     total_count = orders.count()
 
@@ -720,7 +723,206 @@ def insert_old_data():
     insert_detail_order()
 
 
+def add_CTKM():
+    data = table_data(old_data['tb_CTKM'])
+    create_list = list()
+    update_list = list()
+    for i, v in enumerate(data):
+        if i < 3:
+            print(v)
+        target = v[16] or 0
+        insert_data = {
+            'name': v[1],
+            'time_start': make_aware(v[2]),
+            'time_end': make_aware(v[3]),
+            'target': int(target),
+            'note': json.dumps({"notes": f"{v[6]}"}),
+            'created_by': v[8]
+        }
+        so = SpecialOffer(id=v[0], **insert_data)
+        create_list.append(so)
+        so.created_at = make_aware(v[7])
+        update_list.append(so)
+    SpecialOffer.objects.bulk_create(create_list, ignore_conflicts=True)
+    SpecialOffer.objects.bulk_update(update_list, ['created_at'])
+
+
+def add_CTKM_product():
+    data = table_data(old_data['tb_CTKM_SanPham'])
+    create_data = list()
+    for i, v in enumerate(data):
+        print(v)
+        print(f"Test {v[1]}")
+        try:
+            so_obj = SpecialOffer.objects.get(id=v[1])
+        except SpecialOffer.DoesNotExist:
+            continue
+
+        price_list = PriceList.objects.filter(
+            date_start__lte=so_obj.time_start,
+            date_end__gte=so_obj.time_start,
+        ).order_by('type').first()
+
+        product = Product.objects.filter(id=v[2]).first()
+        product_price = (ProductPrice.objects.filter(price_list=price_list, product=product)
+                         .exclude(price_list=None, product=None).first())
+        notes_dict = {}
+        if so_obj.note is not None:
+            notes_dict = json.loads(so_obj.note)
+
+        if product is None:
+            notes_dict['product'] = f'{v[2]} not found'
+            so_obj.note = json.dumps(notes_dict)
+            so_obj.save()
+
+        price = 0
+        point = 0
+        quantity_in_box = 0
+        cashback = v[7] if v[7] is not None else 0
+        if product_price is not None:
+            price = product_price.price
+            point = product_price.point
+            quantity_in_box = product_price.quantity_in_box
+        insert_data = {
+            'price': price,
+            'point': point,
+            'quantity_in_box': quantity_in_box,
+            'cashback': int(cashback),
+        }
+        # print(insert_data)
+        # sop = SpecialOfferProduct(product_id=product, special_offer=so_obj, **insert_data)
+        # create_data.append(sop)
+    SpecialOfferProduct.objects.bulk_create(create_data)
+
+
 # from utils.insert_db.get_old_data import
+
+def get_new_order_from_current():
+    newest_order = Order.objects.filter(id__icontains='MT').exclude(id__icontains='MTN').order_by('-id').first()
+    data = get_new_orders(old_data['tb_toa'], newest_order.id)
+    with transaction.atomic():
+        list_order = list()
+        list_order_update = list()
+        for i, v in enumerate(data):
+            if i < 10:
+                print(v)
+            print(f"Handling - {v[0]}")
+            try:
+                client = User.objects.get(id=v[3])
+            except User.DoesNotExist:
+                client = None
+            notes = json.dumps({"notes": str(v[6])}) if client is not None else json.dumps(
+                {"notes": str(v[6]), "client_id": v[3]})
+
+            date_company_get = make_aware(v[2]) if v[2] is not None else None
+            insert = {
+                "date_get": v[1],
+                "date_company_get": date_company_get,
+                "client_id": client,
+                "date_delay": v[5],
+                "list_type": v[12],
+                "is_so": v[14],
+                "id_so": v[15],
+                "id_offer_consider": v[16],
+                "created_by": v[7],
+                "note": notes,
+                "status": v[9],
+            }
+            create_at = make_aware(v[8])
+            check_date = make_aware(v[8]).date()
+            price_lists = PriceList.objects.filter(date_start__lte=check_date, date_end__gte=check_date, type='main').first()
+            print(f"Pricelist: {price_lists}")
+            insert['price_list_id'] = price_lists
+            order = Order(id=v[0], **insert)
+            list_order.append(order)
+            order_update = Order(id=v[0], created_at=create_at)
+            list_order_update.append(order_update)
+
+        Order.objects.bulk_create(list_order, ignore_conflicts=True)
+        Order.objects.bulk_update(list_order_update, ['created_at'])
+        # OrderBackup.objects.bulk_create(list_data_backup, ignore_conflicts=True)
+        return list_order
+
+
+def get_new_orderdetail_from_current(list_order):
+    create_order_detail_list = list()
+    update_order_price_list = list()
+
+    added_id = list()
+
+    for order in list_order:
+        order_id = order.id
+        current_order = order
+        query = f"""
+                SELECT *
+                FROM {old_data['tb_toaDetail']}
+                WHERE maToa = ?
+            """
+        params = (order_id,)
+        query_count = f"""
+                        SELECT COUNT(*)
+                        FROM {old_data['tb_toaDetail']}
+                        WHERE maToa = ?
+                    """
+        result = execute_query(query, params)
+        total_detail = execute_query(query_count, params)
+        order_detail_count = current_order.order_detail.count()
+
+        order_detail_list = list()
+        total_price = 0
+        total_point = 0
+        if order_detail_count <= total_detail[0][0]:
+            for i, v in enumerate(result):
+                if v[0] in added_id:
+                    continue
+                note = {}
+
+                try:
+                    product = Product.objects.get(id=v[2])
+                except Product.DoesNotExist:
+                    product = None
+                    note['product_id'] = f"{v[2]} not found"
+
+                if current_order.order_detail.filter(product_id=product, order_box=v[4]).exists():
+                    continue
+
+                insert = {
+                    "order_quantity": v[3],
+                    "order_box": v[4],
+                    "price_list_so": v[8],
+                    "note": note
+                }
+
+                print(f"Test price_list: {order.price_list_id}")
+                if order.price_list_id is not None:
+                    price = ProductPrice.objects.filter(product=product, price_list=order.price_list_id).first()
+                    if price is not None:
+                        order_detail_price = v[3] * price.price
+                    else:
+                        order_detail_price = v[3] * v[5]
+                    point = v[7] * v[4] if v[7] is not None else 0
+                    insert['product_price'] = order_detail_price
+                    insert['point_get'] = point
+                    order_detail = OrderDetail(product_id=product, order_id=order, **insert)
+                    order_detail_list.append(order_detail)
+
+                    total_price += order_detail_price
+                    total_point = point
+                    added_id.append(v[0])
+
+        if total_point > 0 or total_price > 0:
+            order.order_price = total_price
+            order.order_point = total_point
+            update_order_price_list.append(order)
+        create_order_detail_list.extend(order_detail_list)
+    OrderDetail.objects.bulk_create(create_order_detail_list)
+    Order.objects.bulk_update(update_order_price_list, ['order_point', 'order_price'])
+
+
+def add_new_order():
+    with transaction.atomic():
+        data = get_new_order_from_current()
+        get_new_orderdetail_from_current(data)
 
 
 if __name__ == '__main__':

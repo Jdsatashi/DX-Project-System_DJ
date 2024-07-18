@@ -101,6 +101,9 @@ class User(AbstractBaseUser, PermissionsMixin):
 
         if self.email == '':
             self.email = None
+
+        self.status_user(self.status)
+
         self.clean()
         super().save(*args, **kwargs)
 
@@ -133,6 +136,21 @@ class User(AbstractBaseUser, PermissionsMixin):
                                                  register_name=f"Nông dân {self.id}")
                 group_perm = GroupPerm.objects.filter(name='farmer').first()
                 self.group_user.add(group_perm, through_defaults={'allow': True})
+
+    def status_user(self, status):
+        allow = True
+        if status == 'deactivate' or status == 'pending' or status == 'inactive':
+            allow = False
+        groups = UserGroupPerm.objects.filter(users=self)
+        for group in groups:
+            group.allow = allow
+
+        perms = UserPerm.objects.filter(users=self)
+        for perm in perms:
+            perm.allow = allow
+
+        UserGroupPerm.objects.bulk_update(groups, ['allow'])
+        UserPerm.objects.bulk_update(perms, ['allow'])
 
     def is_perm(self, permission):
         return self.userperm_set.filter(perm=permission).exists()

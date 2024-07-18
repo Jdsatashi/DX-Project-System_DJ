@@ -98,9 +98,10 @@ class SpecialOffer(models.Model):
     count_turnover = models.BooleanField(default=False)  # Khuyến mãi sẽ tính doanh số hay không
 
     target = models.BigIntegerField(null=False, default=0)
-    quantity_can_use = models.FloatField(null=True)
-    box_can_use = models.IntegerField(null=True)
+    quantity_can_use = models.IntegerField(null=True)
+    box_can_use = models.FloatField(null=True)
 
+    priority = models.IntegerField(null=True)
     status = models.CharField(null=True, max_length=24)
     note = models.TextField(null=True)
 

@@ -45,19 +45,14 @@ def add_permissions_for_npp_users():
 
 def add_permissions(user_instance, managed_users):
     content_type = ContentType.objects.get_for_model(User)
-    perm_name_list = f'list_{content_type.app_label}_{content_type.model}'
-    perm_name_retrieve = f'retrieve_{content_type.app_label}_{content_type.model}'
+    perm_name_list = f'view_{content_type.app_label}_{content_type.model}'
 
     for managed_user in managed_users:
         perm_name_list_ = f"{perm_name_list}_{managed_user.id}"
-        perm_name_retrieve_ = f"{perm_name_retrieve}_{managed_user.id}"
         print(f"Handle user: {managed_user}")
 
         perm_list = Perm.objects.get(
             name=perm_name_list_,
         )
-        perm_retrieve = Perm.objects.get(
-            name=perm_name_retrieve_,
-        )
 
-        user_instance.perm_user.add(perm_list, perm_retrieve)
+        user_instance.perm_user.add(perm_list)

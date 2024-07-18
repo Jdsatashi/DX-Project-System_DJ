@@ -111,7 +111,7 @@ def table_data_2(table_name: str, amount='*', options=None):
                 app_log.info(f"Query options")
                 query = f"""
                 SELECT *
-                FROM {table_name}
+                FROM 
                 ORDER BY [ngayLap]
                 OFFSET {options.get('start')} ROWS
                 FETCH NEXT {options.get('end')} ROWS ONLY;
@@ -124,6 +124,59 @@ def table_data_2(table_name: str, amount='*', options=None):
         except pyodbc.Error as e:
             app_log.info(f"Error with driver '{driver}': {e}")
     return None
+
+
+def get_new_orders(table_name: str, last_order_id: str):
+    # Get env values
+    driver = "ODBC Driver 17 for SQL Server"
+    try:
+        connection_string = f"DRIVER={{{driver}}};SERVER={OLD_SQL_HOST};DATABASE={OLD_SQL_DB};UID={OLD_SQL_USER};PWD={OLD_SQL_PW};TrustServerCertificate=yes"
+
+        print(f"Attempting to connect using driver: {driver}")
+        print(f"Connection string: {connection_string}")
+
+        con = pyodbc.connect(connection_string)
+        cursor = con.cursor()
+        query = f"""
+                    SELECT *
+                    FROM {table_name}
+                    WHERE maToa > ?
+                    ORDER BY maToa
+                    """
+        cursor.execute(query, (last_order_id,))
+        rows = cursor.fetchall()
+        con.close()
+        return rows
+    except pyodbc.Error as e:
+        print(f"Error with driver '{driver}': {e}")
+    return None
+
+
+def execute_query(query, params=()):
+    driver = "ODBC Driver 17 for SQL Server"
+    connection_string = f"DRIVER={{{driver}}};SERVER={OLD_SQL_HOST};DATABASE={OLD_SQL_DB};UID={OLD_SQL_USER};PWD={OLD_SQL_PW};TrustServerCertificate=yes"
+
+    try:
+        print(f"Attempting to connect using driver: {driver}")
+        print(f"Connection string: {connection_string}")
+
+        con = pyodbc.connect(connection_string)
+        cursor = con.cursor()
+
+        cursor.execute(query, params)
+        rows = cursor.fetchall()
+
+        con.close()
+        return rows
+
+    except pyodbc.Error as e:
+        print(f"Error with driver '{driver}': {e}")
+        return None
+
+
+
+def old_db_connect(query):
+    pass
 
 
 def generate_id(ma_nhom):
