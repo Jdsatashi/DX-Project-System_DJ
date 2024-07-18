@@ -7,6 +7,40 @@ from django.db.models import Q
 from app.logs import app_log
 
 
+def is_valid_query(field, value, model):
+    field_type = model._meta.get_field(field).get_internal_type()
+
+    if field_type in ['IntegerField', 'FloatField', 'DecimalField']:
+        try:
+            float(value)
+        except ValueError:
+            return False
+
+    elif field_type in ['DateField']:
+        try:
+            datetime.strptime(value, '%Y-%m-%d')
+        except ValueError:
+            return False
+
+    elif field_type in ['TimeField']:
+        try:
+            datetime.strptime(value, '%H:%M:%S')
+        except ValueError:
+            return False
+
+    elif field_type in ['DateTimeField']:
+        try:
+            datetime.strptime(value, '%Y-%m-%d %H:%M:%S')
+        except ValueError:
+            return False
+
+    elif field_type in ['BooleanField']:
+        if value.lower() not in ['true', 'false']:
+            return False
+
+    return True
+
+
 def get_query_parameters(request):
     data = request.data if isinstance(request.data, dict) else {}
     query = data.get('query') or request.query_params.get('query', '')
@@ -23,19 +57,22 @@ def get_query_parameters(request):
     return query, strict_mode, limit, page, order_by, from_date, to_date, date_field
 
 
-def dynamic_q(queries, fields, strict_mode):
+def dynamic_q(queries, fields, strict_mode, model):
     dynamic_query = Q()
     query_type = '__icontains' if not strict_mode else '__exact'
     for query in queries:
         sub_query = Q()
         for field in fields:
-            sub_query |= Q(**{f'{field}{query_type}': query})
+            if is_valid_query(field, query, model):
+                sub_query |= Q(**{f'{field}{query_type}': query})
+                print(sub_query)
         dynamic_query &= sub_query
     return dynamic_query
 
 
 def filter_data(self, request, query_fields, **kwargs):
     # Get query set if exists or get default
+    model = self.serializer_class.Meta.model
     queryset = kwargs.get('queryset', self.get_queryset())
     order_by_required = kwargs.get('order_by_required', True)
     # Split query search, strict mode, limit, page, order_by
@@ -43,7 +80,8 @@ def filter_data(self, request, query_fields, **kwargs):
     # If query exists, filter queryset
     if query != '':
         queries = query.split(',')
-        query_filter = dynamic_q(queries, query_fields, strict_mode)
+        query_filter = dynamic_q(queries, query_fields, strict_mode, model)
+        print(f"Test query: {query_filter}")
         queryset = queryset.filter(query_filter)
     if from_date or to_date:
         try:
