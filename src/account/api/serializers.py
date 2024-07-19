@@ -36,7 +36,7 @@ class UserSerializer(serializers.ModelSerializer):
 
 
 class ClientProfileList(serializers.ModelSerializer):
-    client_group_id = ClientGroupView()
+    client_group_id = ClientGroupView(read_only=True)
     nvtt_id = serializers.SerializerMethodField()
 
     class Meta:
@@ -70,7 +70,7 @@ class GroupNameSerializer(serializers.ModelSerializer):
 class UserListSerializer(serializers.ModelSerializer):
     phone = serializers.SerializerMethodField()
     profile = serializers.SerializerMethodField()
-    group_user = GroupNameSerializer(many=True)
+    group_user = GroupNameSerializer(many=True, read_only=True)
 
     class Meta:
         model = User
@@ -202,6 +202,7 @@ class UserWithPerm(serializers.ModelSerializer):
     perm = serializers.ListField(child=serializers.CharField(), write_only=True, required=False, allow_null=True)
     phone = serializers.ListField(child=serializers.CharField(), write_only=True, required=False, allow_null=True)
     profile = serializers.JSONField(write_only=True, required=False, allow_null=True)
+    group_user = GroupNameSerializer(many=True, read_only=True)
 
     class Meta:
         model = User
@@ -237,9 +238,6 @@ class UserWithPerm(serializers.ModelSerializer):
         else:
             perm_user = perm_user[:5]
             representation['perm_user'] = perm_user + ['...'] if len(perm_user) >= 5 else perm_user
-
-        group_users = instance.group_user.all()
-        representation['group_user'] = [group.display_name for group in group_users]
 
         return representation
 

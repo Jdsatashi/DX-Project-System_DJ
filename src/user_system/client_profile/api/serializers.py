@@ -19,7 +19,7 @@ class ClientGroupView(serializers.ModelSerializer):
 
 
 class ClientProfileUserSerializer(serializers.ModelSerializer):
-    client_group_id = ClientGroupView()
+    client_group_id = ClientGroupView(read_only=True)
     nvtt_id = serializers.SerializerMethodField()
 
     class Meta:
