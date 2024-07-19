@@ -12,8 +12,14 @@ class ClientProfileSerializer(BaseRestrictSerializer):
         read_only_fields = ['created_by', 'created_at', 'updated_at']
 
 
+class ClientGroupView(serializers.ModelSerializer):
+    class Meta:
+        model = ClientGroup
+        fields = ['id', 'name']
+
+
 class ClientProfileUserSerializer(serializers.ModelSerializer):
-    client_group_id = serializers.CharField(source='client_group_id.name')
+    client_group_id = ClientGroupView()
     nvtt_id = serializers.SerializerMethodField()
 
     class Meta:
@@ -28,7 +34,11 @@ class ClientProfileUserSerializer(serializers.ModelSerializer):
         nvtt = User.objects.filter(id=nvtt_id).first()
         if nvtt is None:
             return None
-        return nvtt.employeeprofile.register_name
+        response = {
+            'id': nvtt_id,
+            'name': nvtt.employeeprofile.register_name
+        }
+        return response
 
 
 class ClientGroupSerializer(BaseRestrictSerializer):

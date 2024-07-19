@@ -7,7 +7,7 @@ from rest_framework.exceptions import ValidationError
 from account.models import User, GroupPerm, Perm, Verify, PhoneNumber, GrantAccess
 from app.logs import app_log
 from app.settings import SMS_SERVICE
-from user_system.client_profile.api.serializers import ClientProfileUserSerializer
+from user_system.client_profile.api.serializers import ClientProfileUserSerializer, ClientGroupView
 from user_system.client_profile.models import ClientProfile, ClientGroup
 from user_system.employee_profile.api.serializers import EmployeeProfileUserSerializer
 from user_system.employee_profile.models import EmployeeProfile
@@ -36,7 +36,7 @@ class UserSerializer(serializers.ModelSerializer):
 
 
 class ClientProfileList(serializers.ModelSerializer):
-    client_group_id = serializers.CharField(source='client_group_id.name')
+    client_group_id = ClientGroupView()
     nvtt_id = serializers.SerializerMethodField()
 
     class Meta:
@@ -48,7 +48,11 @@ class ClientProfileList(serializers.ModelSerializer):
         nvtt = User.objects.filter(id=nvtt_id).first()
         if nvtt is None:
             return None
-        return nvtt.employeeprofile.register_name
+        response = {
+            'id': nvtt_id,
+            'name': nvtt.employeeprofile.register_name
+        }
+        return response
 
 
 class EmployeeProfileList(serializers.ModelSerializer):
@@ -66,7 +70,7 @@ class GroupNameSerializer(serializers.ModelSerializer):
 class UserListSerializer(serializers.ModelSerializer):
     phone = serializers.SerializerMethodField()
     profile = serializers.SerializerMethodField()
-    group_user = serializers.SerializerMethodField()
+    group_user = GroupNameSerializer(many=True)
 
     class Meta:
         model = User
@@ -84,11 +88,6 @@ class UserListSerializer(serializers.ModelSerializer):
             employee_profile = obj.employeeprofile
             return EmployeeProfileList(employee_profile).data
         return None
-
-    def get_group_user(self, obj):
-        group_users = obj.group_user.all()
-
-        return [group.display_name for group in group_users]
 
 
 class ClientInfo(serializers.ModelSerializer):
