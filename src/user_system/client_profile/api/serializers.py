@@ -26,6 +26,8 @@ class ClientProfileUserSerializer(serializers.ModelSerializer):
     def get_nvtt_id(self, obj):
         nvtt_id = obj.nvtt_id
         nvtt = User.objects.filter(id=nvtt_id).first()
+        if nvtt is None:
+            return None
         return nvtt.employeeprofile.register_name
 
 
