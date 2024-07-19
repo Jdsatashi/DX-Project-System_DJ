@@ -141,13 +141,18 @@ class User(AbstractBaseUser, PermissionsMixin):
         allow = True
         if status == 'deactivate' or status == 'pending' or status == 'inactive':
             allow = False
+        print(f"Is allow: {allow}")
         groups = UserGroupPerm.objects.filter(user=self)
         for group in groups:
+            print(f"Update group: {group.group.display_name}")
             group.allow = allow
+            print(f"Group allow: {group.allow}")
 
         perms = UserPerm.objects.filter(user=self)
         for perm in perms:
+            print(f"Update group: {perm}")
             perm.allow = allow
+            print(f"User allow: {perm.allow}")
 
         UserGroupPerm.objects.bulk_update(groups, ['allow'])
         UserPerm.objects.bulk_update(perms, ['allow'])
