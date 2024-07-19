@@ -141,11 +141,11 @@ class User(AbstractBaseUser, PermissionsMixin):
         allow = True
         if status == 'deactivate' or status == 'pending' or status == 'inactive':
             allow = False
-        groups = UserGroupPerm.objects.filter(users=self)
+        groups = UserGroupPerm.objects.filter(user=self)
         for group in groups:
             group.allow = allow
 
-        perms = UserPerm.objects.filter(users=self)
+        perms = UserPerm.objects.filter(user=self)
         for perm in perms:
             perm.allow = allow
 
