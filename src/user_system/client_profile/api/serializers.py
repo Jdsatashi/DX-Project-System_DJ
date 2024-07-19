@@ -26,11 +26,7 @@ class ClientProfileUserSerializer(serializers.ModelSerializer):
     def get_nvtt_id(self, obj):
         nvtt_id = obj.nvtt_id
         nvtt = User.objects.filter(id=nvtt_id).first()
-        response = {
-            'nvtt_id': nvtt_id,
-            'nvtt_name': nvtt.employeeprofile.register_name
-        }
-        return response
+        return nvtt.employeeprofile.register_name
 
 
 class ClientGroupSerializer(BaseRestrictSerializer):

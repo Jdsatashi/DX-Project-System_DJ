@@ -188,7 +188,7 @@ class UserWithPerm(serializers.ModelSerializer):
     perm = serializers.ListField(child=serializers.CharField(), write_only=True, required=False, allow_null=True)
     phone = serializers.ListField(child=serializers.CharField(), write_only=True, required=False, allow_null=True)
     profile = serializers.JSONField(write_only=True, required=False, allow_null=True)
-    group_user = GroupNameSerializer(many=True, read_only=True)
+
     class Meta:
         model = User
         # fields = '__all__'
@@ -223,6 +223,9 @@ class UserWithPerm(serializers.ModelSerializer):
         else:
             perm_user = perm_user[:5]
             representation['perm_user'] = perm_user + ['...'] if len(perm_user) >= 5 else perm_user
+
+        group_users = instance.group_user.all()
+        representation['group_user'] = [group.display_name for group in group_users]
 
         return representation
 
