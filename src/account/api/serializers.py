@@ -47,9 +47,16 @@ class EmployeeProfileList(serializers.ModelSerializer):
         fields = ['register_name', 'address', 'department', 'position']
 
 
+class GroupNameSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = GroupPerm
+        fields = ['name', 'display_name']
+
+
 class UserListSerializer(serializers.ModelSerializer):
     phone = serializers.SerializerMethodField()
     profile = serializers.SerializerMethodField()
+    group_user = GroupNameSerializer(many=True, read_only=True)
 
     class Meta:
         model = User
@@ -181,7 +188,7 @@ class UserWithPerm(serializers.ModelSerializer):
     perm = serializers.ListField(child=serializers.CharField(), write_only=True, required=False, allow_null=True)
     phone = serializers.ListField(child=serializers.CharField(), write_only=True, required=False, allow_null=True)
     profile = serializers.JSONField(write_only=True, required=False, allow_null=True)
-
+    group_user = GroupNameSerializer(many=True, read_only=True)
     class Meta:
         model = User
         # fields = '__all__'
@@ -290,7 +297,8 @@ class UserWithPerm(serializers.ModelSerializer):
             # Log the exception if needed
             app_log.error(f"Error updating user: {e}")
             # Rollback transaction and re-raise the exception
-            raise ValidationError({'error': f'lỗi bật ngờ khi update user {instance.id}'})
+            # raise ValidationError({'error': f'lỗi bật ngờ khi update user {instance.id}'})
+            raise e
 
         return instance
 
