@@ -19,17 +19,17 @@ class ClientGroupView(serializers.ModelSerializer):
 
 
 class ClientProfileUserSerializer(serializers.ModelSerializer):
-    client_group_id = ClientGroupView(read_only=True)
-    nvtt_id = serializers.SerializerMethodField()
+    client_group = ClientGroupView(source='client_group_id', read_only=True)
+    nvtt = serializers.SerializerMethodField(read_only=True)
 
     class Meta:
         model = ClientProfile
-        fields = ['register_name', 'address', 'client_group_id', 'is_npp', 'nvtt_id']
+        fields = ['register_name', 'address', 'client_group_id', 'is_npp', 'client_group', 'nvtt', 'nvtt_id']
         extra_kwargs = {
             'is_npp': {'required': False},
         }
 
-    def get_nvtt_id(self, obj):
+    def get_nvtt(self, obj):
         nvtt_id = obj.nvtt_id
         nvtt = User.objects.filter(id=nvtt_id).first()
         if nvtt is None:

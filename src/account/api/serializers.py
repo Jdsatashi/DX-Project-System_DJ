@@ -147,7 +147,7 @@ class RegisterSerializer(serializers.ModelSerializer):
             verify = Verify.objects.filter(phone_verify=phone_num, is_verify=False)
             # If verified, raise error
             if not verify.exists():
-                raise serializers.ValidationError({'phone_number': ['Số điện thoại đã xác thực.']})
+                raise serializers.ValidationError({'message': ['Số điện thoại đã xác thực.']})
             verify = verify.first()
             # Update new verify code and time expired
             verify.get_new_code(verify_code)
@@ -254,7 +254,7 @@ class UserWithPerm(serializers.ModelSerializer):
                 app_log.info(f"{email and email != '' and User.objects.filter(email=email).exists()}")
                 if email and email != '' and User.objects.filter(email=email).exists():
                     raise serializers.ValidationError(
-                        {'email': f"Email '{email}' already exists"})
+                        {'message': f"email '{email}' already exists"})
 
                 user = super().create(validated_data)
 
@@ -264,19 +264,19 @@ class UserWithPerm(serializers.ModelSerializer):
                         # Validate phone number
                         is_valid, phone_number = phone_validate(phone_number)
                         if not is_valid:
-                            raise serializers.ValidationError({'phone': f'"{phone_number}" không hợp lệ'})
+                            raise serializers.ValidationError({'message': f'"{phone_number}" không hợp lệ'})
                         try:
                             PhoneNumber.objects.create(phone_number=phone_number, user=user)
                         except IntegrityError:
                             raise serializers.ValidationError(
-                                {'phone': f'"{phone_number}" đã tồn tại'})
+                                {'message': f'"{phone_number}" đã tồn tại'})
                 handle_user(user, group_data, perm_data, profile_data)
 
         except Exception as e:
             # Log the exception if needed
             app_log.error(f"Error creating user: {e}")
             # Rollback transaction and re-raise the exception
-            raise ValidationError({'error': 'lỗi bất ngờ khi create user'})
+            raise ValidationError({'message': 'unexpected error when create user'})
 
         return user
 
@@ -299,12 +299,12 @@ class UserWithPerm(serializers.ModelSerializer):
                     for phone_number in phone_data:
                         is_valid, phone_number = phone_validate(phone_number)
                         if not is_valid:
-                            raise serializers.ValidationError({'phone': f'"{phone_number}" không hợp lệ'})
+                            raise serializers.ValidationError({'message': f'\'{phone_number}\' không hợp lệ'})
                         try:
                             PhoneNumber.objects.create(phone_number=phone_number, user=instance)
                         except IntegrityError:
                             raise serializers.ValidationError(
-                                {'phone': f'"{phone_number}" đã tồn tại'})
+                                {'message': f'phone_number \'{phone_number}\' đã tồn tại'})
 
                 handle_user(instance, group_data, perm_data, profile_data)
 
@@ -312,7 +312,7 @@ class UserWithPerm(serializers.ModelSerializer):
             # Log the exception if needed
             app_log.error(f"Error updating user: {e}")
             # Rollback transaction and re-raise the exception
-            # raise ValidationError({'error': f'lỗi bật ngờ khi update user {instance.id}'})
+            # raise ValidationError({'message': f'lỗi bật ngờ khi update user {instance.id}'})
             raise e
 
         return instance
@@ -324,7 +324,7 @@ def handle_user(user, group_data, perm_data, profile_data):
         group_objs = GroupPerm.objects.filter(name__in=group_data)
         missing_groups = list(set(group_data) - set(group_objs.values_list('name', flat=True)))
         if missing_groups:
-            raise serializers.ValidationError({'group': f'các groups không tồn tại: {missing_groups}'})
+            raise serializers.ValidationError({'message': f'các groups không tồn tại: {missing_groups}'})
         user.group_user.set(group_objs, through_defaults={'allow': True})
 
     # Add perm to user
@@ -332,7 +332,7 @@ def handle_user(user, group_data, perm_data, profile_data):
         perm_objs = Perm.objects.filter(name__in=perm_data)
         missing_perms = list(set(perm_data) - set(perm_objs.values_list('name', flat=True)))
         if missing_perms:
-            raise serializers.ValidationError({'perm': f'các perms không tồn tại: {missing_perms}'})
+            raise serializers.ValidationError({'message': f'các perms không tồn tại: {missing_perms}'})
         user.perm_user.set(perm_objs, through_defaults={'allow': True})
 
     # Handle when user is employee
@@ -351,16 +351,19 @@ def handle_user(user, group_data, perm_data, profile_data):
         try:
             client_group = ClientGroup.objects.get(id=client_group_id)
         except ClientGroup.DoesNotExist:
-            raise serializers.ValidationError({'client_group_id': f'{client_group_id} không tồn tại'})
+            raise serializers.ValidationError({'message': f'client_group_id {client_group_id} không tồn tại'})
         # Get nvtt id
         nvtt_id = profile_data.pop('nvtt_id', '')
+        print(f"Check nvtt_id: {nvtt_id}")
         # Get user as nvtt object
-        nvtt = User.objects.filter(
+        nv_user = User.objects.filter(id=nvtt_id)
+        nvtt = nv_user.filter(
             Q(group_user__name='nvtt') |
             (Q(id=nvtt_id) & Q(user_type='employee') & Q(employeeprofile__position__id='NVTT'))
         ).select_related('employeeprofile').prefetch_related('employeeprofile__position').distinct().first()
         if nvtt is None:
-            raise serializers.ValidationError({'nvtt_id': f'{nvtt_id} không tồn tại'})
+            raise serializers.ValidationError({'message': f'nvtt {nvtt_id} không tồn tại'})
+        print(f"Check nvtt: {nvtt}")
         # Get profile was created with user
         profile, created = ClientProfile.objects.update_or_create(client_id=user, defaults=profile_data)
         # Update profile with data
