@@ -36,15 +36,15 @@ class UserSerializer(serializers.ModelSerializer):
 
 
 class ClientProfileList(serializers.ModelSerializer):
-    client_group_id = ClientGroupView(read_only=True)
+    client_group = ClientGroupView(read_only=True)
     nvtt = serializers.SerializerMethodField()
     client_lv1 = serializers.SerializerMethodField(read_only=True)
 
     class Meta:
         model = ClientProfile
-        fields = ['register_name', 'address', 'client_group_id', 'is_npp', 'nvtt_id', 'client_lv1', 'client_lv1_id']
+        fields = ['register_name', 'address', 'client_group', 'client_group_id', 'is_npp', 'nvtt_id', 'client_lv1', 'nvtt', 'client_lv1_id']
 
-    def get_nvtt_id(self, obj):
+    def get_nvtt(self, obj):
         nvtt_id = obj.nvtt_id
         nvtt = User.objects.filter(id=nvtt_id).first()
         if nvtt is None:
