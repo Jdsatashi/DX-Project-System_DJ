@@ -18,13 +18,20 @@ class ClientGroupView(serializers.ModelSerializer):
         fields = ['id', 'name']
 
 
+class ClientLV1(serializers.ModelSerializer):
+    class Meta:
+        model = ClientProfile
+        fields = ['client_id', 'register_name']
+
+
 class ClientProfileUserSerializer(serializers.ModelSerializer):
     client_group = ClientGroupView(source='client_group_id', read_only=True)
     nvtt = serializers.SerializerMethodField(read_only=True)
+    client_lv1 = serializers.SerializerMethodField(read_only=True)
 
     class Meta:
         model = ClientProfile
-        fields = ['register_name', 'address', 'client_group_id', 'client_lv1_id', 'is_npp', 'client_group', 'nvtt', 'nvtt_id']
+        fields = ['register_name', 'address', 'client_group_id', 'client_lv1', 'client_lv1_id', 'is_npp', 'client_group', 'nvtt', 'nvtt_id']
         extra_kwargs = {
             'is_npp': {'required': False},
         }
@@ -39,6 +46,16 @@ class ClientProfileUserSerializer(serializers.ModelSerializer):
             'name': nvtt.employeeprofile.register_name
         }
         return response
+
+    def get_client_lv1(self, obj):
+        client_lv1_id = obj.client_lv1_id
+        client_lv1 = ClientProfile.objects.filter(client_id_id=client_lv1_id).first()
+        if client_lv1 is None:
+            return None
+        return {
+            'id':  client_lv1_id,
+            'name': client_lv1.register_name
+        }
 
 
 class ClientGroupSerializer(BaseRestrictSerializer):

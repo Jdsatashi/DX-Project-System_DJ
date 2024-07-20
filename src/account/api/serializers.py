@@ -38,10 +38,11 @@ class UserSerializer(serializers.ModelSerializer):
 class ClientProfileList(serializers.ModelSerializer):
     client_group_id = ClientGroupView(read_only=True)
     nvtt_id = serializers.SerializerMethodField()
+    client_lv1 = serializers.SerializerMethodField(read_only=True)
 
     class Meta:
         model = ClientProfile
-        fields = ['register_name', 'address', 'client_group_id', 'is_npp', 'nvtt_id']
+        fields = ['register_name', 'address', 'client_group_id', 'is_npp', 'nvtt_id', 'client_lv1', 'client_lv1_id']
 
     def get_nvtt_id(self, obj):
         nvtt_id = obj.nvtt_id
@@ -53,6 +54,16 @@ class ClientProfileList(serializers.ModelSerializer):
             'name': nvtt.employeeprofile.register_name
         }
         return response
+
+    def get_client_lv1(self, obj):
+        client_lv1_id = obj.client_lv1_id
+        client_lv1 = ClientProfile.objects.filter(client_id_id=client_lv1_id).first()
+        if client_lv1 is None:
+            return None
+        return {
+            'id':  client_lv1_id,
+            'name': client_lv1.register_name
+        }
 
 
 class EmployeeProfileList(serializers.ModelSerializer):
