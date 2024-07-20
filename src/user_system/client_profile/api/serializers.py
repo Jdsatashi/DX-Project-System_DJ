@@ -24,7 +24,7 @@ class ClientProfileUserSerializer(serializers.ModelSerializer):
 
     class Meta:
         model = ClientProfile
-        fields = ['register_name', 'address', 'client_group_id', 'is_npp', 'client_group', 'nvtt', 'nvtt_id']
+        fields = ['register_name', 'address', 'client_group_id', 'client_lv1_id', 'is_npp', 'client_group', 'nvtt', 'nvtt_id']
         extra_kwargs = {
             'is_npp': {'required': False},
         }
