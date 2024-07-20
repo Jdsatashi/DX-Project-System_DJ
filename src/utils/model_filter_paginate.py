@@ -1,14 +1,65 @@
 from datetime import datetime, timedelta
+from urllib.parse import urlencode
 
-from django.core.exceptions import FieldError
+from django.core.exceptions import FieldError, FieldDoesNotExist
 from django.core.paginator import Paginator
 from django.db.models import Q
+from django.db.models.fields.related import ForeignKey
 
 from app.logs import app_log
 
 
-def is_valid_query(field, value, model):
+def is_valid_query2(field, value, model):
     field_type = model._meta.get_field(field).get_internal_type()
+
+    if field_type in ['IntegerField', 'FloatField', 'DecimalField']:
+        try:
+            float(value)
+        except ValueError:
+            return False
+
+    elif field_type in ['DateField']:
+        try:
+            datetime.strptime(value, '%Y-%m-%d')
+        except ValueError:
+            return False
+
+    elif field_type in ['TimeField']:
+        try:
+            datetime.strptime(value, '%H:%M:%S')
+        except ValueError:
+            return False
+
+    elif field_type in ['DateTimeField']:
+        try:
+            datetime.strptime(value, '%Y-%m-%d %H:%M:%S')
+        except ValueError:
+            return False
+
+    elif field_type in ['BooleanField']:
+        if value.lower() not in ['true', 'false']:
+            return False
+
+    return True
+
+
+def is_valid_query(field, value, model):
+    # Handle ForeignKey fields
+    field_parts = field.split('__')
+    current_model = model
+
+    for part in field_parts:
+        try:
+            field_object = current_model._meta.get_field(part)
+        except FieldDoesNotExist:
+            return False
+
+        if isinstance(field_object, ForeignKey):
+            current_model = field_object.related_model
+        else:
+            break
+
+    field_type = field_object.get_internal_type()
 
     if field_type in ['IntegerField', 'FloatField', 'DecimalField']:
         try:
@@ -144,16 +195,41 @@ def filter_data(self, request, query_fields, **kwargs):
         'total_page': paginator.num_pages,
         'current_page': page
     }
+    # if page_obj.has_next():
+    #     next_page = request.build_absolute_uri(
+    #         '?page={}&limit={}&query={}&order_by={}&date_field={}&from_date={}&to_date={}'.format(
+    #             page_obj.next_page_number(), limit, query, order_by, date_field, from_date, to_date))
+    #     response_data['next_page'] = next_page
+    # if page_obj.has_previous():
+    #     prev_page = request.build_absolute_uri(
+    #         '?page={}&limit={}&query={}&order_by={}&date_field={}&from_date={}&to_date={}'.format(
+    #             page_obj.previous_page_number(), limit, query, order_by, date_field, from_date, to_date))
+    #     response_data['prev_page'] = prev_page
+
+    extra_params = kwargs.get('extra_params', {})
+
     # If has next page, add urls to response data
     if page_obj.has_next():
-        next_page = request.build_absolute_uri(
-            '?page={}&limit={}&query={}&order_by={}&date_field={}&from_date={}&to_date={}'.format(
-                page_obj.next_page_number(), limit, query, order_by, date_field, from_date, to_date))
+        next_page = build_absolute_uri_with_params(request, {'page': page_obj.next_page_number(), 'limit': limit,
+                                                             **extra_params})
         response_data['next_page'] = next_page
+
     # If has previous page, add urls to response data
     if page_obj.has_previous():
-        prev_page = request.build_absolute_uri(
-            '?page={}&limit={}&query={}&order_by={}&date_field={}&from_date={}&to_date={}'.format(
-                page_obj.previous_page_number(), limit, query, order_by, date_field, from_date, to_date))
+        prev_page = build_absolute_uri_with_params(request, {'page': page_obj.previous_page_number(), 'limit': limit,
+                                                             **extra_params})
         response_data['prev_page'] = prev_page
+
     return response_data
+
+
+def build_absolute_uri_with_params(request, extra_params=None):
+    params = request.GET.copy()
+
+    # if extra_params:
+    #     params.update(extra_params)
+
+    filtered_params = {key: value for key, value in params.items() if value}
+
+    url = request.build_absolute_uri('?' + urlencode(filtered_params))
+    return url
