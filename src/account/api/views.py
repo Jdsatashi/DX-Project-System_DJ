@@ -33,7 +33,7 @@ from utils.constants import status as user_status, maNhomND, admin_role, phone_m
 from utils.env import TOKEN_LT
 from utils.helpers import generate_digits_code, generate_id, phone_validate, local_time, check_email
 from utils.insert_db.default_roles_perms import set_user_perm
-from utils.model_filter_paginate import filter_data
+from utils.model_filter_paginate import filter_data, dynamic_q
 
 
 # Register api view
@@ -48,15 +48,17 @@ class ApiAccount(viewsets.GenericViewSet, mixins.ListModelMixin, mixins.CreateMo
 
     def list(self, request, *args, **kwargs):
         start_time = time.time()
-        queryset = self.get_queryset()
-
+        queryset = User.objects.all().select_related('clientprofile', 'employeeprofile').prefetch_related(
+            'phone_numbers', 'group_user')
+        sub_queryset = User.objects.all().select_related('clientprofile', 'employeeprofile').prefetch_related(
+            'phone_numbers', 'group_user')
         self.serializer_class = UserListSerializer
 
         get_user = self.request.query_params.get('get_user', None)
         match get_user:
             case 'nvtt':
                 app_log.info(f"Case nvtt")
-                queryset = User.objects.filter(
+                queryset = queryset.filter(
                     group_user__name='nvtt'
                 )
             case 'client':
@@ -83,8 +85,45 @@ class ApiAccount(viewsets.GenericViewSet, mixins.ListModelMixin, mixins.CreateMo
                 app_log.info(f"Case default")
                 pass
         queryset = queryset.distinct()
-        response = filter_data(self, request, ['id', 'username', 'email', 'phone_numbers__phone_number',
-                                               'clientprofile__register_name', 'employeeprofile__register_name'],
+
+        npp = self.request.query_params.get('npp', None)
+        nvtt = self.request.query_params.get('nvtt', None)
+        daily = self.request.query_params.get('daily', None)
+
+        search_query_fields = ['id', 'username', 'email', 'phone_numbers__phone_number',
+                               'clientprofile__register_name',
+                               'employeeprofile__register_name']
+
+        if nvtt:
+            nvtts = sub_queryset.filter(
+                group_user__name='nvtt'
+            )
+            queries = nvtt.split(',')
+            sub_query = dynamic_q(queries, search_query_fields, False, User)
+            nvtts = nvtts.filter(sub_query).values_list('id', flat=True).distinct()
+            queryset = queryset.filter(clientprofile__nvtt_id__in=list(nvtts))
+
+        if npp:
+            npps = sub_queryset.filter(
+                Q(clientprofile__is_npp=True) | Q(group_user__name='npp')
+            )
+            queries = npp.split(',')
+            sub_query = dynamic_q(queries, search_query_fields, False, User)
+            npps = npps.filter(sub_query).values_list('id', flat=True).distinct()
+            queryset = queryset.filter(clientprofile__client_lv1_id__in=list(npps))
+
+        if daily:
+            dailys = sub_queryset.filter(
+                user_type='client'
+            ).exclude(
+                Q(clientprofile__is_npp=True) | Q(group_user__name='npp')
+            )
+            queries = daily.split(',')
+            sub_query = dynamic_q(queries, search_query_fields, False, User)
+            dailys = dailys.filter(sub_query).values_list('id', flat=True).distinct()
+            queryset = queryset.filter(clientprofile__client_lv1_id__in=list(dailys))
+
+        response = filter_data(self, request, search_query_fields,
                                queryset=queryset, **kwargs)
         app_log.info(f"Query time: {time.time() - start_time}")
         return Response(response, status.HTTP_200_OK)
@@ -194,7 +233,8 @@ def otp_verify(request, pk):
         app_log.info("OTP code is expired")
         return Response({'message': 'Mã otp đã hết hạn'}, status=status.HTTP_200_OK)
 
-    return Response({'message': f'phương thức {request.method} không hợp lệ'}, status=status.HTTP_405_METHOD_NOT_ALLOWED)
+    return Response({'message': f'phương thức {request.method} không hợp lệ'},
+                    status=status.HTTP_405_METHOD_NOT_ALLOWED)
 
 
 @extend_schema(
@@ -251,7 +291,8 @@ def phone_login_2(request):
                                                verify_type="SMS OTP")
             response = response_verify_code(new_verify)
             return Response(response, status.HTTP_200_OK)
-    return Response({'message': f'phương thức {request.method} không hợp lệ'}, status=status.HTTP_405_METHOD_NOT_ALLOWED)
+    return Response({'message': f'phương thức {request.method} không hợp lệ'},
+                    status=status.HTTP_405_METHOD_NOT_ALLOWED)
 
 
 @extend_schema(
@@ -304,7 +345,8 @@ def admin_login(request):
         pusher_login(user)
         return Response({'refresh': str(refresh), 'access': str(access_token)}, status=status.HTTP_200_OK)
 
-    return Response({'message': f'phương thức {request.method} không hợp lệ'}, status=status.HTTP_405_METHOD_NOT_ALLOWED)
+    return Response({'message': f'phương thức {request.method} không hợp lệ'},
+                    status=status.HTTP_405_METHOD_NOT_ALLOWED)
 
 
 @extend_schema(
@@ -336,7 +378,8 @@ def logout(request):
                 return Response({'message': 'logout thành công'}, status.HTTP_200_OK)
             return Response({'message': 'Token không tồn tại'}, status.HTTP_400_BAD_REQUEST)
         return Response({'message': 'Bạn cần nhập refresh token'}, status.HTTP_400_BAD_REQUEST)
-    return Response({'message': f'phương thức {request.method} không hợp lệ'}, status=status.HTTP_405_METHOD_NOT_ALLOWED)
+    return Response({'message': f'phương thức {request.method} không hợp lệ'},
+                    status=status.HTTP_405_METHOD_NOT_ALLOWED)
 
 
 @extend_schema(
@@ -554,7 +597,7 @@ class ApiGetManageUser(APIView):
             try:
                 user = User.objects.get(id=user_id)
             except User.DoesNotExist:
-                return Response({'error': f'user {user_id} không tồn tại'}, status=status.HTTP_400_BAD_REQUEST)
+                return Response({'message': f'user {user_id} không tồn tại'}, status=status.HTTP_400_BAD_REQUEST)
 
         # Check type of user
         user_type = check_user_type(user)
@@ -604,11 +647,11 @@ class ApiGetManageUser(APIView):
             try:
                 manage_user_obj = User.objects.get(id=manage_user.upper())
             except User.DoesNotExist:
-                return Response({'error': f'user {manage_user} không tồn tại'}, status=status.HTTP_400_BAD_REQUEST)
+                return Response({'message': f'user {manage_user} không tồn tại'}, status=status.HTTP_400_BAD_REQUEST)
             try:
                 grant_user_obj = User.objects.get(id=entrust_users.upper())
             except User.DoesNotExist:
-                return Response({'error': f'user {manage_user} không tồn tại'}, status=status.HTTP_400_BAD_REQUEST)
+                return Response({'message': f'user {manage_user} không tồn tại'}, status=status.HTTP_400_BAD_REQUEST)
 
             # Validate perm
             manager_perm = get_full_permname(User, perm_actions['update'], manage_user_obj.id)
@@ -620,7 +663,7 @@ class ApiGetManageUser(APIView):
             print(f"Cehck active allow: {is_access} | {is_allow}")
 
             if not is_manager_perm and not is_grant_user_perm:
-                return Response({'error': 'không có quyền truy cập'}, status=status.HTTP_403_FORBIDDEN)
+                return Response({'message': 'không có quyền truy cập'}, status=status.HTTP_403_FORBIDDEN)
 
             grant_access, _ = GrantAccess.objects.get_or_create(
                 manager=manage_user_obj, grant_user=grant_user_obj)
@@ -628,8 +671,8 @@ class ApiGetManageUser(APIView):
             if is_allow is not None:
                 # Validate for grant user
                 if not is_grant_user_perm:
-                    return Response({'error': f'user {user.id} không có quyền cho '
-                                              f'{grant_user_obj.id}'}, status=status.HTTP_403_FORBIDDEN)
+                    return Response({'message': f'user {user.id} không có quyền cho '
+                                                f'{grant_user_obj.id}'}, status=status.HTTP_403_FORBIDDEN)
                 print(f"Check is allow: {is_allow}")
                 grant_access.allow = is_allow
                 grant_access.save()
@@ -637,8 +680,8 @@ class ApiGetManageUser(APIView):
             if is_access is not None:
                 # Validate for manager
                 if not is_manager_perm:
-                    return Response({'error': f'{user.id} không có quyền cho '
-                                              f'{manage_user_obj.id}'}, status=status.HTTP_403_FORBIDDEN)
+                    return Response({'message': f'{user.id} không có quyền cho '
+                                                f'{manage_user_obj.id}'}, status=status.HTTP_403_FORBIDDEN)
                 print(f"Check is access: {is_access}")
                 if is_allow:
                     grant_access.active = is_access

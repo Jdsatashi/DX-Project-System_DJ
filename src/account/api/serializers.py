@@ -42,7 +42,7 @@ class ClientProfileList(serializers.ModelSerializer):
 
     class Meta:
         model = ClientProfile
-        fields = ['register_name', 'address', 'client_group', 'client_group_id', 'is_npp', 'nvtt_id', 'client_lv1', 'nvtt', 'client_lv1_id']
+        fields = ['register_name', 'address', 'client_group', 'is_npp', 'client_lv1', 'nvtt']
 
     def get_nvtt(self, obj):
         nvtt_id = obj.nvtt_id
