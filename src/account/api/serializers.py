@@ -46,14 +46,13 @@ class ClientProfileList(serializers.ModelSerializer):
 
     def get_nvtt(self, obj):
         nvtt_id = obj.nvtt_id
-        nvtt = User.objects.filter(id=nvtt_id).first()
+        nvtt = User.objects.filter(id=nvtt_id).select_related('employeeprofile').first()
         if nvtt is None:
             return None
-        response = {
+        return {
             'id': nvtt_id,
             'name': nvtt.employeeprofile.register_name
         }
-        return response
 
     def get_client_lv1(self, obj):
         client_lv1_id = obj.client_lv1_id
@@ -61,7 +60,7 @@ class ClientProfileList(serializers.ModelSerializer):
         if client_lv1 is None:
             return None
         return {
-            'id':  client_lv1_id,
+            'id': client_lv1_id,
             'name': client_lv1.register_name
         }
 
@@ -88,16 +87,15 @@ class UserListSerializer(serializers.ModelSerializer):
         fields = ['id', 'email', 'status', 'user_type', 'phone', 'group_user', 'profile']
 
     def get_phone(self, obj):
-        phone = obj.phone_numbers.filter().values_list('phone_number', flat=True)
-        return list(phone)
+        return list(obj.phone_numbers.values_list('phone_number', flat=True))
 
     def get_profile(self, obj):
         if obj.user_type == 'client':
-            client_profile = obj.clientprofile
-            return ClientProfileList(client_profile).data
+            client_profile = getattr(obj, 'clientprofile', None)
+            return ClientProfileList(client_profile).data if client_profile else None
         elif obj.user_type == 'employee':
-            employee_profile = obj.employeeprofile
-            return EmployeeProfileList(employee_profile).data
+            employee_profile = getattr(obj, 'employeeprofile', None)
+            return EmployeeProfileList(employee_profile).data if employee_profile else None
         return None
 
 
