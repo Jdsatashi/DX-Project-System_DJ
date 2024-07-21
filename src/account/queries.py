@@ -2,6 +2,7 @@ from django.apps import apps
 
 from utils.env import PGS_DB, PGS_PASSWORD, PGS_USER, PGS_HOST, PGS_PORT
 import psycopg2
+from psycopg2.extras import RealDictCursor
 
 
 def get_all_user_perms(user):
@@ -109,6 +110,33 @@ def get_user_by_permname_sql(perm_name):
     conn.close()
 
     return [user_id[0] for user_id in user_ids]
+
+
+def project_db_execute(query, params):
+    """
+    Executes a PostgreSQL query and returns the result.
+    :param query: The SQL query to be executed.
+    :param params: A tuple of parameters to be used in the query.
+    :return: The result of the query as a list of dictionaries.
+    """
+    conn = psycopg2.connect(
+        dbname=PGS_DB,
+        user=PGS_USER,
+        password=PGS_PASSWORD,
+        host=PGS_HOST,
+        port=PGS_PORT
+    )
+    try:
+        with conn.cursor(cursor_factory=RealDictCursor) as cursor:
+            cursor.execute(query, params)
+            result = cursor.fetchall()
+        conn.commit()
+    except Exception as e:
+        conn.rollback()
+        raise e
+    finally:
+        conn.close()
+    return result
 
 
 def get_user_model():
