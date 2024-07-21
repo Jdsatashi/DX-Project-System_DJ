@@ -112,14 +112,14 @@ def update_user_perm(item_data, perms, items, allow, exited):
             user = phone.user
         except models.ObjectDoesNotExist:
             field = 'allow' if allow else 'restrict'
-            raise serializers.ValidationError({'error': f'Field error at "{field}_{items["type"]}"'})
+            raise serializers.ValidationError({'message': f'Field error at "{field}_{items["type"]}"'})
     else:
         try:
             user = User.objects.get(id=item_data.upper())
         # Return errors with fields error
         except models.ObjectDoesNotExist:
             field = 'allow' if allow else 'restrict'
-            raise serializers.ValidationError({'error': f'Field error at "{field}_{items["type"]}"'})
+            raise serializers.ValidationError({'message': f'Field error at "{field}_{items["type"]}" - some items not exists'})
     # Looping handle with permissions
     for perm in perms:
         is_perm = user.is_perm(perm)
@@ -143,7 +143,7 @@ def update_group_perm(item_data, perms, items, allow, exited):
     # Return errors with fields error
     except models.ObjectDoesNotExist:
         field = 'allow' if allow else 'restrict'
-        raise serializers.ValidationError({'error': f'Field error at "{field}_{items["type"]}"'})
+        raise serializers.ValidationError({'message': f'Field error at "{field}_{items["type"]}"'})
     app_log.info(f"Test update_group_perm: {perms}")
     app_log.info(f"Test exited: {exited}")
     # Looping handle with permissions

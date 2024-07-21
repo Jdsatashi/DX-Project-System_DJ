@@ -1,7 +1,9 @@
-from datetime import datetime, date
+from datetime import datetime, date, timedelta
 
 from django.apps import apps
 from django.db import models
+from django.db.models import Q
+from django.utils.timezone import make_aware
 
 from account.models import User
 from marketing.livestream.models import LiveStream
@@ -154,3 +156,69 @@ def calculate_point(order_details, price_list):
             point += order_point
             total_point += order_point
     return point, total_point
+
+
+def get_month_start_end(date):
+    # Get the first day of the month
+    month_start = date.replace(day=1)
+    # Get the first day of the next month, then subtract one day to get the last day of the current month
+    next_month = month_start.replace(month=date.month % 12 + 1, day=1)
+    month_end = next_month - timedelta(days=1)
+    return month_start, month_end
+
+
+def calculate_turnover(user, date):
+    Order = apps.get_model('order', 'Order')
+    SaleStatistic = apps.get_model('sale_statistic', 'SaleStatistic')
+
+    user_orders = Order.objects.filter(client_id=user.id)
+    month_start, month_end = get_month_start_end(date)
+    print(f"{month_start} | {month_end}")
+    print(f"User orders: {user_orders.count()}")
+    orders_in_month = user_orders.filter(
+        Q(date_get__gte=month_start) & Q(date_get__lte=month_end)
+        # & Q(Q(new_special_offer__isnull=True) & Q(new_special_offer__count_turnover=False))
+    )
+
+    turnover = sum(order.order_price for order in orders_in_month if order.status != 'deactivate')
+    print(f"Test user: {user.id} | {orders_in_month.count()} - {turnover}")
+    sale_stat, created = SaleStatistic.objects.get_or_create(
+        user=user,
+        month=month_start,
+        defaults={
+            'total_turnover': turnover,
+            'used_turnover': 0,
+            'available_turnover': turnover,
+            'bonus_turnover': 0
+        }
+    )
+
+    if not created:
+        sale_stat.total_turnover = turnover + sale_stat.bonus_turnover
+        sale_stat.available_turnover = turnover - sale_stat.used_turnover
+        sale_stat.save()
+
+
+
+def get_user_ordered(date):
+    Order = apps.get_model('order', 'Order')
+    User = apps.get_model('account', 'User')
+    month_start, month_end = get_month_start_end(date)
+
+    month_start = make_aware(month_start)
+    month_end = make_aware(month_end)
+
+    orders_in_month = Order.objects.filter(date_get__gte=month_start, date_get__lte=month_end)
+    user_ids = orders_in_month.values_list('client_id', flat=True).distinct()
+
+    users_ordered = User.objects.filter(id__in=user_ids)
+
+    return users_ordered
+
+
+def test():
+    date = datetime.today()
+
+    users = get_user_ordered(date)
+    for user in users:
+        calculate_turnover(user, date)

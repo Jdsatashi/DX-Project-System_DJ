@@ -11,17 +11,13 @@ from utils.constants import perm_actions
 
 def get_action(view, method):
     # Get action of function
-    try:
-        action = view.action
-    except AttributeError:
-        action = {
-            'GET': 'view',
-            'POST': 'create',
-            'PUT': 'update',
-            'PATCH': 'update',
-            'DELETE': 'destroy'
-        }.get(method, 'view')
-    return action
+    return {
+        'GET': 'view',
+        'POST': 'create',
+        'PUT': 'update',
+        'PATCH': 'update',
+        'DELETE': 'destroy'
+    }.get(method, 'view')
 
 
 def get_perm_name(model):

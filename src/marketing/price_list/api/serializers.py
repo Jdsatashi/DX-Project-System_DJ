@@ -183,12 +183,28 @@ class SpecialOfferProductSerializer(serializers.ModelSerializer):
 
 
 class SpecialOfferSerializer(BaseRestrictSerializer):
-    special_offers = SpecialOfferProductSerializer(many=True, required=False)
+    # special_offers = SpecialOfferProductSerializer(many=True, required=False)
 
     class Meta:
         model = SpecialOffer
         fields = '__all__'
         read_only_fields = ['id', 'created_by', 'created_at', 'updated_at']
+
+    def to_representation(self, instance):
+        """Modify the output representation based on the context."""
+        ret = super().to_representation(instance)
+        request = self.context.get('request')
+        if (request and request.method == 'GET'
+                and hasattr(request, 'resolver_match')
+                and request.resolver_match.kwargs.get('pk')):
+            special_offers = SpecialOfferProductSerializer(instance.special_offers.all(), many=True)
+            ret['special_offers'] = special_offers.data
+            # Get user added in price list
+            perm_name = get_full_permname(self.Meta.model, 'create', instance.id)
+            user_group = get_user_by_permname_sql(perm_name)
+            user_manage = list(user_group)
+            ret['users'] = user_manage
+        return ret
 
     def create(self, validated_data):
         # Split insert data
@@ -269,5 +285,6 @@ class SpecialOfferSerializer(BaseRestrictSerializer):
     def check_product_in_price_list(special_offer, product):
         """Check if the product exists in the PriceList"""
         current_pl = PriceList.get_main_pl()
+        print(f"Check price list: {current_pl}")
         if not ProductPrice.objects.filter(price_list=current_pl, product=product).exists():
             raise serializers.ValidationError({'message': f'Product {product.id} is not in the PriceList'})
