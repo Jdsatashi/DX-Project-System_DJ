@@ -5,7 +5,6 @@ from rest_framework import serializers
 from rest_framework.exceptions import ValidationError
 from rest_framework_simplejwt.tokens import AccessToken
 
-from account.handlers.perms import get_perm_name
 from account.handlers.restrict_serializer import BaseRestrictSerializer
 from account.handlers.validate_perm import ValidatePermRest
 from account.models import PhoneNumber, User
@@ -15,8 +14,6 @@ from marketing.order.models import Order, OrderDetail
 from marketing.price_list.models import ProductPrice, SpecialOfferProduct
 from marketing.sale_statistic.models import SaleStatistic, SaleTarget
 from user_system.client_profile.models import ClientProfile
-from user_system.employee_profile.models import EmployeeProfile
-from utils.perms.check import perm_exist
 
 
 class OrderDetailSerializer(BaseRestrictSerializer):
@@ -46,54 +43,61 @@ class OrderSerializer(BaseRestrictSerializer):
         order_details_data = data.pop('order_detail', [])
         # Validate product order details
         user_sale_statistic, is_so, is_consider = self.validate_special_offer(data, order_details_data)
-        with transaction.atomic():
-            order = Order.objects.create(**data)
-            order_by = self.update_order_by()
-            if order_by:
-                order.created_by = order_by
-                order.save()
-            # Calculate total price and point
-            details = self.calculate_total_price_and_point(order, order_details_data)
-            if details:
-                OrderDetail.objects.bulk_create(details)
-                # Check if order details were created
-                created_details_count = OrderDetail.objects.filter(order_id=order).count()
-                if created_details_count == 0:
-                    order.delete()
+        try:
+            with transaction.atomic():
+                price_list_id = data.get('price_list_id', None)
+                if price_list_id is None:
+                    raise ValidationError({'message': 'toa yêu cầu bảng giá'})
+                if price_list_id.status == 'deactivate':
+                    raise ValidationError({'message': 'bảng giá không hoạt động'})
+                order = Order.objects.create(**data)
+                order_by = self.update_order_by()
+                if order_by:
+                    order.created_by = order_by
+                    order.save()
+                # Calculate total price and point
+                details = self.calculate_total_price_and_point(order, order_details_data)
+                if details:
+                    OrderDetail.objects.bulk_create(details)
+                    # Check if order details were created
+                    created_details_count = OrderDetail.objects.filter(order_id=order).count()
+                    if created_details_count == 0:
+                        order.delete()
+                        raise ValidationError(
+                            {'message': 'toa yêu cầu chi tiết danh sách sản phẩm, số lượng sản phẩm'}
+                        )
+
+                    # Get total point and price from query
+                    total_price = OrderDetail.objects.filter(order_id=order).aggregate(
+                        total_price=Sum('product_price'))['total_price']
+                    total_point = OrderDetail.objects.filter(order_id=order).aggregate(
+                        total_point=Sum('point_get'))['total_point']
+                    # Add to order
+                    order.order_point = total_point
+                    order.order_price = total_price
+                    order.save()
+
+                    # Deactivate when user used
+                    if is_consider:
+                        special_offer = data.get('new_special_offer')
+                        special_offer.status = 'deactivate'
+                        special_offer.save()
+
+                    app_log.info(f"Testing user sale statistic: {user_sale_statistic}")
+                    self.update_sale_statistic(order, user_sale_statistic, order.order_price, is_so, is_consider)
+
+                    # Create perms
+                    restrict = perm_data.get('restrict')
+                    if restrict:
+                        self.handle_restrict(perm_data, order.id, self.Meta.model)
+                else:
                     raise ValidationError(
-                        {'message': 'toa yêu cầu chi tiết danh sách sản phẩm, số lượng sản phẩm'}
+                        {'message': 'toa yêu cầu chi tiết danh sách sản phẩm, số lượng sản phẩm'},
                     )
-
-                # Get total point and price from query
-                total_price = OrderDetail.objects.filter(order_id=order).aggregate(total_price=Sum('product_price'))[
-                    'total_price']
-                total_point = OrderDetail.objects.filter(order_id=order).aggregate(total_point=Sum('point_get'))[
-                    'total_point']
-                # Add to order
-                order.order_point = total_point
-                order.order_price = total_price
-                order.save()
-
-                # Deactivate when user used
-                if is_consider:
-                    special_offer = data.get('new_special_offer')
-                    special_offer.status = 'deactivate'
-                    special_offer.save()
-
-                app_log.info(f"Testing user sale statistic: {user_sale_statistic}")
-                self.update_sale_statistic(order, user_sale_statistic, order.order_price, is_so, is_consider)
-
-                # Create perms
-                restrict = perm_data.get('restrict')
-                if restrict:
-                    self.handle_restrict(perm_data, order.id, self.Meta.model)
-            else:
-                order.delete()
-                raise ValidationError(
-                    {'message': 'toa yêu cầu chi tiết danh sách sản phẩm, số lượng sản phẩm'},
-                )
-
-        return order
+            return order
+        except Exception as e:
+            app_log.error(f"Error when create order: {e}")
+            raise serializers.ValidationError({'message': 'unexpected error'})
 
     def update(self, instance, validated_data):
         # Split insert data

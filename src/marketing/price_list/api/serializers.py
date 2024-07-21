@@ -1,5 +1,6 @@
 import time
 
+from django.db import transaction
 from django.db.models import Q
 from rest_framework import serializers
 
@@ -27,7 +28,7 @@ class ProductPriceSerializer(serializers.ModelSerializer):
         product_id = data.get('product_id')
         if not isinstance(product_id, str):
             raise serializers.ValidationError({
-                'product_id': 'Product ID must be a string.'
+                'message': 'Product ID must be a string.'
             })
 
         return super().to_internal_value(data)
@@ -79,67 +80,96 @@ class PriceListSerializer(BaseRestrictSerializer):
             ret['users'] = user_manage
         return ret
 
+    def validate(self, data):
+        """
+        Validate to ensure only one PriceList with type 'main' exists within the given date range.
+        """
+        date_start = data.get('date_start')
+        date_end = data.get('date_end')
+        price_list_type = data.get('type')
+        if price_list_type == 'main':
+            overlapping_price_lists = PriceList.objects.filter(
+                type='main',
+                date_start__lte=date_end,
+                date_end__gte=date_start,
+            ).exclude(id=self.instance.id if self.instance else None)
+
+            if overlapping_price_lists.exists():
+                raise serializers.ValidationError(
+                    {'message': 'Chỉ có thể có một bảng giá chính (type="main") trong khoảng thời gian đã chọn.'}
+                )
+        return data
+
     def create(self, validated_data):
         # Split data for permission
         data, perm_data = self.split_data(validated_data)
         # Split data products from serializer
         products_data = data.pop('products', [])
-        # Create price list
-        price_list = PriceList.objects.create(**data)
-        # Add product to price list
-        for product_data in products_data:
-            product_id = product_data.pop('product_id')
-            price = product_data.pop('price')
-            quantity_in_box = product_data.pop('quantity_in_box')
-            point = product_data.pop('point')
-            try:
-                product = Product.objects.get(id=str(product_id))
-                ProductPrice.objects.create(price_list=price_list, product=product,
-                                            price=price,
-                                            quantity_in_box=quantity_in_box,
-                                            point=point)
-            except Product.DoesNotExist:
-                raise serializers.ValidationError({'product_id': f'Product with ID {product_id} does not exist.'})
-        # Add permission
-        restrict = perm_data.get('restrict')
-        if restrict:
-            self.handle_restrict(perm_data, price_list.id, self.Meta.model)
-        return price_list
+        try:
+            with transaction.atomic():
+                # Create price list
+                price_list = PriceList.objects.create(**data)
+                # Add product to price list
+                for product_data in products_data:
+                    product_id = product_data.pop('product_id')
+                    price = product_data.pop('price')
+                    quantity_in_box = product_data.pop('quantity_in_box')
+                    point = product_data.pop('point')
+                    try:
+                        product = Product.objects.get(id=str(product_id))
+                        ProductPrice.objects.create(price_list=price_list, product=product,
+                                                    price=price,
+                                                    quantity_in_box=quantity_in_box,
+                                                    point=point)
+                    except Product.DoesNotExist:
+                        raise serializers.ValidationError({'message': f'Product with ID {product_id} does not exist.'})
+                # Add permission
+                restrict = perm_data.get('restrict')
+                if restrict:
+                    self.handle_restrict(perm_data, price_list.id, self.Meta.model)
+                return price_list
+        except Exception as e:
+            app_log.error(f"Error when create price_list: {e}")
+            raise serializers.ValidationError({'message': 'unexpected error'})
 
     def update(self, instance, validated_data):
         data, perm_data = self.split_data(validated_data)
         products_data = data.pop('products', [])
+        try:
+            with transaction.atomic():
+                for attr, value in data.items():
+                    setattr(instance, attr, value)
+                instance.save()
 
-        for attr, value in data.items():
-            setattr(instance, attr, value)
-        instance.save()
+                # Update products within the price list
+                current_product_ids = {product.product.id for product in instance.productprice_set.all()}
+                new_product_ids = {item['product_id'] for item in products_data}
 
-        # Update products within the price list
-        current_product_ids = {product.product.id for product in instance.productprice_set.all()}
-        new_product_ids = {item['product_id'] for item in products_data}
+                # Delete products that are not in the new data
+                instance.productprice_set.filter(product_id__in=list(current_product_ids - new_product_ids)).delete()
 
-        # Delete products that are not in the new data
-        instance.productprice_set.filter(product_id__in=list(current_product_ids - new_product_ids)).delete()
+                # Update existing products and create new ones
+                for product_data in products_data:
+                    product_id = product_data.pop('product_id')
+                    product, _ = Product.objects.get_or_create(id=str(product_id))
+                    product_price, created = ProductPrice.objects.update_or_create(
+                        price_list=instance,
+                        product=product,
+                        defaults={
+                            'price': product_data.get('price'),
+                            'quantity_in_box': product_data.get('quantity_in_box'),
+                            'point': product_data.get('point'),
+                        }
+                    )
+                # Handle permissions if needed
+                restrict = perm_data.get('restrict')
+                if restrict:
+                    self.handle_restrict(perm_data, instance.id, self.Meta.model)
 
-        # Update existing products and create new ones
-        for product_data in products_data:
-            product_id = product_data.pop('product_id')
-            product, _ = Product.objects.get_or_create(id=str(product_id))
-            product_price, created = ProductPrice.objects.update_or_create(
-                price_list=instance,
-                product=product,
-                defaults={
-                    'price': product_data.get('price'),
-                    'quantity_in_box': product_data.get('quantity_in_box'),
-                    'point': product_data.get('point'),
-                }
-            )
-        # Handle permissions if needed
-        restrict = perm_data.get('restrict')
-        if restrict:
-            self.handle_restrict(perm_data, instance.id, self.Meta.model)
-
-        return instance
+                return instance
+        except Exception as e:
+            app_log.error(f"Error when update price_list: {e}")
+            raise serializers.ValidationError({'message': 'unexpected error'})
 
 
 class PriceList2Serializer(serializers.ModelSerializer):
