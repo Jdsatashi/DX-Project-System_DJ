@@ -267,8 +267,9 @@ class ExportReport(APIView):
 
     def get(self, request):
         # Get data from OrderReport
+        response_data, paginator, current_page, total_count, page_obj, limit = OrderReportView().get_query_results(
+            request, True)
         limit = request.query_params.get('limit', 10)
-        response_data, _, _, _, _, _ = OrderReportView().get_query_results(request, True)
 
         # Add new workbook
         workbook = openpyxl.Workbook()
@@ -343,7 +344,10 @@ class ExportReport(APIView):
                         'register_lv1': None,
                         'nvtt': None
                     }
-                type_list = order['clients']['list_type']
+                try:
+                    type_list = order['clients'].get('list_type', '')
+                except AttributeError:
+                    type_list = ''
                 if type_list == '' or type_list is None:
                     type_list = 'Cấp 2 gửi'
                 sheet.append([
@@ -356,10 +360,10 @@ class ExportReport(APIView):
                     date_send,
                     order['date_delay'],
                     order['note'],
-                    detail['product_id'],
-                    detail['product_name'],
-                    detail['order_quantity'],
-                    detail['order_box'],
+                    detail.get('product_id', ''),
+                    detail.get('product_name', ''),
+                    detail.get('order_quantity', ''),
+                    detail.get('order_box', ''),
                     product_price,
                 ])
                 row_num += 1
@@ -380,24 +384,27 @@ class OrderReportView(APIView):
     def get(self, request):
         start_time = time.time()
         print(f"Im testing here")
-        data, paginator, current_page, total_count, page_obj, limit = self.get_query_results(request)
+        data, num_page, current_page, total_count, page_obj, limit = self.get_query_results(request)
         # Add total and current page and data to response data
         response_data = {
             'data': data,
-            'total_page': paginator.num_pages,
+            'total_page': num_page,
             'current_page': current_page,
             'total_count': total_count
         }
-        if page_obj.has_next():
-            next_page = build_absolute_uri_with_params(request,
-                                                       {'page': page_obj.next_page_number(), 'limit': limit})
-            response_data['next_page'] = next_page
+        try:
+            if page_obj.has_next():
+                next_page = build_absolute_uri_with_params(request,
+                                                           {'page': page_obj.next_page_number(), 'limit': limit})
+                response_data['next_page'] = next_page
 
-        # If has previous page, add urls to response data
-        if page_obj.has_previous():
-            prev_page = build_absolute_uri_with_params(request,
-                                                       {'page': page_obj.previous_page_number(), 'limit': limit})
-            response_data['prev_page'] = prev_page
+            # If has previous page, add urls to response data
+            if page_obj.has_previous():
+                prev_page = build_absolute_uri_with_params(request,
+                                                           {'page': page_obj.previous_page_number(), 'limit': limit})
+                response_data['prev_page'] = prev_page
+        except AttributeError:
+            pass
 
         app_log.info(f'OrderReport2 Query Time: {time.time() - start_time}')
         return Response(response_data, status=status.HTTP_200_OK)
@@ -486,10 +493,10 @@ class OrderReportView(APIView):
                     return Response({'error': 'error field order_by not in model', 'detail': e}, status=200)
         except FieldError:
             pass
+        total_orders = orders.count()
         if limit == 0:
             data = [self.get_order_fields(obj, Order, get_type_list) for obj in orders]
-            return data, 1, 1
-        total_orders = orders.count()
+            return data, 1, 1, total_orders, None, limit
         paginator = Paginator(orders, limit)
         page_obj = paginator.get_page(page)
 
@@ -499,7 +506,7 @@ class OrderReportView(APIView):
         elif page > paginator.num_pages:
             page = paginator.num_pages
         data = [self.get_order_fields(obj, Order, get_type_list) for obj in page_obj]
-        return data, paginator, page, total_orders, page_obj, limit
+        return data, paginator.num_pages, page, total_orders, page_obj, limit
 
     def get_order_fields(self, obj, model, get_type_list):
         order_detail = OrderDetail.objects.filter(order_id=obj)
