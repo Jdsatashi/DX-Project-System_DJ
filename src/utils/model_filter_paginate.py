@@ -167,6 +167,10 @@ def filter_data(self, request, query_fields, **kwargs):
                 raise e
     except FieldError:
         pass
+
+    # Get total items
+    total_count = queryset.count()
+
     # Check when limit is 0, return all data
     if limit == 0:
         serializer = self.serializer_class(queryset, many=True)
@@ -174,6 +178,7 @@ def filter_data(self, request, query_fields, **kwargs):
             'data': serializer.data,
             'total_page': 1,
             'current_page': 1,
+            'total_count': total_count,
             'next_page': None,
             'prev_page': None
         }
@@ -193,7 +198,8 @@ def filter_data(self, request, query_fields, **kwargs):
     response_data = {
         'data': serializer.data,
         'total_page': paginator.num_pages,
-        'current_page': page
+        'current_page': page,
+        'total_count': total_count,
     }
     # if page_obj.has_next():
     #     next_page = request.build_absolute_uri(

@@ -43,7 +43,7 @@ class GenericApiPriceList(viewsets.GenericViewSet, mixins.ListModelMixin, mixins
     @action(methods=['get'], detail=False, url_path='now', url_name='now')
     def now(self, request, *args, **kwargs):
         today = timezone.localdate()
-        queryset = self.get_queryset().filter(date_start__lte=today, date_end__gte=today, type='main').order_by('created_at')
+        queryset = self.get_queryset().filter(date_start__lte=today, date_end__gte=today).order_by('type', 'created_at')
         response = filter_data(self, request, ['id', 'name', 'date_start', 'date_end'], queryset=queryset,
                                **kwargs)
         return Response(response)
