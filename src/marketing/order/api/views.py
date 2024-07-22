@@ -26,7 +26,7 @@ from marketing.order.models import Order, OrderDetail
 from user_system.client_profile.models import ClientProfile
 from user_system.employee_profile.models import EmployeeProfile
 from utils.constants import maNhomND
-from utils.model_filter_paginate import filter_data, get_query_parameters
+from utils.model_filter_paginate import filter_data, get_query_parameters, build_absolute_uri_with_params
 
 
 class GenericApiOrder(viewsets.GenericViewSet, mixins.ListModelMixin, mixins.CreateModelMixin,
@@ -268,7 +268,7 @@ class ExportReport(APIView):
     def get(self, request):
         # Get data from OrderReport
         limit = request.query_params.get('limit', 10)
-        response_data, _, _ = OrderReportView().get_query_results(request, True)
+        response_data, _, _, _, _, _ = OrderReportView().get_query_results(request, True)
 
         # Add new workbook
         workbook = openpyxl.Workbook()
@@ -379,15 +379,26 @@ class OrderReportView(APIView):
 
     def get(self, request):
         start_time = time.time()
-
-        data, total_pages, current_page = self.get_query_results(request)
-
+        print(f"Im testing here")
+        data, paginator, current_page, total_count, page_obj, limit = self.get_query_results(request)
         # Add total and current page and data to response data
         response_data = {
             'data': data,
-            'total_page': total_pages,
-            'current_page': current_page
+            'total_page': paginator.num_pages,
+            'current_page': current_page,
+            'total_count': total_count
         }
+        if page_obj.has_next():
+            next_page = build_absolute_uri_with_params(request,
+                                                       {'page': page_obj.next_page_number(), 'limit': limit})
+            response_data['next_page'] = next_page
+
+        # If has previous page, add urls to response data
+        if page_obj.has_previous():
+            prev_page = build_absolute_uri_with_params(request,
+                                                       {'page': page_obj.previous_page_number(), 'limit': limit})
+            response_data['prev_page'] = prev_page
+
         app_log.info(f'OrderReport2 Query Time: {time.time() - start_time}')
         return Response(response_data, status=status.HTTP_200_OK)
 
@@ -432,11 +443,6 @@ class OrderReportView(APIView):
 
         if daily_query and daily_query != '':
             daily_list = daily_query.split(',')
-            # include_group = GroupPerm.objects.filter(name__icontains='client').values_list('name', flat=True)
-            # daily_ids = ClientProfile.objects.filter(
-            #     Q(register_name__in=daily_list) | Q(client_id__in=daily_list),
-            #     client_id__group_user__name__in=list(include_group)
-            # ).exclude(is_npp=True).values_list('client_id', flat=True)
             exclude_groups = ["NVTT", "TEST", maNhomND]
 
             daily_ids = ClientProfile.objects.filter(
@@ -483,16 +489,17 @@ class OrderReportView(APIView):
         if limit == 0:
             data = [self.get_order_fields(obj, Order, get_type_list) for obj in orders]
             return data, 1, 1
+        total_orders = orders.count()
         paginator = Paginator(orders, limit)
         page_obj = paginator.get_page(page)
 
         # Validate page number
-        if page < 0:
+        if page < 1:
             page = 1
         elif page > paginator.num_pages:
             page = paginator.num_pages
         data = [self.get_order_fields(obj, Order, get_type_list) for obj in page_obj]
-        return data, paginator.num_pages, page
+        return data, paginator, page, total_orders, page_obj, limit
 
     def get_order_fields(self, obj, model, get_type_list):
         order_detail = OrderDetail.objects.filter(order_id=obj)

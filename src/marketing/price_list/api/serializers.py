@@ -242,58 +242,68 @@ class SpecialOfferSerializer(BaseRestrictSerializer):
         app_log.info(f"Test SpecialOfferSerializer ---------------")
 
         products_data = data.pop('special_offers', [])
+        try:
+            with transaction.atomic():
+                # Create new SpecialOffer
+                special_offer = SpecialOffer.objects.create(**data)
+                # Add product to SpecialOfferProduct
+                for product_data in products_data:
+                    self.check_product_in_price_list(special_offer, product_data.get('product'))
+                    self.set_default_values(special_offer, product_data)
+                    app_log.info(f"Check product_data: {product_data}")
+                    SpecialOfferProduct.objects.create(special_offer=special_offer, **product_data)
 
-        # Create new SpecialOffer
-        special_offer = SpecialOffer.objects.create(**data)
-        # Add product to SpecialOfferProduct
-        for product_data in products_data:
-            self.check_product_in_price_list(special_offer, product_data.get('product'))
-            self.set_default_values(special_offer, product_data)
-            app_log.info(f"Check product_data: {product_data}")
-            SpecialOfferProduct.objects.create(special_offer=special_offer, **product_data)
-
-        # Create perm for data
-        restrict = perm_data.get('restrict')
-        if restrict:
-            self.handle_restrict(perm_data, special_offer.id, self.Meta.model)
-        return special_offer
+                # Create perm for data
+                restrict = perm_data.get('restrict')
+                if restrict:
+                    self.handle_restrict(perm_data, special_offer.id, self.Meta.model)
+                return special_offer
+        except Exception as e:
+            app_log.error(f"Error when create special offer: {e}")
+            raise serializers.ValidationError({'message': 'unexpected error'})
 
     def update(self, instance, validated_data):
         # Split insert data
         data, perm_data = self.split_data(validated_data)
-        products_data = data.pop('special_offers', [])
+        products_data = data.pop('special_offers', None)
+        try:
+            with transaction.atomic():
+                # Update SpecialOffer fields
+                for attr, value in data.items():
+                    setattr(instance, attr, value)
+                instance.save()
 
-        # Update SpecialOffer fields
-        for attr, value in data.items():
-            setattr(instance, attr, value)
-        instance.save()
+                # Update SpecialOfferProduct details
+                keep_products = []
+                for product_data in products_data:
+                    if "id" in product_data:
+                        product = SpecialOfferProduct.objects.get(id=product_data["id"], special_offer=instance)
+                        for attr, value in product_data.items():
+                            if attr != 'special_offer':  # Avoid setting special_offer attribute again
+                                setattr(product, attr, value)
+                        product.save()
+                        keep_products.append(product.id)
+                    else:
+                        self.check_product_in_price_list(instance, product_data['product'])
+                        self.set_default_values(instance, product_data)
+                        product_data.pop('special_offer', None)  # Remove special_offer from product_data if exists
+                        product = SpecialOfferProduct.objects.create(special_offer=instance, **product_data)
+                        keep_products.append(product.id)
 
-        # Update SpecialOfferProduct details
-        keep_products = []
-        for product_data in products_data:
-            if "id" in product_data:
-                product = SpecialOfferProduct.objects.get(id=product_data["id"], special_offer=instance)
-                for attr, value in product_data.items():
-                    if attr != 'special_offer':  # Avoid setting special_offer attribute again
-                        setattr(product, attr, value)
-                product.save()
-                keep_products.append(product.id)
-            else:
-                self.check_product_in_price_list(instance, product_data['product'])
-                self.set_default_values(instance, product_data)
-                product_data.pop('special_offer', None)  # Remove special_offer from product_data if exists
-                product = SpecialOfferProduct.objects.create(special_offer=instance, **product_data)
-                keep_products.append(product.id)
+                # Remove products not included in the update
+                for product in instance.special_offers.all():
+                    if product.id not in keep_products:
+                        product.delete()
 
-        # Remove products not included in the update
-        for product in instance.special_offers.all():
-            if product.id not in keep_products:
-                product.delete()
+                restrict = perm_data.get('restrict')
+                if restrict:
+                    self.handle_restrict(perm_data, instance.id, self.Meta.model)
+                return instance
 
-        restrict = perm_data.get('restrict')
-        if restrict:
-            self.handle_restrict(perm_data, instance.id, self.Meta.model)
-        return instance
+        except Exception as e:
+            app_log.error(f"Error when update special offer: {e}")
+            raise serializers.ValidationError({'message': 'unexpected error'})
+
 
     @staticmethod
     def set_default_values(special_offer, product_data):

@@ -443,11 +443,11 @@ def check_token(request):
                 response_data['user'] = user_data
                 return Response(response_data, status=status.HTTP_200_OK)
             else:
-                return Response({'error': 'Token đã hết hạn'}, status=status.HTTP_401_UNAUTHORIZED)
+                return Response({'message': 'Token đã hết hạn'}, status=status.HTTP_401_UNAUTHORIZED)
 
         except Exception as e:
             # raise e
-            return Response({'error': 'Token không hợp lệ hoặc đã hết hạn', 'details': str(e)},
+            return Response({'message': 'Token không hợp lệ hoặc đã hết hạn', 'details': str(e)},
                             status=status.HTTP_401_UNAUTHORIZED)
     return Response({'message': 'GET method not supported'}, status=status.HTTP_405_METHOD_NOT_ALLOWED)
 
@@ -579,13 +579,12 @@ class ApiUpdateDeviceCode(APIView):
             return Response({'user_id': user.id, 'device_token': user.device_token}, status=status.HTTP_200_OK)
         except Exception as e:
             # raise e
-            return Response({'error': 'token không hợp lệ hoặc đã hết hạn', 'details': str(e)},
+            return Response({'message': 'token không hợp lệ hoặc đã hết hạn', 'details': str(e)},
                             status=status.HTTP_401_UNAUTHORIZED)
 
 
 class ApiGetManageUser(APIView):
     # authentication_classes = [JWTAuthentication, BasicAuthentication, SessionAuthentication]
-
     def get(self, request):
         # Get user for checking manage group user
         user = request.user

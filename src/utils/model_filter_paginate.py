@@ -232,8 +232,8 @@ def filter_data(self, request, query_fields, **kwargs):
 def build_absolute_uri_with_params(request, extra_params=None):
     params = request.GET.copy()
 
-    # if extra_params:
-    #     params.update(extra_params)
+    if extra_params:
+        params.update(extra_params)
 
     filtered_params = {key: value for key, value in params.items() if value}
 

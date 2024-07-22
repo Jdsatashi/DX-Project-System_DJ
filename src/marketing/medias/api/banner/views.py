@@ -112,5 +112,5 @@ class ApiBannerItem(viewsets.GenericViewSet, mixins.ListModelMixin, mixins.Creat
         app_log.info(f"TEST: {query_filter}")
         queryset = queryset.filter(query_filter)
 
-        response = filter_data(self, request, ['id', 'name'], queryset=queryset, **kwargs)
+        response = filter_data(self, request, ['id', 'title', 'note', 'banner__id', 'banner__name'], queryset=queryset, **kwargs)
         return Response(response, status.HTTP_200_OK)
