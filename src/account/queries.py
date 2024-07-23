@@ -21,7 +21,7 @@ def get_all_user_perms(user):
     return all_perms
 
 
-def get_all_user_perms_sql(user_id):
+def get_all_user_perms_sql(user_id, exact=True):
     Perm, User, UserGroupPerm, GroupPerm, UserPerm, GroupPermPerms = get_user_model()
 
     conn = psycopg2.connect(
@@ -39,23 +39,43 @@ def get_all_user_perms_sql(user_id):
     user_group_perm_table = UserGroupPerm._meta.db_table
     groupperm_perm_table = GroupPermPerms._meta.db_table
 
-    # Truy vấn lấy các quyền trực tiếp của người dùng
-    direct_perms_query = f"""
-        SELECT p.*
-        FROM {perm_table} p
-        JOIN {user_perm_table} up ON p.name = up.perm_id
-        WHERE up.user_id = %s
-    """
+    if exact:
+        # Truy vấn lấy các quyền trực tiếp của người dùng
+        direct_perms_query = f"""
+            SELECT p.*
+            FROM {perm_table} p
+            JOIN {user_perm_table} up ON p.name = up.perm_id
+            WHERE up.user_id = %s
+        """
 
-    # Truy vấn lấy các quyền từ các GroupPerm mà người dùng thuộc về
-    group_perms_query = f"""
-        SELECT p.*
-        FROM {perm_table} p
-        JOIN {groupperm_perm_table} gpp ON p.name = gpp.perm_id
-        JOIN {group_perm_table} gp ON gpp.group_id = gp.name
-        JOIN {user_group_perm_table} ugp ON gp.name = ugp.group_id
-        WHERE ugp.user_id = %s AND ugp.allow = TRUE
-    """
+        # Truy vấn lấy các quyền từ các GroupPerm mà người dùng thuộc về
+        group_perms_query = f"""
+            SELECT p.*
+            FROM {perm_table} p
+            JOIN {groupperm_perm_table} gpp ON p.name = gpp.perm_id
+            JOIN {group_perm_table} gp ON gpp.group_id = gp.name
+            JOIN {user_group_perm_table} ugp ON gp.name = ugp.group_id
+            WHERE ugp.user_id = %s AND ugp.allow = TRUE
+        """
+    else:
+        # Truy vấn lấy các quyền trực tiếp của người dùng với LIKE
+        direct_perms_query = f"""
+            SELECT p.*
+            FROM {perm_table} p
+            JOIN {user_perm_table} up ON p.name = up.perm_id
+            WHERE up.user_id LIKE %s
+        """
+
+        # Truy vấn lấy các quyền từ các GroupPerm mà người dùng thuộc về với LIKE
+        group_perms_query = f"""
+            SELECT p.*
+            FROM {perm_table} p
+            JOIN {groupperm_perm_table} gpp ON p.name = gpp.perm_id
+            JOIN {group_perm_table} gp ON gpp.group_id = gp.name
+            JOIN {user_group_perm_table} ugp ON gp.name = ugp.group_id
+            WHERE ugp.user_id LIKE %s AND ugp.allow = TRUE
+        """
+        user_id = f"%{user_id}%"
 
     cur.execute(direct_perms_query, (user_id,))
     direct_perms = cur.fetchall()
@@ -71,7 +91,7 @@ def get_all_user_perms_sql(user_id):
     return list(perm_objs)
 
 
-def get_user_by_permname_sql(perm_name):
+def get_user_by_permname_sql(perm_name, exact=True):
     Perm, User, UserGroupPerm, GroupPerm, UserPerm, GroupPermPerms = get_user_model()
 
     conn = psycopg2.connect(
@@ -99,11 +119,61 @@ def get_user_by_permname_sql(perm_name):
         LEFT JOIN {perm_table} p1 ON gpp.perm_id = p1.name
         LEFT JOIN {user_perm_table} up ON u.id = up.user_id
         LEFT JOIN {perm_table} p2 ON up.perm_id = p2.name
-        WHERE (gpp.allow = TRUE AND p1.name = %s)
-           OR (up.allow = TRUE AND p2.name = %s)
+        """
+    if exact:
+        query += f"""
+            WHERE (gpp.allow = TRUE AND p1.name = %s)
+            OR (up.allow = TRUE AND p2.name = %s)
+        """
+    else:
+        perm_name = f"%{perm_name}%"
+        query += f"""
+                    WHERE (gpp.allow = TRUE AND p1.name LIKE %s)
+                       OR (up.allow = TRUE AND p2.name LIKE %s)
+                """
+    cur.execute(query, (perm_name, perm_name))
+    user_ids = cur.fetchall()
+
+    cur.close()
+    conn.close()
+
+    return [user_id[0] for user_id in user_ids]
+
+
+def get_user_like_permname_sql(perm_name):
+    Perm, User, UserGroupPerm, GroupPerm, UserPerm, GroupPermPerms = get_user_model()
+
+    conn = psycopg2.connect(
+        dbname=PGS_DB,
+        user=PGS_USER,
+        password=PGS_PASSWORD,
+        host=PGS_HOST,
+        port=PGS_PORT
+    )
+    cur = conn.cursor()
+
+    user_table = User._meta.db_table
+    user_group_perm_table = UserGroupPerm._meta.db_table
+    group_perm_table = GroupPerm._meta.db_table
+    user_perm_table = UserPerm._meta.db_table
+    perm_table = Perm._meta.db_table
+    groupperm_perm_table = GroupPermPerms._meta.db_table
+
+    query = f"""
+        SELECT DISTINCT u.id
+        FROM {user_table} u
+        LEFT JOIN {user_group_perm_table} ugp ON u.id = ugp.user_id
+        LEFT JOIN {group_perm_table} gp ON ugp.group_id = gp.name
+        LEFT JOIN {groupperm_perm_table} gpp ON gp.name = gpp.group_id
+        LEFT JOIN {perm_table} p1 ON gpp.perm_id = p1.name
+        LEFT JOIN {user_perm_table} up ON u.id = up.user_id
+        LEFT JOIN {perm_table} p2 ON up.perm_id = p2.name
+        WHERE (gpp.allow = TRUE AND p1.name LIKE %s)
+           OR (up.allow = TRUE AND p2.name LIKE %s)
         """
 
-    cur.execute(query, (perm_name, perm_name))
+    perm_name_pattern = f"%{perm_name}%"
+    cur.execute(query, (perm_name_pattern, perm_name_pattern))
     user_ids = cur.fetchall()
 
     cur.close()

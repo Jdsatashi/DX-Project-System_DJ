@@ -1,3 +1,5 @@
+from datetime import datetime
+
 from django.db import transaction
 from django.db.models import Sum
 from django.utils import timezone
@@ -26,7 +28,7 @@ class OrderDetailSerializer(BaseRestrictSerializer):
 
 
 class OrderSerializer(BaseRestrictSerializer):
-    order_detail = OrderDetailSerializer(many=True)
+    order_detail = OrderDetailSerializer(many=True, allow_null=True)
     list_type = serializers.CharField(required=False, allow_blank=True, allow_null=True)
     note = serializers.CharField(required=False, allow_blank=True, allow_null=True)
     status = serializers.CharField(required=False, allow_blank=True, allow_null=True)
@@ -84,7 +86,10 @@ class OrderSerializer(BaseRestrictSerializer):
                         special_offer.save()
 
                     app_log.info(f"Testing user sale statistic: {user_sale_statistic}")
-                    self.update_sale_statistic(order, user_sale_statistic, order.order_price, is_so, is_consider)
+                    if order.status == 'deactivate':
+                        self.update_sale_statistic(order, user_sale_statistic, order.order_price, is_so, False)
+                    else:
+                        self.update_sale_statistic(order, user_sale_statistic, order.order_price, is_so, True)
 
                     # Create perms
                     restrict = perm_data.get('restrict')
@@ -156,13 +161,40 @@ class OrderSerializer(BaseRestrictSerializer):
             instance.order_price = total_price
             instance.save()
             app_log.info(f"Testing user sale statistic: {user_sale_statistic}")
-            self.update_sale_statistic(instance, user_sale_statistic, instance.order_price, is_so, is_consider)
+            if instance.status == 'deactivate':
+                self.update_sale_statistic(instance, user_sale_statistic, instance.order_price, is_so, False)
+            else:
+                self.update_sale_statistic(instance, user_sale_statistic, instance.order_price, is_so, True)
 
             restrict = perm_data.get('restrict')
             if restrict:
                 self.handle_restrict(perm_data, instance.id, self.Meta.model)
 
         return instance
+
+    def delete(self, instance):
+        try:
+            with transaction.atomic():
+                print(f"Deleting")
+                # Implement any custom logic before deletion here
+                user = instance.client_id
+                month = instance.date_get.replace(day=1)
+                user_sale_statistic, _ = SaleStatistic.objects.get_or_create(user=user, month=month)
+                if instance.status == 'deactivate':
+                    print(f"Status deactivate")
+                    pass
+                else:
+                    print(f"Status active")
+                    self.update_sale_statistic(instance, user_sale_statistic, instance.order_price, instance.is_so, False)
+                # Delete related order details
+                OrderDetail.objects.filter(order_id=instance).delete()
+
+                # Delete the order instance
+                instance.delete()
+
+        except Exception as e:
+            app_log.error(f"Error when deleting order: {e}")
+            raise serializers.ValidationError({'message': 'unexpected error during deletion'})
 
     def validate_special_offer(self, data, order_details_data):
         # Get user and phone from token
@@ -282,7 +314,8 @@ class OrderSerializer(BaseRestrictSerializer):
         return details
 
     @staticmethod
-    def update_sale_statistic(order, user_sale_statistic, total_price, is_so, is_consider):
+    def update_sale_statistic(order, user_sale_statistic, total_price, is_so, status):
+        print(f"Check user statistic: {user_sale_statistic}")
         if user_sale_statistic:
             # Calculate used turnover based on SaleTarget for the month of order.created_at
             order_month = order.date_get.replace(day=1)
@@ -290,25 +323,35 @@ class OrderSerializer(BaseRestrictSerializer):
 
             if not sale_target:
                 raise serializers.ValidationError({'message': f'không tìm thấy doanh số tháng {order_month}'})
-            if is_so:
-                target = order.new_special_offer.target
-                target = target if target != 0 else sale_target.month_target
-                app_log.info(f"TESTING TARGET: {target}")
+            if status:
+                if is_so:
+                    target = order.new_special_offer.target
+                    target = target if target != 0 else sale_target.month_target
+                    app_log.info(f"TESTING TARGET: {target}")
 
-                used_turnover = sum(
-                    detail.order_box * target
-                    for detail in order.order_detail.all()
-                )
-                if order.new_special_offer.count_turnover:
+                    used_turnover = sum(
+                        detail.order_box * target
+                        for detail in order.order_detail.all()
+                    )
+                    if order.new_special_offer.count_turnover:
+                        user_sale_statistic.total_turnover += total_price
+
+                    user_sale_statistic.used_turnover += used_turnover
+                    user_sale_statistic.available_turnover = user_sale_statistic.total_turnover - user_sale_statistic.used_turnover
+                    user_sale_statistic.save()
+                else:
                     user_sale_statistic.total_turnover += total_price
-
-                user_sale_statistic.used_turnover += used_turnover
-                user_sale_statistic.available_turnover = user_sale_statistic.total_turnover - user_sale_statistic.used_turnover
-                user_sale_statistic.save()
+                    user_sale_statistic.available_turnover = user_sale_statistic.total_turnover - user_sale_statistic.used_turnover
+                    user_sale_statistic.save()
             else:
-                user_sale_statistic.total_turnover += total_price
+                print(f"- turnover: {total_price}")
+                print(f"Test 1: {user_sale_statistic.total_turnover}")
+                user_sale_statistic.total_turnover = user_sale_statistic.total_turnover - total_price
+                print(f"Test 2: {user_sale_statistic.total_turnover}")
                 user_sale_statistic.available_turnover = user_sale_statistic.total_turnover - user_sale_statistic.used_turnover
+                print(f"Test 3: {user_sale_statistic.total_turnover}")
                 user_sale_statistic.save()
+                print(f"Test 4: {user_sale_statistic.total_turnover}")
 
     def update_order_by(self):
         try:

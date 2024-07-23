@@ -98,7 +98,7 @@ class SaleStatistic(models.Model):
 
         self.available_turnover = self.total_turnover - self.used_turnover
 
-        sale_target = SaleTarget.objects.get_or_create(month=self.month)
+        sale_target, _ = SaleTarget.objects.get_or_create(month=self.month)
         super().save(*args, **kwargs)
 
     def __str__(self):

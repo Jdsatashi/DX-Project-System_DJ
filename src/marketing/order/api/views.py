@@ -42,6 +42,12 @@ class GenericApiOrder(viewsets.GenericViewSet, mixins.ListModelMixin, mixins.Cre
                                **kwargs)
         return Response(response, status.HTTP_200_OK)
 
+    def destroy(self, request, *args, **kwargs):
+        instance = self.get_object()
+        serializer = self.get_serializer(instance)
+        serializer.delete(instance)
+        return Response(status=status.HTTP_204_NO_CONTENT)
+
     def users_order(self, request, *args, **kwargs):
         user_id = request.query_params.get('user', '')
         if user_id == '':
