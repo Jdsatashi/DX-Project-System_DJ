@@ -79,28 +79,29 @@ class BaseRestrictSerializer(serializers.ModelSerializer):
                  list_perm, False)
 
 
-def add_perm(items: dict, perms: list, allow: bool):
+def add_perm(items: dict, perms: [list, None], allow: bool):
     """ Add new perms for user """
-    # Get existed user/group permissions
-    exited = items.get('existed', [])
-    # Upper data id when type == 'users'
-    items_data = [item.upper() for item in items['data']] if items['type'] == 'users' else items['data']
-    # Remove Updating Restrict users/groups
-    if exited and len(exited) > 0:
-        # Return users/groups that would be removed permissions
-        items['existed'] = list(set(exited) - set(items_data))
-        for item_data in items['existed']:
-            if items['type'] == 'users':
-                update_user_perm(item_data, perms, items, allow, exited)
-            else:
-                update_group_perm(item_data, perms, items, allow, exited)
-    # Looping data update
-    if len(items['data']) > 0:
-        for item_data in items['data']:
-            if items['type'] == 'users':
-                update_user_perm(item_data, perms, items, allow, exited)
-            else:
-                update_group_perm(item_data, perms, items, allow, exited)
+    if items['data']:
+        # Get existed user/group permissions
+        exited = items.get('existed', [])
+        # Upper data id when type == 'users'
+        items_data = [item.upper() for item in items['data']] if items['type'] == 'users' else items['data']
+        # Remove Updating Restrict users/groups
+        if exited and len(exited) > 0:
+            # Return users/groups that would be removed permissions
+            items['existed'] = list(set(exited) - set(items_data))
+            for item_data in items['existed']:
+                if items['type'] == 'users':
+                    update_user_perm(item_data, perms, items, allow, exited)
+                else:
+                    update_group_perm(item_data, perms, items, allow, exited)
+        # Looping data update
+        if len(items['data']) > 0:
+            for item_data in items['data']:
+                if items['type'] == 'users':
+                    update_user_perm(item_data, perms, items, allow, exited)
+                else:
+                    update_group_perm(item_data, perms, items, allow, exited)
 
 
 def update_user_perm(item_data, perms, items, allow, exited):
@@ -125,14 +126,14 @@ def update_user_perm(item_data, perms, items, allow, exited):
         is_perm = user.is_perm(perm)
         # Remove when permission is existed and User not in Updated list
         if exited is not None and is_perm and user.id in items['existed']:
-            app_log.info(f"|__ Remove permissions '{user.id}' - '{perm}'")
+            app_log.info(f"|__ Remove permissions user '{user.id}' - '{perm}'")
             user.perm_user.remove(perm)
         elif is_perm:
-            app_log.info(f"|__ Continue '{user.id}' - '{perm}'")
+            app_log.info(f"|__ Continue user '{user.id}' - '{perm}'")
             continue
         # Adding permissions to user
         else:
-            app_log.info(f"|__ Add permissions '{user.id}' - '{perm}'")
+            app_log.info(f"|__ Add permissions for user '{user.id}' - '{perm}'")
             user.perm_user.add(perm, through_defaults={'allow': allow})
 
 
@@ -149,17 +150,17 @@ def update_group_perm(item_data, perms, items, allow, exited):
     # Looping handle with permissions
     for perm in perms:
         group_perm = group.perm.filter(name=perm)
-        is_perm = group_perm.exists() and group_perm.first().allow
+        is_perm = group_perm.exists() and group.perm_group.filter(perm_id=perm, allow=allow).exists()
         # Remove when permission is existed and Group not in Updated list
         if exited is not None and is_perm and group.name in items['existed']:
-            app_log.info(f"|__ Remove permissions '{group.name}' - '{perm}'")
+            app_log.info(f"|__ Remove permissions group '{group.name}' - '{perm}'")
             group.perm.remove(perm)
         elif is_perm:
-            app_log.info(f"|__ Continue '{group.name}' - '{perm}'")
+            app_log.info(f"|__ Continue group '{group.name}' - '{perm}'")
             continue
         # Adding permissions to group
         else:
-            app_log.info(f"|__ Add permissions '{group.name}' - '{perm}'")
+            app_log.info(f"|__ Add permissions for group '{group.name}' - '{perm}'")
             group.perm.add(perm, through_defaults={'allow': allow})
 
 

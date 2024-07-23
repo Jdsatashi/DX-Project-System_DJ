@@ -43,7 +43,9 @@ class GenericApiPriceList(viewsets.GenericViewSet, mixins.ListModelMixin, mixins
     @action(methods=['get'], detail=False, url_path='now', url_name='now')
     def now(self, request, *args, **kwargs):
         today = timezone.localdate()
-        queryset = self.get_queryset().filter(date_start__lte=today, date_end__gte=today).order_by('type', 'created_at')
+        queryset = self.get_queryset().filter(date_start__lte=today, date_end__gte=today).exclude(
+            status='deactivate'
+        ).order_by('-type', 'created_at')
         response = filter_data(self, request, ['id', 'name', 'date_start', 'date_end'], queryset=queryset,
                                **kwargs)
         return Response(response)
@@ -85,19 +87,19 @@ class ApiImportProductPL(APIView):
         app_log.info(f"Test excel file: {str(excel_file)}")
         # Validate
         if excel_file is None:
-            return Response({"error": "not found excel import file"}, status=status.HTTP_400_BAD_REQUEST)
+            return Response({'message': "not found excel import file"}, status=status.HTTP_400_BAD_REQUEST)
         # Validate file extension
         file_extension = os.path.splitext(excel_file.name)[1].lower()
         if file_extension not in ['.xls', '.xlsx']:
-            return Response({"error": "Invalid file format. Only .xls and .xlsx files are supported."},
+            return Response({'message': "Invalid file format. Only .xls and .xlsx files are supported."},
                             status=status.HTTP_400_BAD_REQUEST)
 
         price_list_id = self.request.data.get('price_list', None)
         if price_list_id is None:
-            return Response({"error": "field price_list is required"}, status=status.HTTP_400_BAD_REQUEST)
+            return Response({'message': "field price_list is required"}, status=status.HTTP_400_BAD_REQUEST)
         price_list = PriceList.objects.filter(id=price_list_id)
         if not price_list.exists():
-            return Response({"error": f"price list with id {price_list_id} not found"},
+            return Response({'message': f"price list with id {price_list_id} not found"},
                             status=status.HTTP_400_BAD_REQUEST)
         price_list = price_list.first()
         try:
@@ -118,7 +120,7 @@ class ApiImportProductPL(APIView):
                     try:
                         product = Product.objects.get(id=product_id)
                     except Product.DoesNotExist:
-                        return Response({"error": f"Product with id {product_id} not found"},
+                        return Response({'message': f"Product with id {product_id} not found"},
                                         status=status.HTTP_400_BAD_REQUEST)
 
                     product_ids_in_excel.append(product_id)
@@ -168,18 +170,18 @@ class ApiImportProductSO(APIView):
 
         # Validate file
         if excel_file is None:
-            return Response({"error": "not found excel import file"}, status=status.HTTP_400_BAD_REQUEST)
+            return Response({'message': "not found excel import file"}, status=status.HTTP_400_BAD_REQUEST)
         # Validate file extension
         file_extension = os.path.splitext(excel_file.name)[1].lower()
         if file_extension not in ['.xls', '.xlsx']:
-            return Response({"error": "invalid file format, only .xls and .xlsx files are supported."},
+            return Response({'message': "invalid file format, only .xls and .xlsx files are supported."},
                             status=status.HTTP_400_BAD_REQUEST)
         # Validate Special Offer
         if so_id is None:
-            return Response({"error": "field price_list is required"}, status=status.HTTP_400_BAD_REQUEST)
+            return Response({'message': "field price_list is required"}, status=status.HTTP_400_BAD_REQUEST)
         special_offer = SpecialOffer.objects.filter(id=so_id).first()
         if not special_offer:
-            return Response({"error": f"special offer with id {so_id} not found"},
+            return Response({'message': f"special offer with id {so_id} not found"},
                             status=status.HTTP_400_BAD_REQUEST)
         try:
             so_update = list()
@@ -202,7 +204,7 @@ class ApiImportProductSO(APIView):
                     try:
                         product = Product.objects.get(id=product_id)
                     except Product.DoesNotExist:
-                        return Response({"error": f"Product with id {product_id} not found"},
+                        return Response({'message': f"Product with id {product_id} not found"},
                                         status=status.HTTP_400_BAD_REQUEST)
 
                     product_in_excel.append(product_id)
