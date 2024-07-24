@@ -306,7 +306,7 @@ class ExportReport(APIView):
         # Tiêu đề cột
         columns = [
             'Loại bảng kê', 'Mã khách hàng', 'Tên Khách hàng', 'Khách hàng cấp 1', 'NVTT',
-            'Ngày nhận toa', 'Ngày nhận hàng', 'Ngày gửi trễ', 'Ghi chú',
+            'Ngày nhận toa', 'Người tạo toa', 'Ngày nhận hàng', 'Ngày gửi trễ', 'Ghi chú',
             'Mã sản phẩm', 'Tên sản phẩm', 'Số lượng', 'Số thùng', 'Thành tiền'
         ]
 
@@ -363,6 +363,7 @@ class ExportReport(APIView):
                     order['clients']['register_lv1'],
                     order['clients']['nvtt'],
                     order['date_get'],
+                    order['created_by'],
                     date_send,
                     order['date_delay'],
                     order['note'],
@@ -547,8 +548,8 @@ class OrderReportView(APIView):
 
         fields = model._meta.fields
         field_dict = {}
-        include_fields = ['id', 'date_get', 'date_company_get', 'date_delay', 'id_offer_consider',
-                          'order_point', 'order_price', 'note', 'created_at']
+        include_fields = ['id', 'date_get', 'date_company_get', 'date_delay', 'is_so',
+                          'order_point', 'order_price', 'note', 'created_at', 'created_by']
         # fk_field = DataFKModel(model)
         # fk_fields = fk_field.get_fk_fields()
         for field in fields:
