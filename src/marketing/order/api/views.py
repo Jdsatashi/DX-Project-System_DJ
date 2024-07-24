@@ -64,6 +64,7 @@ class GenericApiOrder(viewsets.GenericViewSet, mixins.ListModelMixin, mixins.Cre
 
 class ProductStatisticsView(APIView):
     permission_classes = [partial(ValidatePermRest, model=Order)]
+    authentication_classes = [JWTAuthentication, BasicAuthentication, SessionAuthentication]
     serializer_class = ProductStatisticsSerializer
 
     def get(self, request, *args, **kwargs):
@@ -269,6 +270,7 @@ def statistic_calculate(details_1, details_2):
 
 
 class ExportReport(APIView):
+    authentication_classes = [JWTAuthentication, BasicAuthentication, SessionAuthentication]
     permission_classes = [partial(ValidatePermRest, model=Order)]
 
     def get(self, request):
@@ -387,6 +389,7 @@ class ExportReport(APIView):
 
 class OrderReportView(APIView):
     permission_classes = [partial(ValidatePermRest, model=Order)]
+    authentication_classes = [JWTAuthentication, BasicAuthentication, SessionAuthentication]
 
     def get(self, request):
         start_time = time.time()
