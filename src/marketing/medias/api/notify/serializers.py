@@ -96,9 +96,11 @@ class NotificationSerializer(serializers.ModelSerializer):
                 time_until_alert = (aware_datetime - now()).total_seconds()
                 # Timer count down when time > 0
                 if time_until_alert > 0:
+                    print(f"Time until alert: {time_until_alert}")
                     send_notification_task.apply_async((notify.id,), countdown=time_until_alert)
                 # Send notification immediately
                 else:
+                    print(f"Else not time utils")
                     send_notification_task.apply_async((notify.id,))
                 return notify
         except Exception as e:
