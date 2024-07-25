@@ -1,9 +1,12 @@
+from functools import partial
+
 from django.utils import timezone
 from rest_framework import viewsets, mixins, status
-from rest_framework.authentication import BasicAuthentication
+from rest_framework.authentication import BasicAuthentication, SessionAuthentication
 from rest_framework.response import Response
 from rest_framework_simplejwt.authentication import JWTAuthentication
 
+from account.handlers.validate_perm import ValidatePermRest
 from account.models import User
 from app.logs import app_log
 from marketing.sale_statistic.api.serializers import SaleStatisticSerializer, SaleMonthTargetSerializer
@@ -16,9 +19,8 @@ class ApiSaleStatistic(viewsets.GenericViewSet, mixins.ListModelMixin,
                        mixins.RetrieveModelMixin, mixins.UpdateModelMixin, mixins.DestroyModelMixin):
     serializer_class = SaleStatisticSerializer
     queryset = SaleStatistic.objects.all()
-    authentication_classes = [JWTAuthentication, BasicAuthentication]
-
-    # permission_classes = [partial(ValidatePermRest, model=SaleStatistic)]
+    authentication_classes = [JWTAuthentication, BasicAuthentication, SessionAuthentication]
+    permission_classes = [partial(ValidatePermRest, model=SaleStatistic)]
 
     def list(self, request, *args, **kwargs):
         response = filter_data(self, request, ['user__id'],
@@ -28,9 +30,8 @@ class ApiSaleStatistic(viewsets.GenericViewSet, mixins.ListModelMixin,
 
 class CurrentMonthSaleStatisticView(viewsets.GenericViewSet, mixins.ListModelMixin):
     serializer_class = SaleStatisticSerializer
-    authentication_classes = [JWTAuthentication, BasicAuthentication]
-
-    # permission_classes = [partial(ValidatePermRest, model=SaleTarget)]
+    authentication_classes = [JWTAuthentication, BasicAuthentication, SessionAuthentication]
+    permission_classes = [partial(ValidatePermRest, model=SaleTarget)]
 
     def get_queryset(self):
         today = timezone.now().date()
@@ -46,9 +47,8 @@ class CurrentMonthSaleStatisticView(viewsets.GenericViewSet, mixins.ListModelMix
 
 class UserMonthSaleStatisticView(viewsets.GenericViewSet, mixins.ListModelMixin):
     serializer_class = SaleStatisticSerializer
-    authentication_classes = [JWTAuthentication, BasicAuthentication]
-
-    # permission_classes = [partial(ValidatePermRest, model=SaleTarget)]
+    authentication_classes = [JWTAuthentication, BasicAuthentication, SessionAuthentication]
+    permission_classes = [partial(ValidatePermRest, model=SaleTarget)]
 
     def get_queryset(self):
         user_id = self.kwargs.get('user_id')
@@ -67,9 +67,8 @@ class ApiSaleMonthTarget(viewsets.GenericViewSet, mixins.ListModelMixin,
                          mixins.RetrieveModelMixin, mixins.UpdateModelMixin, mixins.DestroyModelMixin):
     serializer_class = SaleMonthTargetSerializer
     queryset = SaleTarget.objects.all()
-    authentication_classes = [JWTAuthentication, BasicAuthentication]
-
-    # permission_classes = [partial(ValidatePermRest, model=SaleTarget)]
+    authentication_classes = [JWTAuthentication, BasicAuthentication, SessionAuthentication]
+    permission_classes = [partial(ValidatePermRest, model=SaleTarget)]
 
     def list(self, request, *args, **kwargs):
         today = local_time().date()

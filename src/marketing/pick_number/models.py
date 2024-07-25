@@ -1,6 +1,6 @@
 import time
 
-from django.db import models
+from django.db import models, transaction
 from django.db.models import F, Sum, FloatField
 from rest_framework.exceptions import ValidationError
 
@@ -27,37 +27,44 @@ class EventNumber(models.Model):
     updated_at = models.DateTimeField(auto_now=True)
 
     def save(self, *args, **kwargs):
-        start_time = time.time()
-        app_log.debug(f"Start saving EventNumber")
-        is_new = self._state.adding
-        old_limit_repeat = None
-        if not self.id or self.id == '':
-            self.id = self_id('EVN', EventNumber, 4)
-        if not is_new:
-            # Lưu giá trị limit_repeat cũ trước khi cập nhật
-            old_event = EventNumber.objects.get(id=self.id)
-            old_limit_repeat = old_event.limit_repeat
-            # Validate before updating existing EventNumber
-            self.validate_update(old_limit_repeat)
+        try:
+            with transaction.atomic():
+                start_time = time.time()
+                app_log.debug(f"Start saving EventNumber")
+                is_new = self._state.adding
+                old_limit_repeat = None
+                if not self.id or self.id == '':
+                    self.id = self_id('EVN', EventNumber, 4)
+                if not is_new:
+                    # Lưu giá trị limit_repeat cũ trước khi cập nhật
+                    old_event = EventNumber.objects.get(id=self.id)
+                    old_limit_repeat = old_event.limit_repeat
+                    # Validate before updating existing EventNumber
+                    self.validate_update(old_limit_repeat)
 
-        super().save(*args, **kwargs)
+                super().save(*args, **kwargs)
 
-        if is_new:
-            self.create_number_list()
-        else:
-            self.update_number_list(old_limit_repeat)
-        app_log.info(f"Time complete EventNumber: {time.time() - start_time}")
+                if is_new:
+                    self.create_number_list()
+                else:
+                    self.update_number_list(old_limit_repeat)
+                app_log.info(f"Time complete EventNumber: {time.time() - start_time}")
+        except Exception as e:
+            app_log.error(f"Error in saving EventNumber: {e}")
+            raise e
 
     def create_number_list(self):
         start_time = time.time()
         number_list = [
             NumberList(
+                id=f"{self.id}_{num}",
                 number=num,
                 repeat_count=self.limit_repeat,
                 event=self
             )
             for num in range(1, self.range_number + 1)
         ]
+        print(f"Test number: {number_list}")
         NumberList.objects.bulk_create(number_list)
         app_log.info(f"Time complete create new NumberList: {time.time() - start_time}")
 
@@ -169,7 +176,7 @@ class NumberList(models.Model):
         return f"{self.event} - {self.number}"
 
     def save(self, *args, **kwargs):
-        if not self.pk:
+        if not self.id or self.id == '':
             self.id = f"{self.event.id}_{self.number}"
         super().save(*args, **kwargs)
 
@@ -193,7 +200,7 @@ class UserJoinEvent(models.Model):
         return f"{self.event} - {self.user}"
 
     def save(self, *args, **kwargs):
-        if not self.pk:
+        if not self.id or self.id == '':
             self.id = f"{self.event.id}_{self.user}"
         super().save(*args, **kwargs)
 

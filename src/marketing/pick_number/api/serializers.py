@@ -1,5 +1,6 @@
 import time
 
+from django.db import transaction
 from rest_framework import serializers
 from rest_framework.response import Response
 
@@ -54,9 +55,10 @@ class UserJoinEventSerializer(BaseRestrictSerializer):
 
     def create(self, validated_data):
         number_selected_data = validated_data.pop('number_selected', [])
-        user_join_event = super().create(validated_data)
-        self.update_number_selected(user_join_event, number_selected_data)
-        return user_join_event
+        with transaction.atomic():
+            user_join_event = super().create(validated_data)
+            self.update_number_selected(user_join_event, number_selected_data)
+            return user_join_event
 
     def update(self, instance, validated_data):
         number_selected_data = validated_data.pop('number_selected', [])
