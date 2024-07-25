@@ -90,26 +90,27 @@ class NotificationSerializer(serializers.ModelSerializer):
                     file_upload = FileUpload.objects.create(file=file)
                     NotificationFile.objects.create(notify=notify, file=file_upload)
 
-                # Setting time for alarm notification
-                alert_datetime = datetime.combine(notify.alert_date, notify.alert_time)
-                aware_datetime = make_aware(alert_datetime)
-                time_until_alert = (aware_datetime - now()).total_seconds()
-                # Timer count down when time > 0
-                if time_until_alert > 0:
-                    print(f"Time until alert: {time_until_alert}")
-                    app_log.info(f'Time until alert: {time_until_alert}')
-                    send_notification_task.apply_async((notify.id,), countdown=time_until_alert)
-                    app_log.info(f'Scheduled notification to be sent in {time_until_alert} seconds')
-                # Send notification immediately
-                else:
-                    print(f"Else not time utils check id: {notify.id}")
-                    app_log.info('Sending notification immediately')
-                    send_notification_task.apply_async((notify.id,), countdown=5)
-                    app_log.info('Notification task called immediately')
                 return notify
         except Exception as e:
             app_log.error(e)
             raise serializers.ValidationError({'error': 'gặp lỗi khi create notify'})
+
+        # Setting time for alarm notification
+        alert_datetime = datetime.combine(notify.alert_date, notify.alert_time)
+        aware_datetime = make_aware(alert_datetime)
+        time_until_alert = (aware_datetime - now()).total_seconds()
+        # Timer count down when time > 0
+        if time_until_alert > 0:
+            print(f"Time until alert: {time_until_alert}")
+            app_log.info(f'Time until alert: {time_until_alert}')
+            send_notification_task.apply_async((notify.id,), countdown=time_until_alert)
+            app_log.info(f'Scheduled notification to be sent in {time_until_alert} seconds')
+        # Send notification immediately
+        else:
+            print(f"Else not time utils check id: {notify.id}")
+            app_log.info('Sending notification immediately')
+            send_notification_task.apply_async((notify.id,), countdown=5)
+            app_log.info('Notification task called immediately')
 
     def update(self, instance, validated_data):
         users = validated_data.pop('users', [])
