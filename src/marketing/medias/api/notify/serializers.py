@@ -102,9 +102,9 @@ class NotificationSerializer(serializers.ModelSerializer):
                     app_log.info(f'Scheduled notification to be sent in {time_until_alert} seconds')
                 # Send notification immediately
                 else:
-                    print(f"Else not time utils")
+                    print(f"Else not time utils check id: {notify.id}")
                     app_log.info('Sending notification immediately')
-                    send_notification_task.apply_async((notify.id,))
+                    send_notification_task.apply_async((notify.id,), countdown=5)
                     app_log.info('Notification task called immediately')
                 return notify
         except Exception as e:
