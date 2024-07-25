@@ -90,7 +90,6 @@ class NotificationSerializer(serializers.ModelSerializer):
                     file_upload = FileUpload.objects.create(file=file)
                     NotificationFile.objects.create(notify=notify, file=file_upload)
 
-                return notify
         except Exception as e:
             app_log.error(e)
             raise serializers.ValidationError({'error': 'gặp lỗi khi create notify'})
@@ -111,6 +110,7 @@ class NotificationSerializer(serializers.ModelSerializer):
             app_log.info('Sending notification immediately')
             send_notification_task.apply_async((notify.id,), countdown=5)
             app_log.info('Notification task called immediately')
+        return notify
 
     def update(self, instance, validated_data):
         users = validated_data.pop('users', [])
