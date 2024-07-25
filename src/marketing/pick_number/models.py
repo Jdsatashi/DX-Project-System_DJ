@@ -64,7 +64,6 @@ class EventNumber(models.Model):
             )
             for num in range(1, self.range_number + 1)
         ]
-        print(f"Test number: {number_list}")
         NumberList.objects.bulk_create(number_list)
         app_log.info(f"Time complete create new NumberList: {time.time() - start_time}")
 
