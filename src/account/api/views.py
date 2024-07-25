@@ -420,7 +420,7 @@ def check_token(request):
             if current_time < expiration_time:
                 response_data = dict()
                 # Check user is admin
-                user_data = UserSerializer(user).data
+                user_data = UserWithPerm(user).data
                 if not user.is_superuser and not user.group_user.filter(name=admin_role).exists():
                     # If not admin calculate point
                     main_pl = PriceList.get_main_pl()
@@ -430,19 +430,18 @@ def check_token(request):
                 else:
                     response_data['is_admin'] = True
                 # Get profile user depend on user_type
-                if user.user_type == 'employee':
-                    profile = EmployeeProfileSerializer(user.employeeprofile).data
-                else:
-                    profile = ClientProfileSerializer(user.clientprofile).data
+                # if user.user_type == 'employee':
+                #     profile = EmployeeProfileSerializer(user.employeeprofile).data
+                # else:
+                #     profile = ClientProfileSerializer(user.clientprofile).data
                 # Add profile to user_data
-                user_data['profile'] = profile
+                # user_data['profile'] = profile
                 # Get all group of user
                 group = user.group_user.filter().values_list('name', flat=True)
                 # Add group to user_data
-                user_data['group'] = list(group)
+                # user_data['group'] = list(group)
                 # Add user data to response data
-                response_data['user'] = user_data
-                return Response(response_data, status=status.HTTP_200_OK)
+                return Response(user_data, status=status.HTTP_200_OK)
             else:
                 return Response({'message': 'Token đã hết hạn'}, status=status.HTTP_401_UNAUTHORIZED)
 
