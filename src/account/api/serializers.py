@@ -4,6 +4,7 @@ from django.db.models import Q
 from rest_framework import serializers
 from rest_framework.exceptions import ValidationError
 
+from account.handlers.token import deactivate_user_token
 from account.models import User, GroupPerm, Perm, Verify, PhoneNumber, GrantAccess
 from app.logs import app_log
 from app.settings import SMS_SERVICE
@@ -304,8 +305,12 @@ class UserWithPerm(serializers.ModelSerializer):
 
                 # Update phone
                 if phone_data is not None:
-                    instance.phone_numbers.all().delete()  # Clear existing phone numbers
-                    for phone_number in phone_data:
+                    current_phone = instance.phone_numbers.filter().values_list('phone_number', flat=True).distinct()
+                    print(f"Test current phone: {current_phone}")
+                    add_phone = set(phone_data) - set(list(current_phone))
+                    remove_phone = list(set(list(current_phone)) - set(phone_data))
+                    # Loop inserting data phone
+                    for phone_number in add_phone:
                         is_valid, phone_number = phone_validate(phone_number)
                         if not is_valid:
                             raise serializers.ValidationError({'message': f'\'{phone_number}\' không hợp lệ'})
@@ -314,7 +319,10 @@ class UserWithPerm(serializers.ModelSerializer):
                         except IntegrityError:
                             raise serializers.ValidationError(
                                 {'message': f'phone_number \'{phone_number}\' đã tồn tại'})
-
+                    if len(remove_phone) >= 1:
+                        deactivate_user_token(instance)
+                        for phone_number in remove_phone:
+                            PhoneNumber.objects.get(phone_number=phone_number).delete()
                 handle_user(instance, group_data, perm_data, profile_data)
 
         except Exception as e:

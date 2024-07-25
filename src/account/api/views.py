@@ -21,6 +21,7 @@ from rest_framework_simplejwt.tokens import RefreshToken as RestRefreshToken, Ac
 from account.api.serializers import UserSerializer, RegisterSerializer, response_verify_code, UserUpdateSerializer, \
     UserWithPerm, PermSerializer, GroupPermSerializer, UserListSerializer, AllowanceOrder, GrantAccessSerializer
 from account.handlers.perms import get_full_permname, get_perm_name
+from account.handlers.token import deactivate_user_token
 from account.handlers.validate_perm import ValidatePermRest, check_perm
 from account.models import User, Verify, PhoneNumber, RefreshToken, TokenMapping, GroupPerm, Perm, GrantAccess
 from app.api_routes.handlers import get_token_for_user
@@ -522,16 +523,6 @@ def pusher_login(user):
         raise e
 
 
-def deactivate_user_token(user):
-    token_obj = RefreshToken.objects.filter(user=user, status="active").first()
-    # Update deactivate other activate token
-    if token_obj:
-        token_obj.status = "expired"
-        token_obj.save()
-        _token = RestRefreshToken(token_obj.refresh_token)
-        _token.blacklist()
-
-
 class ApiGroupPerm(viewsets.GenericViewSet, mixins.ListModelMixin, mixins.CreateModelMixin,
                    mixins.RetrieveModelMixin, mixins.UpdateModelMixin, mixins.DestroyModelMixin):
     serializer_class = GroupPermSerializer
@@ -754,3 +745,7 @@ def check_user_type(user):
     if user.user_type == 'farmer':
         return 'farmer'
     return 'unknown'
+
+class ImportUser(APIView):
+    def get(self, request, *args, **kwargs):
+        excel_file = self.request.FILES.get('excel_file', None)

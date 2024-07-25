@@ -9,6 +9,7 @@ from account.models import User
 from marketing.price_list.models import ProductPrice, PriceList, PointOfSeason, SpecialOffer, SpecialOfferProduct
 from marketing.product.models import Product
 from marketing.sale_statistic.models import SaleStatistic
+from utils.helpers import local_time
 
 
 # Create your models here.
@@ -41,7 +42,7 @@ class Order(models.Model):
     def clean(self):
         if self.price_list_id:
             if self.date_get is None:
-                self.date_get = datetime.utcnow()
+                self.date_get = local_time()
             if not (self.price_list_id.date_start <= self.date_get <= self.price_list_id.date_end):
                 raise ValidationError(
                     f"Order date {self.date_get} must be between the PriceList's date range from {self.price_list_id.date_start} to {self.price_list_id.date_end}.")
