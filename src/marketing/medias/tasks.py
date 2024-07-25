@@ -28,7 +28,8 @@ def send_notification_task(notification_id):
             "click_action": "click_action"
         }
 
-        send_firebase_notification(notification.title, notification.short_description, registration_tokens, my_data)
+        test = send_firebase_notification(notification.title, notification.short_description, registration_tokens, my_data)
+        print(f"Testing reponse send firebase: {test}")
         app_log.info(f'Notification sent successfully for ID: {notification_id}')
     except Notification.DoesNotExist:
         app_log.error(f'Notification with ID {notification_id} does not exist')
