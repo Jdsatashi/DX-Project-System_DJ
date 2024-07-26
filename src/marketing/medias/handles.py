@@ -23,5 +23,6 @@ def send_firebase_notification(title, body, registration_tokens, data):
         tokens=registration_tokens
     )
     response = messaging.send_multicast(message)
-    app_log.info(f"FIREBASE response: {response}")
-    app_log.info('{0} messages were sent successfully'.format(response.success_count))
+    # app_log.info(f"FIREBASE response: {response}")
+    # app_log.info('{0} messages were sent successfully'.format(response.success_count))
+    return response

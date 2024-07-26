@@ -54,8 +54,13 @@ def send_notification_task2(notification_id, user_ids):
             "click_action": "click_action"
         }
 
-        send_firebase_notification(notification.title, notification.short_description, registration_tokens, my_data)
+        response = send_firebase_notification(notification.title, notification.short_description, registration_tokens, my_data)
+
         app_log.info(f'Notification sent successfully for ID: {notification.id}')
+
+        app_log.info(f"FIREBASE response: {response}")
+        app_log.info('{0} messages were sent successfully'.format(response.success_count))
+
     except Notification.DoesNotExist:
         app_log.error(f'Notification with ID {notification_id} does not exist')
     except Exception as e:
