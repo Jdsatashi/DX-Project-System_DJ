@@ -83,7 +83,7 @@ class NotificationSerializer(serializers.ModelSerializer):
             with transaction.atomic():
                 notify = super().create(validated_data)
                 # Create specific permission
-                list_perm = create_full_perm(Notification, notify.id, acquy['view'])
+                list_perm = create_full_perm(Notification, notify.id, perm_actions['view'])
 
                 # Get user has perm
                 existed_user_allow = list_user_has_perm(list_perm, True)
@@ -137,7 +137,7 @@ class NotificationSerializer(serializers.ModelSerializer):
                 existing_files = set(
                     NotificationFile.objects.filter(notify=instance).values_list('file__file', flat=True))
                 # Create specific permission
-                list_perm = create_full_perm(Notification, instance.id, acquy['view'])
+                list_perm = create_full_perm(Notification, instance.id, perm_actions['view'])
 
                 # Get user has perm
                 existed_user_allow = list_user_has_perm(list_perm, True)
