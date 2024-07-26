@@ -222,6 +222,7 @@ class EventNumberSerializer(BaseRestrictSerializer):
             user_join.total_point = total_point + user_join.bonus_point
             user_join.turn_pick = user_join.total_point // event.point_exchange - user_join.turn_selected
             user_join.save()
+            print(f"Calculate point: total {user_join.total_point} - turn_pick {user_join.turn_pick}")
         users_to_remove = current_user_ids - new_user_ids
         UserJoinEvent.objects.filter(event=event, user_id__in=users_to_remove).delete()
         # for user_id in users_to_remove:

@@ -14,7 +14,9 @@ def update_user_join_event(sender, instance, created, **kwargs):
     # Lấy tất cả các EventNumber có date_start <= date_get <= date_close
     events = EventNumber.objects.filter(date_start__lte=date_get, date_close__gte=date_get)
     if events.exists():
+        app_log.info(f"Update event")
         for event in events:
+            app_log.info(f"Handle calculate point for event - {event}")
             user_join = UserJoinEvent.objects.filter(event=event, user=instance.client_id).first()
             if user_join:
                 app_log.info(user_join)
