@@ -1,5 +1,7 @@
 from firebase_admin import messaging
 
+from app.logs import app_log
+
 
 def send_firebase_notification(title, body, registration_tokens, data):
     """
@@ -11,6 +13,7 @@ def send_firebase_notification(title, body, registration_tokens, data):
     :param data: Additional custom data to send with the notification
     """
     # Construct the message payload
+    app_log.info(f"Hanle upload notify to FIREBASE")
     message = messaging.MulticastMessage(
         notification=messaging.Notification(
             title=title,
@@ -20,4 +23,5 @@ def send_firebase_notification(title, body, registration_tokens, data):
         tokens=registration_tokens
     )
     response = messaging.send_multicast(message)
-    print('{0} messages were sent successfully'.format(response.success_count))
+    app_log.info(f"FIREBASE response: {response}")
+    app_log.info('{0} messages were sent successfully'.format(response.success_count))
