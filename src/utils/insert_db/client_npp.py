@@ -29,7 +29,7 @@ def update_npp(user_list: list):
 
 def update_nvtt():
     queryset = User.objects.filter(
-        Q(employeeprofile__position__id='NVTT')
+        Q(Q(employeeprofile__position__id='NVTT') | Q(employeeprofile__department__id='QuanLyThiTruong'))
     ).select_related('employeeprofile').prefetch_related('employeeprofile__position').exclude(
         group_user__name='admin').distinct()
     nvtt = GroupPerm.objects.get(name='nvtt')
