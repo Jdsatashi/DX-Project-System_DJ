@@ -107,6 +107,7 @@ class NotificationSerializer(serializers.ModelSerializer):
             send_notification_task2.apply_async((notify.id, list(distinct_users.values_list('id', flat=True))),
                                                 countdown=5)
             app_log.info('Notification task called immediately')
+        return notify
 
     def update(self, instance, validated_data):
         users = validated_data.pop('users', [])
