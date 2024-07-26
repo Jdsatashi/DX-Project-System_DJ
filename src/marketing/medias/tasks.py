@@ -38,6 +38,32 @@ def send_notification_task(notification_id):
 
 
 @shared_task
+def send_notification_task2(notification_id, user_ids):
+    app_log.info(f'Starting task to send notification with ID: {notification_id}')
+    try:
+        notification = Notification.objects.get(id=notification_id)
+        app_log.info(f'Notification found: {notification.title}')
+
+        # Lấy danh sách người dùng và gửi thông báo
+        users = NotificationUser.objects.filter(notify=notification, user__id__in=user_ids)
+        registration_tokens = list(users.values_list('user__device_token', flat=True))
+
+        # Construct data
+        my_data = {
+            "notification_id": str(notification.id),
+            "click_action": "click_action"
+        }
+
+        test = send_firebase_notification(notification.title, notification.short_description, registration_tokens, my_data)
+        print(f"Testing reponse send firebase: {test}")
+        app_log.info(f'Notification sent successfully for ID: {notification.id}')
+    except Notification.DoesNotExist:
+        app_log.error(f'Notification with ID {notification_id} does not exist')
+    except Exception as e:
+        app_log.error(f'Error sending notification with ID {notification_id}: {str(e)}')
+
+
+@shared_task
 def create_and_send_notification_task(validated_data, users, groups, files, notify_id=None):
     try:
         with transaction.atomic():

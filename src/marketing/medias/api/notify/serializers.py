@@ -10,7 +10,7 @@ from account.handlers.restrict_serializer import create_full_perm, list_user_has
 from account.models import Perm, User, GroupPerm
 from app.logs import app_log
 from marketing.medias.models import Notification, NotificationUser, NotificationFile
-from marketing.medias.tasks import send_notification_task
+from marketing.medias.tasks import send_notification_task, send_notification_task2
 from system.file_upload.models import FileUpload
 from utils.constants import perm_actions, admin_role
 from utils.env import APP_SERVER
@@ -97,15 +97,16 @@ class NotificationSerializer(serializers.ModelSerializer):
         if time_until_alert > 0:
             print(f"Time until alert: {time_until_alert}")
             app_log.info(f'Time until alert: {time_until_alert}')
-            send_notification_task.apply_async((notify.id,), countdown=time_until_alert)
+            send_notification_task2.apply_async((notify.id, list(distinct_users.values_list('id', flat=True))),
+                                                countdown=time_until_alert)
             app_log.info(f'Scheduled notification to be sent in {time_until_alert} seconds')
         # Send notification immediately
         else:
             print(f"Else not time utils check id: {notify.id}")
             app_log.info('Sending notification immediately')
-            send_notification_task.apply_async((notify.id,), countdown=5)
+            send_notification_task2.apply_async((notify.id, list(distinct_users.values_list('id', flat=True))),
+                                                countdown=5)
             app_log.info('Notification task called immediately')
-        return notify
 
     def update(self, instance, validated_data):
         users = validated_data.pop('users', [])
