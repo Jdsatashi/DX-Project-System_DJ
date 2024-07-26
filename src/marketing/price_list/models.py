@@ -74,16 +74,15 @@ class PointOfSeason(models.Model):
     bonus_point = models.FloatField(null=True, blank=True, default=0)
     redundant = models.FloatField(null=True, blank=True, default=0)
 
-    def auto_point(self, pl, user):
-        if not PointOfSeason.objects.filter(price_list=pl, user=user).exists():
-            Order = apps.get_model('order', 'Order')
-            OrderDetail = apps.get_model('order', 'OrderDetail')
-            user_orders = Order.objects.filter(client_id=user, price_list_id=pl)
-            order_details = OrderDetail.objects.filter(order_id__in=user_orders)
-            point, total_point = calculate_point(order_details, pl)
-
-            self.point = point
-            self.total_point = total_point
+    def auto_point(self):
+        Order = apps.get_model('order', 'Order')
+        OrderDetail = apps.get_model('order', 'OrderDetail')
+        user_orders = Order.objects.filter(client_id=self.user, price_list_id=self.price_list)
+        order_details = OrderDetail.objects.filter(order_id__in=user_orders)
+        point, total_point = calculate_point(order_details, self.price_list)
+        print(f"Testing point: {point} - {total_point}")
+        self.point = point
+        self.total_point = total_point
 
 
 class SpecialOffer(models.Model):
