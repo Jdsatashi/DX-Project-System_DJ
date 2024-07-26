@@ -425,9 +425,8 @@ def check_token(request):
                     # If not admin calculate point
                     main_pl = PriceList.get_main_pl()
                     point, _ = PointOfSeason.objects.get_or_create(user=user, price_list=main_pl)
-                    if point.point == 0:
-                        point.auto_point()
-                        point.save()
+                    point.auto_point()
+                    point.save()
                     # Create json response data of user
                     user_data['point'] = point.point
                 else:
