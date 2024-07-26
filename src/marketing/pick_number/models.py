@@ -219,6 +219,7 @@ class NumberSelected(models.Model):
 
 def calculate_point_query(user, date_start, date_end, price_list=None):
     app_log.info(f"Input data: {user, date_start, date_end}")
+
     filters = {
         'order_id__client_id': user,
         'order_id__date_get__gte': date_start,
@@ -230,9 +231,7 @@ def calculate_point_query(user, date_start, date_end, price_list=None):
 
     total_points = OrderDetail.objects.filter(
         **filters
-    ).annotate(
-        order_point=F('order_quantity') * F('product_id__productprice__point') / F(
-            'product_id__productprice__quantity_in_box')
-    ).aggregate(total_point=Sum('order_point', output_field=FloatField()))['total_point'] or 0
-    app_log.info(f"Test total point: {total_points}")
+    ).aggregate(total_point=Sum('point_get', output_field=FloatField()))['total_point'] or 0
+
+    app_log.info(f"Total point: {total_points}")
     return total_points
