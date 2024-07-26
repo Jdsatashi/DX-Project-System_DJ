@@ -39,6 +39,36 @@ def send_firebase_notification(title, body, registration_tokens, data):
     print('{0} messages were sent successfully'.format(response.success_count))
 
 
+def send_firebase_notification3(title, body, registration_tokens, data):
+    """
+    Function to send a Firebase notification with custom data.
+
+    :param title: Title of the notification
+    :param body: Body of the notification
+    :param registration_tokens: List of device registration tokens
+    :param data: Additional custom data to send with the notification
+    """
+    app_log.info(f"Handling upload notify to FIREBASE")
+
+    message = messaging.MulticastMessage(
+        notification=messaging.Notification(
+            title=title,
+            body=body,
+        ),
+        data=data,
+        tokens=registration_tokens
+    )
+    try:
+        # response = messaging.send_multicast(message)
+        response = messaging.send_each_for_multicast(message)
+        app_log.info(f"FIREBASE response: {response}")
+        app_log.info('{0} messages were sent successfully'.format(response.success_count))
+        return response
+    except Exception as e:
+        app_log.error(f"Error sending notification to FIREBASE: {e}")
+        return None
+
+
 class NotificationSerializer(serializers.ModelSerializer):
     users = serializers.ListField(child=serializers.CharField(), write_only=True, allow_null=True, required=False)
     groups = serializers.ListField(child=serializers.CharField(), write_only=True, allow_null=True, required=False)
@@ -115,13 +145,14 @@ class NotificationSerializer(serializers.ModelSerializer):
 
                 # Get registration tokens for FCM
                 registration_tokens = list(distinct_users.values_list('device_token', flat=True))
+                registration_tokens = [token for token in registration_tokens if token]
 
                 # Send Firebase notification
                 my_data = {
                     "notification_id": str(notify.id),
                     "click_action": "click_action"
                 }
-                send_firebase_notification(notify.title, notify.short_description, registration_tokens, my_data)
+                send_firebase_notification3(notify.title, notify.short_description, registration_tokens, my_data)
 
                 return notify
         except Exception as e:
@@ -131,21 +162,16 @@ class NotificationSerializer(serializers.ModelSerializer):
         users = validated_data.pop('users', [])
         groups = validated_data.pop('groups', [])
         files = validated_data.pop('files', [])
+        app_log.info(f"Number of files: {len(files)}")
         try:
             with transaction.atomic():
-                first_notify_users = User.objects.filter(notification_users__notify=instance)
-                existing_files = set(
-                    NotificationFile.objects.filter(notify=instance).values_list('file__file', flat=True))
+                notify = super().update(instance, validated_data)
                 # Create specific permission
                 list_perm = create_full_perm(Notification, instance.id, perm_actions['view'])
 
                 # Get user has perm
                 existed_user_allow = list_user_has_perm(list_perm, True)
                 existed_group_allow = list_group_has_perm(list_perm, True)
-                app_log.info(f"User existing: {existed_user_allow} | Adding user: {users}")
-
-                notify = super().update(instance, validated_data)
-
                 # Processing add perm
                 add_perm({'type': 'users', 'data': users, 'existed': existed_user_allow}, list_perm, True)
                 add_perm({'type': 'group', 'data': groups, 'existed': existed_group_allow}, list_perm, True)
@@ -162,51 +188,52 @@ class NotificationSerializer(serializers.ModelSerializer):
                 # Get distinct user
                 distinct_users = combined_users.distinct()
 
-                # Find users to remove
-                users_to_remove = first_notify_users.exclude(id__in=distinct_users)
+                # Remove users no longer associated with the notification
+                current_notify_users = set(NotificationUser.objects.filter(notify=instance).values_list('user_id', flat=True))
+                new_notify_users = set(distinct_users.values_list('id', flat=True))
 
-                # Delete NotificationUser entries for users to remove
-                NotificationUser.objects.filter(notify=instance, user__in=users_to_remove).delete()
+                users_to_remove = current_notify_users - new_notify_users
+                users_to_add = new_notify_users - current_notify_users
 
-                # Add user to notification
-                notify_users = []
-                for user in distinct_users:
-                    if not NotificationUser.objects.filter(notify=notify, user=user).exists():
-                        notify_users.append(NotificationUser(notify=notify, user=user))
-                app_log.info(f"Test notify_user: {notify_users}")
+                # Remove users from notification
+                if users_to_remove:
+                    NotificationUser.objects.filter(notify=instance, user_id__in=users_to_remove).delete()
 
-                # Create notification of user
-                NotificationUser.objects.bulk_create(notify_users)
+                # Add new users to notification
+                if users_to_add:
+                    new_notify_users_objs = [NotificationUser(notify=instance, user_id=user_id) for user_id in users_to_add]
+                    NotificationUser.objects.bulk_create(new_notify_users_objs)
 
-                # Handle files, first clear old ones
+                # Handle files
+                current_files = set(NotificationFile.objects.filter(notify=instance).values_list('file__file', flat=True))
                 new_files = set(file.name for file in files)
 
-                files_to_add = new_files - existing_files
-                files_to_keep = existing_files & new_files
+                files_to_add = new_files - current_files
+                files_to_keep = current_files & new_files
 
                 # Delete files that are no longer associated with the notification
-                NotificationFile.objects.filter(notify=notify).exclude(file__file__in=files_to_keep).delete()
+                NotificationFile.objects.filter(notify=instance).exclude(file__file__in=files_to_keep).delete()
 
                 # Add new files
                 for file in files:
                     if file.name in files_to_add:
                         file_upload = FileUpload.objects.create(file=file)
-                        NotificationFile.objects.create(notify=notify, file=file_upload)
+                        NotificationFile.objects.create(notify=instance, file=file_upload)
 
                 # Get registration tokens for FCM
                 registration_tokens = list(distinct_users.values_list('device_token', flat=True))
+                registration_tokens = [token for token in registration_tokens if token]
 
                 # Send Firebase notification
                 my_data = {
                     "notification_id": str(notify.id),
-                    "click_action": "FLUTTER_NOTIFICATION_CLICK"
+                    "click_action": "click_action"
                 }
-                send_firebase_notification(notify.title, notify.short_description, registration_tokens, my_data)
+                send_firebase_notification3(notify.title, notify.short_description, registration_tokens, my_data)
 
                 return notify
         except Exception as e:
             raise e
-
 
 class NotificationSerializer2(serializers.ModelSerializer):
     users = serializers.ListField(child=serializers.CharField(), write_only=True, allow_null=True, required=False)
