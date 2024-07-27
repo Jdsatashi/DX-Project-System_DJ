@@ -19,7 +19,8 @@ from rest_framework_simplejwt.exceptions import TokenError
 from rest_framework_simplejwt.tokens import RefreshToken as RestRefreshToken, AccessToken
 
 from account.api.serializers import UserSerializer, RegisterSerializer, response_verify_code, UserUpdateSerializer, \
-    UserWithPerm, PermSerializer, GroupPermSerializer, UserListSerializer, AllowanceOrder, GrantAccessSerializer
+    UserWithPerm, PermSerializer, GroupPermSerializer, UserListSerializer, AllowanceOrder, GrantAccessSerializer, \
+    send_sms
 from account.handlers.perms import get_full_permname, get_perm_name
 from account.handlers.token import deactivate_user_token
 from account.handlers.validate_perm import ValidatePermRest, check_perm
@@ -291,6 +292,11 @@ def phone_login_2(request):
             new_verify = Verify.objects.create(user=user, phone_verify=phone, verify_code=verify_code,
                                                verify_type="SMS OTP")
             response = response_verify_code(new_verify)
+
+            message = f"[DONG XANH] Ma xac thuc cua ban la {verify_code}, tai app Thuoc BVTV Dong Xanh co "
+            f"hieu luc trong 3 phut. Vi ly do bao mat tuyet doi khong cung cap cho bat ky ai."
+            send_sms(phone_number, message)
+
             return Response(response, status.HTTP_200_OK)
     return Response({'message': f'phương thức {request.method} không hợp lệ'},
                     status=status.HTTP_405_METHOD_NOT_ALLOWED)

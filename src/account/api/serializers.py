@@ -176,6 +176,9 @@ class RegisterSerializer(serializers.ModelSerializer):
             # Create Verify with data
             verify = Verify.objects.create(user=user, phone_verify=phone, verify_code=verify_code,
                                            verify_type="SMS OTP")
+        message = f"[DONG XANH] Ma xac thuc cua ban la {verify.verify_code}, tai app Thuoc BVTV Dong Xanh co "
+        f"hieu luc trong 3 phut. Vi ly do bao mat tuyet doi khong cung cap cho bat ky ai."
+        send_sms(phone_number, message)
 
         return response_verify_code(verify)
 
@@ -403,6 +406,7 @@ def response_verify_code(verify_obj):
 
 # Send sms function
 def send_sms(phone_number, message):
+    app_log.info(f"Sending message OTP")
     url = SMS_SERVICE.get('host')
     # Create all params
     params = {
