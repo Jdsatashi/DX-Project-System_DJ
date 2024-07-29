@@ -5,6 +5,7 @@ from rest_framework.authentication import BasicAuthentication
 from rest_framework.response import Response
 from rest_framework_simplejwt.authentication import JWTAuthentication
 
+from account.handlers.perms import perm_queryset
 from account.handlers.validate_perm import ValidatePermRest
 from marketing.pick_number.api.serializers import UserJoinEventSerializer, EventNumberSerializer, NumberListSerializer, \
     UserJoinEventNumberSerializer
@@ -20,6 +21,8 @@ class ApiEventNumber(viewsets.GenericViewSet, mixins.ListModelMixin, mixins.Crea
     # authentication_classes = [JWTAuthentication, BasicAuthentication]
 
     # permission_classes = [partial(ValidatePermRest, model=EventNumber)]
+    def get_queryset(self):
+        return perm_queryset(self)
 
     def list(self, request, *args, **kwargs):
         response = filter_data(self, request, ['id', 'name', 'date_start', 'date_close', 'status'],

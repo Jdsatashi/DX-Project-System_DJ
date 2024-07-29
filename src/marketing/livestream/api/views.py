@@ -8,6 +8,7 @@ from rest_framework.response import Response
 from rest_framework.views import APIView
 from rest_framework_simplejwt.authentication import JWTAuthentication
 
+from account.handlers.perms import perm_queryset
 from account.handlers.validate_perm import ValidatePermRest
 from account.models import PhoneNumber
 from app.logs import app_log
@@ -23,8 +24,11 @@ class ApiLiveStream(viewsets.GenericViewSet, mixins.ListModelMixin, mixins.Creat
     serializer_class = LiveStreamSerializer
     queryset = LiveStream.objects.all()
 
-    # authentication_classes = [JWTAuthentication, BasicAuthentication]
-    # permission_classes = [partial(ValidatePermRest, model=LiveStream)]
+    authentication_classes = [JWTAuthentication, BasicAuthentication]
+    permission_classes = [partial(ValidatePermRest, model=LiveStream)]
+
+    def get_queryset(self):
+        return perm_queryset(self)
 
     def list(self, request, *args, **kwargs):
         response = filter_data(self, request, ['title', 'date_released', 'live_url'],
@@ -38,7 +42,7 @@ class ApiLiveStreamComment(viewsets.GenericViewSet, mixins.ListModelMixin, mixin
 
     authentication_classes = [JWTAuthentication, BasicAuthentication]
 
-    # permission_classes = [partial(ValidatePermRest, model=LiveStreamComment)]
+    permission_classes = [partial(ValidatePermRest, model=LiveStreamComment)]
 
     def list(self, request, *args, **kwargs):
         response = filter_data(self, request, ['live_stream__title', 'viewers__id', 'comments'],
