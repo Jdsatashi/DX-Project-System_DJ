@@ -245,7 +245,7 @@ class OrderSerializer(BaseRestrictSerializer):
             total_order_box = sum(item['order_box'] for item in order_details_data)
             if number_box_can_buy < total_order_box:
                 raise serializers.ValidationError(
-                    {'message': 'không đủ doanh số', 'box_can_buy': str(number_box_can_buy)})
+                    {'message': 'không đủ doanh số'})
 
             # Validate each OrderDetail
             for detail_data in order_details_data:
