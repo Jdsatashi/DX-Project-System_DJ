@@ -602,3 +602,232 @@ class OrderReportView(APIView):
             else:
                 fk_fields.remove(field_name)
         return field_dict
+
+
+class TotalStatisticsView(APIView):
+    permission_classes = [partial(ValidatePermRest, model=Order)]
+    authentication_classes = [JWTAuthentication, BasicAuthentication, SessionAuthentication]
+
+    def get(self, request, *args, **kwargs):
+        try:
+            # Get current user
+            user_id = request.query_params.get('user', '')
+            user = request.user
+            if user_id != '':
+                current_user = user
+                user = User.objects.filter(id=user_id.upper()).first()
+                perm_name = get_perm_name(User)
+                if current_user.is_allow(perm_name) or current_user.is_group_has_perm(perm_name):
+                    app_log.info(f"User {current_user.id} has permission of {user.id}")
+
+            now = datetime.now().date()
+            default_start_date = now - timedelta(days=365)
+            default_end_date = now
+
+            start_date_1 = request.query_params.get('start_date_1',
+                                                    datetime.strftime(default_start_date, '%d/%m/%Y'))
+            end_date_1 = request.query_params.get('end_date_1', datetime.strftime(default_end_date, '%d/%m/%Y'))
+
+            start_date_time = datetime.strptime(start_date_1, '%d/%m/%Y')
+            start_date_2 = request.query_params.get('start_date_2',
+                                                    datetime.strftime(start_date_time - timedelta(days=365),
+                                                                      '%d/%m/%Y'))
+            end_date_2 = request.query_params.get('end_date_2',
+                                                  datetime.strftime(start_date_time - timedelta(days=1),
+                                                                    '%d/%m/%Y'))
+
+            type_statistic = request.query_params.get('type_statistic', 'all')
+
+            product_query = request.query_params.get('products', '')
+            product_ids = product_query.split(',') if product_query else []
+
+            order_by_field = request.query_params.get('order_by', 'price')
+
+            details_1, details_2 = self.get_order_details(user, start_date_1, end_date_1, start_date_2, end_date_2,
+                                                          product_ids, type_statistic)
+            statistics, total_statistic = self.calculate_statistics(details_1, details_2)
+
+            sorted_statistics = sorted(statistics.items(),
+                                       key=lambda x: x[1].get('current', {}).get(order_by_field, 0),
+                                       reverse=True)
+            statistics_list = [{"product_id": k, **v} for k, v in sorted_statistics]
+
+            # Get pagination parameters
+            limit = int(request.query_params.get('limit', 10))
+            page = int(request.query_params.get('page', 1))
+
+            if limit == 0:
+                serializer = ProductStatisticsSerializer(statistics_list, many=True)
+                response_data = {
+                    'total_statistic': total_statistic,
+                    'products_statistics': serializer.data,
+                    'total_page': 1,
+                    'total_count': len(statistics_list),
+                    'current_page': 1
+                }
+                return Response(response_data, status=status.HTTP_200_OK)
+
+            paginator = Paginator(statistics_list, limit)
+            page_obj = paginator.get_page(page)
+            serializer = ProductStatisticsSerializer(page_obj, many=True)
+
+            response_data = {
+                'total_statistic': total_statistic,
+                'products_statistics': serializer.data,
+                'total_page': paginator.num_pages,
+                'total_count': len(statistics_list),
+                'current_page': page
+            }
+
+            if page < paginator.num_pages:
+                next_page = request.build_absolute_uri(
+                    f'?page={page + 1}&limit={limit}&user={user_id}&type_statistic={type_statistic}&products={product_query}&start_date_1={start_date_1}&end_date_1={end_date_1}&start_date_2={start_date_2}&end_date_2={end_date_2}&order_by={order_by_field}')
+                response_data['next_page'] = next_page
+            if page > 1:
+                prev_page = request.build_absolute_uri(
+                    f'?page={page - 1}&limit={limit}&user={user_id}&type_statistic={type_statistic}&products={product_query}&start_date_1={start_date_1}&end_date_1={end_date_1}&start_date_2={start_date_2}&end_date_2={end_date_2}&order_by={order_by_field}')
+                response_data['prev_page'] = prev_page
+
+            return Response(response_data, status=status.HTTP_200_OK)
+
+        except ValueError as e:
+            return Response({"error": str(e)}, status=status.HTTP_400_BAD_REQUEST)
+        except Exception as e:
+            raise e
+
+    def get_order_details(self, user, start_date_1, end_date_1, start_date_2, end_date_2, product_ids, type_statistic):
+        start_date_1, end_date_1, start_date_2, end_date_2 = self.convert_dates(start_date_1, end_date_1, start_date_2,
+                                                                                end_date_2)
+
+        orders_1 = Order.objects.filter(client_id=user, date_get__gte=start_date_1, date_get__lte=end_date_1)
+        orders_2 = Order.objects.filter(client_id=user, date_get__gte=start_date_2, date_get__lte=end_date_2)
+
+        if product_ids:
+            orders_1 = orders_1.filter(order_detail__product_id__in=product_ids).distinct()
+            orders_2 = orders_2.filter(order_detail__product_id__in=product_ids).distinct()
+
+        match type_statistic:
+            case 'special_offer':
+                orders_1 = orders_1.filter(Q(new_special_offer__isnull=False) | Q(is_so=True))
+                orders_2 = orders_2.filter(Q(new_special_offer__isnull=False) | Q(is_so=True))
+            case 'normal':
+                orders_1 = orders_1.filter(
+                    Q(new_special_offer__isnull=True) & Q(Q(is_so=False) | Q(is_so__isnull=True)))
+                orders_2 = orders_2.filter(
+                    Q(new_special_offer__isnull=True) & Q(Q(is_so=False) | Q(is_so__isnull=True)))
+
+        details_1 = orders_1.values('order_detail__product_id', 'order_detail__product_id__name').annotate(
+            total_quantity=Sum('order_detail__order_quantity'),
+            total_point=Sum('order_detail__point_get'),
+            total_price=Sum('order_detail__product_price'),
+            total_box=Sum('order_detail__order_box'),
+            total_cashback=Sum(Case(
+                When(order_detail__price_list_so__isnull=False,
+                     then=Abs(Coalesce('order_detail__price_list_so', 0.0)) * F('order_detail__order_box')),
+                default=0,
+                output_field=FloatField()
+            ))
+        )
+
+        details_2 = orders_2.values('order_detail__product_id', 'order_detail__product_id__name').annotate(
+            total_quantity=Sum('order_detail__order_quantity'),
+            total_point=Sum('order_detail__point_get'),
+            total_price=Sum('order_detail__product_price'),
+            total_box=Sum('order_detail__order_box'),
+            total_cashback=Sum(Case(
+                When(order_detail__price_list_so__isnull=False,
+                     then=Abs(Coalesce('order_detail__price_list_so', 0.0)) * F('order_detail__order_box')),
+                default=0,
+                output_field=FloatField()
+            ))
+        )
+
+        return details_1, details_2
+
+    def calculate_statistics(self, details_1, details_2):
+        combined_results = {}
+        total_price = 0
+        total_point = 0
+        total_cashback = 0
+        total_box = 0
+        total_products_type = list()
+        for detail in details_1:
+            product_id = detail['order_detail__product_id']
+            product_name = detail['order_detail__product_id__name']
+            total_products_type.append(product_id)
+            combined_results[product_id] = {
+                "product_name": product_name,
+                "current": {
+                    "price": detail['total_price'] or 0,
+                    "point": detail['total_point'] or 0,
+                    "quantity": detail['total_quantity'] or 0,
+                    "box": detail['total_box'] or 0,
+                    "cashback": int(detail['total_cashback'] or 0)
+                },
+                "total_cashback": int(detail['total_cashback'] or 0)
+            }
+            total_price += detail['total_price'] or 0
+            total_point += detail['total_point'] or 0
+            total_cashback += detail['total_cashback'] or 0
+            total_box += detail['total_box'] or 0
+
+        total_price_2 = 0
+        total_point_2 = 0
+        total_cashback_2 = 0
+        total_box_2 = 0
+        total_products_type2 = list()
+        for detail in details_2:
+            product_id = detail['order_detail__product_id']
+            product_name = detail['order_detail__product_id__name']
+            total_products_type2.append(product_id)
+
+            if product_id not in combined_results:
+                combined_results[product_id] = {
+                    "product_name": product_name,
+                    "current": {
+                        "price": 0,
+                        "point": 0,
+                        "quantity": 0,
+                        "box": 0,
+                        "cashback": 0
+                    },
+                    "one_year_ago": {}
+                }
+            first_cashback = combined_results[product_id].get("total_cashback", 0)
+            combined_results[product_id]["one_year_ago"] = {
+                "price": detail['total_price'] or 0,
+                "point": detail['total_point'] or 0,
+                "quantity": detail['total_quantity'] or 0,
+                "box": detail['total_box'] or 0,
+                "cashback": int(detail['total_cashback'] or 0)
+            }
+            total_price_2 += detail['total_price'] or 0
+            total_point_2 += detail['total_point'] or 0
+            total_cashback_2 += detail['total_cashback'] or 0
+            total_box_2 += detail['total_box'] or 0
+            combined_results[product_id]["total_cashback"] = first_cashback + int(detail['total_cashback'] or 0)
+
+        total_statistic = {
+            'current': {
+                'total_price': total_price, 'total_point': total_point, 'total_cashback': total_cashback,
+                'total_box': total_box, 'type_products': len(total_products_type)
+            },
+            'last_time': {
+                'total_price': total_price_2, 'total_point': total_point_2, 'total_cashback': total_cashback_2,
+                'total_box': total_box_2, 'type_products': len(total_products_type2)
+            }
+        }
+        return combined_results, total_statistic
+
+    def convert_dates(self, start_date_1, end_date_1, start_date_2, end_date_2):
+        start_date_1 = timezone.make_aware(datetime.strptime(start_date_1, '%d/%m/%Y'), timezone.get_current_timezone())
+        end_date_1 = timezone.make_aware(
+            datetime.strptime(end_date_1, '%d/%m/%Y') + timedelta(days=1) - timedelta(seconds=1),
+            timezone.get_current_timezone())
+
+        start_date_2 = timezone.make_aware(datetime.strptime(start_date_2, '%d/%m/%Y'), timezone.get_current_timezone())
+        end_date_2 = timezone.make_aware(
+            datetime.strptime(end_date_2, '%d/%m/%Y') + timedelta(days=1) - timedelta(seconds=1),
+            timezone.get_current_timezone())
+
+        return start_date_1, end_date_1, start_date_2, end_date_2
