@@ -417,9 +417,17 @@ def send_sms(phone_number, message):
         'message': message,
         'brandName': SMS_SERVICE.get('brand'),
     }
+    app_log.info(f"Check message: {message}")
+    # check url
+    request = requests.Request('GET', url, params=params)
+    prepared_request = request.prepare()
+    full_url = prepared_request.url
+    app_log.info(f"Full URL: {full_url}")
+
     # Make api call
     try:
         response = requests.get(url, params=params)
+        app_log.info(f"Response: {response}")
         response.raise_for_status()  # Raise an exception for HTTP errors
     except requests.RequestException as e:
         app_log.error(f"Failed to send SMS: {e}")
