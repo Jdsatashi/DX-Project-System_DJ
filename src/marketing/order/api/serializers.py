@@ -216,11 +216,11 @@ class OrderSerializer(BaseRestrictSerializer):
             # Check if SpecialOffer of livestream
             if (special_offer.live_stream is not None and
                     not LiveStreamOfferRegister.objects.filter(phone__in=phones, register=True).exists()):
-                raise serializers.ValidationError({'error': f'số điện thoại không nằm trong ưu đãi livestream'
+                raise serializers.ValidationError({'message': f'số điện thoại không nằm trong ưu đãi livestream'
                                                             f'{special_offer.live_stream.id}'})
 
             if special_offer.status == 'deactivate':
-                raise serializers.ValidationError({'error': 'ưu đãi đã hết hạn'})
+                raise serializers.ValidationError({'message': 'ưu đãi đã hết hạn'})
 
             # Calculate max box can buy
             if special_offer.type_list == 'consider_offer_user':
@@ -236,7 +236,7 @@ class OrderSerializer(BaseRestrictSerializer):
                                                                                                 flat=True))
                 if order_product_ids != special_offer_product_ids:
                     raise serializers.ValidationError(
-                        {'error': 'sản phẩm trong toa không khớp với sản phẩm trong xét duyệt ưu đãi'})
+                        {'message': 'sản phẩm trong toa không khớp với sản phẩm trong xét duyệt ưu đãi'})
             else:
                 # Normal SO use default target of SaleTarget by month
                 number_box_can_buy = user_sale_statistic.available_turnover // month_target.month_target
@@ -245,7 +245,7 @@ class OrderSerializer(BaseRestrictSerializer):
             total_order_box = sum(item['order_box'] for item in order_details_data)
             if number_box_can_buy < total_order_box:
                 raise serializers.ValidationError(
-                    {'error': 'không đủ doanh số', 'box_can_buy': str(number_box_can_buy)})
+                    {'message': 'không đủ doanh số', 'box_can_buy': str(number_box_can_buy)})
 
             # Validate each OrderDetail
             for detail_data in order_details_data:
@@ -255,7 +255,7 @@ class OrderSerializer(BaseRestrictSerializer):
                 # Check if product is in SpecialOfferProduct
                 if not SpecialOfferProduct.objects.filter(special_offer=special_offer, product_id=product_id).exists():
                     raise serializers.ValidationError(
-                        {'error': f'product {product_id} không tồn tại trong SpecialOfferProduct'})
+                        {'message': f'product {product_id} không tồn tại trong SpecialOfferProduct'})
 
                 # Check if order_box is less than max_order_box
                 special_offer_product = SpecialOfferProduct.objects.get(special_offer=special_offer,
@@ -286,7 +286,7 @@ class OrderSerializer(BaseRestrictSerializer):
                 point = float(product_price.point) * (
                         quantity / product_price.quantity_in_box) if product_price.point is not None else 0
         except (ProductPrice.DoesNotExist, SpecialOfferProduct.DoesNotExist):
-            raise serializers.ValidationError({'error': 'sản phẩm không thuộc ưu đãi hoặc bảng giá'})
+            raise serializers.ValidationError({'message': 'sản phẩm không thuộc ưu đãi hoặc bảng giá'})
         return prices, point
 
     def calculate_total_price_and_point(self, order, order_details_data):
