@@ -581,7 +581,8 @@ class ApiUpdateDeviceCode(APIView):
 
 
 class ApiGetManageUser(APIView):
-    # authentication_classes = [JWTAuthentication, BasicAuthentication, SessionAuthentication]
+    authentication_classes = [JWTAuthentication, BasicAuthentication, SessionAuthentication]
+
     def get(self, request):
         # Get user for checking manage group user
         user = request.user
@@ -655,9 +656,6 @@ class ApiGetManageUser(APIView):
             is_manager_perm = check_perm(user, manager_perm, get_perm_name(User))
             is_grant_user_perm = check_perm(user, grant_user_perm, get_perm_name(User))
 
-            print(f"Test perm: {is_manager_perm} | {is_grant_user_perm}")
-            print(f"Cehck active allow: {is_access} | {is_allow}")
-
             if not is_manager_perm and not is_grant_user_perm:
                 return Response({'message': 'không có quyền truy cập'}, status=status.HTTP_403_FORBIDDEN)
 
@@ -669,7 +667,6 @@ class ApiGetManageUser(APIView):
                 if not is_grant_user_perm:
                     return Response({'message': f'user {user.id} không có quyền cho '
                                                 f'{grant_user_obj.id}'}, status=status.HTTP_403_FORBIDDEN)
-                print(f"Check is allow: {is_allow}")
                 grant_access.allow = is_allow
                 grant_access.save()
 
@@ -678,7 +675,6 @@ class ApiGetManageUser(APIView):
                 if not is_manager_perm:
                     return Response({'message': f'{user.id} không có quyền cho '
                                                 f'{manage_user_obj.id}'}, status=status.HTTP_403_FORBIDDEN)
-                print(f"Check is access: {is_access}")
                 if is_allow:
                     grant_access.active = is_access
                     grant_access.save()
@@ -690,6 +686,53 @@ class ApiGetManageUser(APIView):
             return Response(response_data, 200)
         else:
             return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+
+
+class GetUserManager(APIView):
+    authentication_classes = [JWTAuthentication, BasicAuthentication, SessionAuthentication]
+
+    def get(self, request, *args, **kwargs):
+        user = request.user
+        if not request.user.is_authenticated:
+            ctx = {'message': "Bạn chưa đăng nhập."}
+            return render(request, 'errors/403.html', ctx)
+        type_user = request.query_params.get('get_user', '')
+        available_type = ['nvtt', 'npp']
+        if type_user not in available_type:
+            return ValidationError({'message': 'get_user không phù hợp'})
+        if type_user == 'nvtt':
+            list_nvtt = User.objects.filter(group_user__name=type_user)
+            list_nvtt_id = list_nvtt.values_list('id', flat=True).distinct()
+            users = User.objects.filter(clientprofile__nvtt_id__in=list(list_nvtt_id))
+            response = []
+            for nvtt in list_nvtt:
+                user_list = users.filter(clientprofile__nvtt_id=nvtt.id)
+                manage_user = format_user_data(user_list, nvtt)
+                data = {
+                    'user_id': nvtt.id,
+                    'name': nvtt.employeeprofile.register_name,
+                    'user_type': type_user,
+                    'group_manage': manage_user
+                }
+                response.append(data)
+            return Response({'data': response})
+        elif type_user == 'npp':
+            list_npp = User.objects.filter(Q(Q(group_user__name=type_user) | Q(clientprofile__is_npp=True)))
+            list_npp_id = list_npp.values_list('id', flat=True).distinct()
+            users = User.objects.filter(clientprofile__client_lv1_id__in=list_npp_id)
+            response = []
+            for npp in list_npp:
+                user_list = users.filter(clientprofile__client_lv1_id=npp.id)
+                manage_user = format_user_data(user_list, npp)
+                data = {
+                    'user_id': npp.id,
+                    'name': npp.clientprofile.register_name,
+                    'user_type': type_user,
+                    'group_manage': manage_user
+                }
+                response.append(data)
+            return Response({'data': response})
+
 
 
 def search_users(query, users_list):
@@ -704,9 +747,9 @@ def search_users(query, users_list):
 
 def format_user_data(users_list, manager):
     user_data = []
-    user_type = 'daily'
     for user in users_list:
         user_name_ = user.clientprofile.register_name or ''
+        user_type = 'daily'
         if user.clientprofile.is_npp or user.group_user.filter(name='npp').exists():
             user_type = 'npp'
         user_phones = user.phone_numbers.filter().values_list('phone_number', flat=True)
@@ -751,6 +794,7 @@ def check_user_type(user):
     if user.user_type == 'farmer':
         return 'farmer'
     return 'unknown'
+
 
 class ImportUser(APIView):
     def get(self, request, *args, **kwargs):
