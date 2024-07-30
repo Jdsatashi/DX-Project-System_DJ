@@ -624,19 +624,19 @@ class TotalStatisticsView(APIView):
             default_start_date = now - timedelta(days=365)
             default_end_date = now
 
-            start_date_1 = request.query_params.get('start_date_1',
-                                                    datetime.strftime(default_start_date, '%d/%m/%Y'))
-            end_date_1 = request.query_params.get('end_date_1', datetime.strftime(default_end_date, '%d/%m/%Y'))
+            start_date_1 = request.data.get('start_date_1',
+                                            datetime.strftime(default_start_date, '%d/%m/%Y'))
+            end_date_1 = request.data.get('end_date_1', datetime.strftime(default_end_date, '%d/%m/%Y'))
 
             start_date_time = datetime.strptime(start_date_1, '%d/%m/%Y')
-            start_date_2 = request.query_params.get('start_date_2',
-                                                    datetime.strftime(start_date_time - timedelta(days=365),
-                                                                      '%d/%m/%Y'))
-            end_date_2 = request.query_params.get('end_date_2',
-                                                  datetime.strftime(start_date_time - timedelta(days=1),
-                                                                    '%d/%m/%Y'))
+            start_date_2 = request.data.get('start_date_2',
+                                            datetime.strftime(start_date_time - timedelta(days=365),
+                                                              '%d/%m/%Y'))
+            end_date_2 = request.data.get('end_date_2',
+                                          datetime.strftime(start_date_time - timedelta(days=1),
+                                                            '%d/%m/%Y'))
 
-            type_statistic = request.query_params.get('type_statistic', 'all')
+            type_statistic = request.data.get('type_statistic') or request.query_params.get('type_statistic', 'all')
 
             product_query = request.query_params.get('products', '')
             product_ids = product_query.split(',') if product_query else []
