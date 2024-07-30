@@ -1,6 +1,8 @@
+import json
 import time
 from datetime import datetime, timedelta
 from functools import partial
+from io import BytesIO
 
 import openpyxl
 from django.core.exceptions import FieldError
@@ -27,6 +29,8 @@ from user_system.client_profile.models import ClientProfile
 from user_system.employee_profile.models import EmployeeProfile
 from utils.constants import maNhomND
 from utils.model_filter_paginate import filter_data, get_query_parameters, build_absolute_uri_with_params
+from django.http import StreamingHttpResponse
+from django.db.models import Prefetch
 
 
 class GenericApiOrder(viewsets.GenericViewSet, mixins.ListModelMixin, mixins.CreateModelMixin,
@@ -112,7 +116,7 @@ class ProductStatisticsView(APIView):
             # Get queries and paginate order
             details_1, details_2 = self.paginate_orders(user, input_date, product_ids, type_statistic, limit, page)
             # Process calculate cashback
-            statistics = statistic_calculate(details_1, details_2)
+            statistics = self.statistic_calculate(details_1, details_2)
             # Add data to list
             statistics_list = [{"product_id": k, **v} for k, v in statistics.items()]
 
@@ -225,48 +229,48 @@ class ProductStatisticsView(APIView):
 
         return start_date_1, end_date_1, start_date_2, end_date_2
 
+    @staticmethod
+    def statistic_calculate(details_1, details_2):
+        # Combine results into a single dictionary
+        combined_results = {}
 
-def statistic_calculate(details_1, details_2):
-    # Combine results into a single dictionary
-    combined_results = {}
+        for detail in details_1:
+            product_id = detail['product_id']
+            product_name = detail['product_id__name']
 
-    for detail in details_1:
-        product_id = detail['product_id']
-        product_name = detail['product_id__name']
+            combined_results[product_id] = {
+                "product_name": product_name,
+                "current": {
+                    "price": detail['total_price'],
+                    "point": detail['total_point'],
+                    "quantity": detail['total_quantity'],
+                    "box": detail['total_box'],
+                    "cashback": int(detail['total_cashback'])
+                },
+                "total_cashback": int(detail['total_cashback'])
+            }
 
-        combined_results[product_id] = {
-            "product_name": product_name,
-            "current": {
+        for detail in details_2:
+            product_id = detail['product_id']
+            product_name = detail['product_id__name']
+
+            if product_id not in combined_results:
+                combined_results[product_id] = {
+                    "product_name": product_name,
+                    "one_year_ago": {}
+                }
+            # Calculate total cashback for previous period
+            first_cashback = combined_results[product_id].get("total_cashback", 0)
+            combined_results[product_id]["one_year_ago"] = {
                 "price": detail['total_price'],
                 "point": detail['total_point'],
                 "quantity": detail['total_quantity'],
                 "box": detail['total_box'],
                 "cashback": int(detail['total_cashback'])
-            },
-            "total_cashback": int(detail['total_cashback'])
-        }
-
-    for detail in details_2:
-        product_id = detail['product_id']
-        product_name = detail['product_id__name']
-
-        if product_id not in combined_results:
-            combined_results[product_id] = {
-                "product_name": product_name,
-                "one_year_ago": {}
             }
-        # Calculate total cashback for previous period
-        first_cashback = combined_results[product_id].get("total_cashback", 0)
-        combined_results[product_id]["one_year_ago"] = {
-            "price": detail['total_price'],
-            "point": detail['total_point'],
-            "quantity": detail['total_quantity'],
-            "box": detail['total_box'],
-            "cashback": int(detail['total_cashback'])
-        }
-        combined_results[product_id]["total_cashback"] = first_cashback + int(detail['total_cashback'])
+            combined_results[product_id]["total_cashback"] = first_cashback + int(detail['total_cashback'])
 
-    return combined_results
+        return combined_results
 
 
 class ExportReport(APIView):
@@ -274,38 +278,119 @@ class ExportReport(APIView):
     permission_classes = [partial(ValidatePermRest, model=Order)]
 
     def get(self, request):
-        # Get data from OrderReport
-        response_data, paginator, current_page, total_count, page_obj, limit = OrderReportView().get_query_results(
-            request, True)
-        limit = request.query_params.get('limit', 10)
+        start_time = time.time()
+        query, strict_mode, limit, page, order_by, from_date, to_date, date_field = get_query_parameters(request)
+        nvtt_query = request.query_params.get('nvtt', '')
+        npp_query = request.query_params.get('npp', '')
+        daily_query = request.query_params.get('daily', '')
 
-        # Add new workbook
+        order_by = '-date_get' if order_by == '' else order_by
+
+        orders = Order.objects.all()
+
+        if from_date or to_date:
+            try:
+                if from_date:
+                    from_date = datetime.strptime(from_date, '%d/%m/%Y')
+                    orders = orders.filter(**{f'{date_field}__gte': from_date})
+                if to_date:
+                    to_date = datetime.strptime(to_date, '%d/%m/%Y') + timedelta(days=1) - timedelta(seconds=1)
+                    orders = orders.filter(**{f'{date_field}__lte': to_date})
+            except ValueError:
+                pass
+
+        if nvtt_query and nvtt_query != '':
+            nvtt_list = nvtt_query.split(',')
+            app_log.info(f'Test nvtt list: {nvtt_list}')
+            nvtt_ids = EmployeeProfile.objects.filter(
+                Q(register_name__in=nvtt_list) | Q(employee_id__in=nvtt_list)
+            ).values_list('employee_id', flat=True)
+            client_profile_query = Q(client_id__clientprofile__nvtt_id__in=nvtt_ids)
+            orders = orders.filter(client_profile_query)
+
+        if npp_query and npp_query != '':
+            npp_list = npp_query.split(',')
+            app_log.info(f'Test npp list: {npp_list}')
+            npp_ids = ClientProfile.objects.filter(
+                Q(register_name__in=npp_list, is_npp=True) | Q(client_id__in=npp_list, is_npp=True)
+            ).values_list('client_id', flat=True)
+            client_profile_query = Q(client_id__in=npp_ids)
+            orders = orders.filter(client_profile_query)
+
+        if daily_query and daily_query != '':
+            daily_list = daily_query.split(',')
+            exclude_groups = ["NVTT", "TEST", maNhomND]
+
+            daily_ids = ClientProfile.objects.filter(
+                Q(register_name__in=daily_list) | Q(client_id__in=daily_list)
+            ).exclude(client_group_id__name__in=exclude_groups, is_npp=True).values_list('client_id', flat=True)
+
+            client_query = Q(client_id__in=daily_ids)
+            orders = orders.filter(client_query)
+
+        if query != '':
+            query_parts = query.split(',')
+            order_query = Q()
+            order_detail_query = Q()
+            client_profile_query = Q()
+            for part in query_parts:
+                order_query |= Q(id__icontains=part) | Q(date_get__icontains=part) | Q(date_company_get__icontains=part)
+                order_detail_query |= Q(order_detail__product_id__id__icontains=part) | Q(
+                    order_detail__product_id__name__icontains=part)
+                client_profile_query |= Q(client_id__clientprofile__register_name__icontains=part) | Q(
+                    client_id__clientprofile__nvtt_id__icontains=part) | Q(
+                    client_id__clientprofile__client_group_id__id__icontains=part)
+
+            if strict_mode:
+                orders = orders.filter(order_query & order_detail_query & client_profile_query)
+            else:
+                orders = orders.filter(order_query | order_detail_query | client_profile_query)
+
+        valid_fields = [f.name for f in Order._meta.get_fields()]
+        try:
+            if order_by in valid_fields or order_by.lstrip('-') in valid_fields:
+                orders = orders.order_by(order_by)
+            else:
+                orders = orders.order_by('created_at')
+        except FieldError:
+            orders = orders.order_by('id')
+
+        orders = orders.select_related('client_id').prefetch_related(
+            Prefetch('order_detail', queryset=OrderDetail.objects.select_related('product_id'))
+        )
+
+        response = StreamingHttpResponse(
+            self.generate_excel(orders),
+            content_type='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'
+        )
+        response['Content-Disposition'] = f'attachment; filename=BangToa_{datetime.now().strftime("%d-%m-%Y")}.xlsx'
+
+        print(f"Time export to excel: {time.time() - start_time}")
+        return response
+
+    def generate_excel(self, orders):
         workbook = openpyxl.Workbook()
         sheet = workbook.active
 
-        # Format title
         title_font = Font(bold=True, size=20)
         note_font = Font(size=11)
         header_font = Font(bold=True)
         center_alignment = Alignment(horizontal='center', vertical='center')
         header_fill = PatternFill(start_color='FFFF00', end_color='FFFF00', fill_type='solid')
 
-        # Create Title
         sheet.merge_cells('A1:N1')
         title_cell = sheet.cell(row=1, column=1)
-        title_cell.value = f'Bảng thống kê toa thuốc {datetime.now().strftime("%d/%m/%Y")}'
+        title_cell.value = f'Bảng thống kê toa thuốc {datetime.now().strftime("%d-%m-%Y")}'
         title_cell.font = title_font
         title_cell.alignment = center_alignment
 
-        # Suport note
-        note = f'Ngày thống kê: {datetime.now().strftime("%d/%m/%Y")}   ||   Tổng doanh thu: None   ||   Số lượng bản kê: {limit}'
+        note = f'Ngày thống kê: {datetime.now().strftime("%d/%m/%Y")}   ||   Tổng doanh thu: None   ||   Số lượng bản kê: {orders.count()}'
         sheet.merge_cells('A2:N2')
         note_cell = sheet.cell(row=2, column=1)
         note_cell.value = note
         note_cell.font = note_font
         note_cell.alignment = center_alignment
 
-        # Tiêu đề cột
         columns = [
             'Loại bảng kê', 'Mã khách hàng', 'Tên Khách hàng', 'Khách hàng cấp 1', 'NVTT',
             'Ngày nhận toa', 'Người tạo toa', 'Ngày nhận hàng', 'Ngày gửi trễ', 'Ghi chú',
@@ -328,66 +413,85 @@ class ExportReport(APIView):
             cell.alignment = center_alignment
             cell.fill = header_fill
 
-            # Đặt độ rộng cột
             col_letter = get_column_letter(col_num)
             if column_title in column_widths:
-                sheet.column_dimensions[col_letter].width = column_widths[
-                                                                column_title] / 7.2  # Chia để chuyển đổi từ px sang độ rộng cột
+                sheet.column_dimensions[col_letter].width = column_widths[column_title] / 7.2
             else:
-                sheet.column_dimensions[col_letter].width = 120 / 7.2  # Đặt độ rộng cột mặc định
+                sheet.column_dimensions[col_letter].width = 120 / 7.2
 
-        # Thêm dữ liệu vào sheet
-        row_num = 5  # Bắt đầu thêm dữ liệu từ dòng 5
-        for order in response_data:
-            for detail in order['order_details']:
-                product_price = detail['product_price'] or 0
+        row_num = 5
+
+        client_profiles = {cp.client_id_id: cp for cp in
+                           ClientProfile.objects.filter(client_id__in=[o.client_id_id for o in orders])}
+        client_lv1_ids = [client_profiles[o.client_id_id].client_lv1_id for o in orders if
+                          o.client_id_id in client_profiles and client_profiles[o.client_id_id].client_lv1_id]
+        client_lv1_profiles = {cp.client_id_id: cp for cp in ClientProfile.objects.filter(client_id__in=client_lv1_ids)}
+
+        nvtt_ids = set()
+        for o in orders:
+            if o.nvtt_id:
+                nvtt_ids.add(o.nvtt_id)
+            elif o.client_id_id in client_profiles and client_profiles[o.client_id_id].nvtt_id:
+                nvtt_ids.add(client_profiles[o.client_id_id].nvtt_id)
+        employee_profiles = {ep.employee_id_id: ep for ep in EmployeeProfile.objects.filter(employee_id__in=nvtt_ids)}
+
+        for i, order in enumerate(orders):
+            client_data = client_profiles.get(order.client_id_id)
+            try:
+                date_send = datetime.strftime(order.date_company_get, "%d/%m/%Y")
+            except TypeError:
+                date_send = ''
+            type_list = order.list_type if order.list_type and order.list_type != '' else 'cấp 2 gửi'
+
+            client_lv1_name = ''
+            if client_data and client_data.client_lv1_id in client_lv1_profiles:
+                client_lv1_name = client_lv1_profiles[client_data.client_lv1_id].register_name
+
+            nvtt_name = ''
+            nvtt_id = order.nvtt_id if order.nvtt_id else (client_data.nvtt_id if client_data else None)
+            if nvtt_id and nvtt_id in employee_profiles:
+                nvtt_name = employee_profiles[nvtt_id].register_name
+
+            note_dict = {}
+            if order.note != '':
                 try:
-                    date_send = datetime.strftime(order['date_company_get'], "%d/%m/%Y")
-                except TypeError:
-                    date_send = ''
-                if order.get('clients') is None:
-                    order['client'] = {
-                        'id': None,
-                        'name': None,
-                        'register_lv1': None,
-                        'nvtt': None
-                    }
-                try:
-                    type_list = order['clients'].get('list_type', '')
-                except AttributeError:
-                    type_list = ''
-                if type_list == '' or type_list is None:
-                    type_list = 'Cấp 2 gửi'
-                sheet.append([
-                    type_list,
-                    order['clients']['id'],
-                    order['clients']['name'],
-                    order['clients']['register_lv1'],
-                    order['clients']['nvtt'],
-                    order['date_get'],
-                    order['created_by'],
-                    date_send,
-                    order['date_delay'],
-                    order['note'],
-                    detail.get('product_id', ''),
-                    detail.get('product_name', ''),
-                    detail.get('order_quantity', ''),
-                    detail.get('order_box', ''),
-                    product_price,
-                ])
+                    note_dict = json.loads(order.note)
+                except (json.JSONDecodeError, TypeError):
+                    pass
+            noting = note_dict.get('notes', '')
+            data_list = [
+                type_list,
+                client_data.client_id_id if client_data else '',  # Mã khách hàng
+                client_data.register_name if client_data else '',  # Tên Khách hàng
+                client_lv1_name,  # Khách hàng cấp 1
+                nvtt_name,  # NVTT
+                order.date_get.strftime("%d/%m/%Y") if order.date_get else '',
+                order.created_by,
+                date_send,
+                order.date_delay if order.date_delay else 0,
+                noting,
+            ]
+            for detail in order.order_detail.all():
+                if not detail.product_id:
+                    continue
+                details_data = [
+                    detail.product_id.id,
+                    detail.product_id.name,
+                    detail.order_quantity,
+                    detail.order_box,
+                    detail.product_price,
+                ]
+                export_data = data_list + details_data
+                sheet.append(export_data)
                 row_num += 1
-        filename = f"BangToa_{datetime.now().strftime('%d-%m-%Y')}.xlsx"
-        # Tạo response với Content-Disposition để tải xuống tệp Excel
-        response = HttpResponse(content_type='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet')
-        response['Content-Disposition'] = f'attachment; filename={filename}'
 
-        # Lưu workbook vào response
-        workbook.save(response)
-
-        return response
+        output = BytesIO()
+        workbook.save(output)
+        output.seek(0)
+        return output
 
 
-class OrderReportView(APIView):
+class OrderReportView2(APIView):
     permission_classes = [partial(ValidatePermRest, model=Order)]
     authentication_classes = [JWTAuthentication, BasicAuthentication, SessionAuthentication]
 
@@ -831,3 +935,176 @@ class TotalStatisticsView(APIView):
             timezone.get_current_timezone())
 
         return start_date_1, end_date_1, start_date_2, end_date_2
+
+
+class OrderReportView(APIView):
+    permission_classes = [partial(ValidatePermRest, model=Order)]
+    authentication_classes = [JWTAuthentication, BasicAuthentication, SessionAuthentication]
+
+    def get(self, request):
+        start_time = time.time()
+        data, num_page, current_page, total_count, page_obj, limit = self.get_query_results(request)
+        response_data = {
+            'data': data,
+            'total_page': num_page,
+            'current_page': current_page,
+            'total_count': total_count
+        }
+        try:
+            if page_obj.has_next():
+                next_page = build_absolute_uri_with_params(request, {'page': page_obj.next_page_number(), 'limit': limit})
+                response_data['next_page'] = next_page
+
+            if page_obj.has_previous():
+                prev_page = build_absolute_uri_with_params(request, {'page': page_obj.previous_page_number(), 'limit': limit})
+                response_data['prev_page'] = prev_page
+        except AttributeError:
+            pass
+
+        app_log.info(f'OrderReport2 Query Time: {time.time() - start_time}')
+        return Response(response_data, status=status.HTTP_200_OK)
+
+    def get_query_results(self, request, get_type_list=False):
+        query, strict_mode, limit, page, order_by, from_date, to_date, date_field = get_query_parameters(request)
+        nvtt_query = request.query_params.get('nvtt', '')
+        npp_query = request.query_params.get('npp', '')
+        daily_query = request.query_params.get('daily', '')
+
+        order_by = '-date_get' if order_by == '' else order_by
+
+        orders = Order.objects.all()
+
+        if from_date or to_date:
+            try:
+                if from_date:
+                    from_date = datetime.strptime(from_date, '%d/%m/%Y')
+                    orders = orders.filter(**{f'{date_field}__gte': from_date})
+                if to_date:
+                    to_date = datetime.strptime(to_date, '%d/%m/%Y') + timedelta(days=1) - timedelta(seconds=1)
+                    orders = orders.filter(**{f'{date_field}__lte': to_date})
+            except ValueError:
+                pass
+
+        if nvtt_query and nvtt_query != '':
+            nvtt_list = nvtt_query.split(',')
+            app_log.info(f'Test nvtt list: {nvtt_list}')
+            nvtt_ids = EmployeeProfile.objects.filter(Q(register_name__in=nvtt_list) | Q(employee_id__in=nvtt_list)).values_list('employee_id', flat=True)
+            client_profile_query = Q(client_id__clientprofile__nvtt_id__in=nvtt_ids)
+            orders = orders.filter(client_profile_query)
+
+        if npp_query and npp_query != '':
+            npp_list = npp_query.split(',')
+            app_log.info(f'Test npp list: {npp_list}')
+            npp_ids = ClientProfile.objects.filter(Q(register_name__in=npp_list, is_npp=True) | Q(client_id__in=npp_list, is_npp=True)).values_list('client_id', flat=True)
+            client_profile_query = Q(client_id__in=npp_ids)
+            orders = orders.filter(client_profile_query)
+
+        if daily_query and daily_query != '':
+            daily_list = daily_query.split(',')
+            exclude_groups = ["NVTT", "TEST", maNhomND]
+
+            daily_ids = ClientProfile.objects.filter(Q(register_name__in=daily_list) | Q(client_id__in=daily_list)).exclude(client_group_id__name__in=exclude_groups, is_npp=True).values_list('client_id', flat=True)
+
+            client_query = Q(client_id__in=daily_ids)
+            orders = orders.filter(client_query)
+
+        if query != '':
+            query_parts = query.split(',')
+            order_query = Q()
+            order_detail_query = Q()
+            client_profile_query = Q()
+            for part in query_parts:
+                order_query |= Q(id__icontains=part) | Q(date_get__icontains=part) | Q(date_company_get__icontains=part)
+                order_detail_query |= Q(order_detail__product_id__id__icontains=part) | Q(order_detail__product_id__name__icontains=part)
+                client_profile_query |= Q(client_id__clientprofile__register_name__icontains=part) | Q(client_id__clientprofile__nvtt_id__icontains=part) | Q(client_id__clientprofile__client_group_id__id__icontains=part)
+
+            if strict_mode:
+                orders = orders.filter(order_query & order_detail_query & client_profile_query)
+            else:
+                orders = orders.filter(order_query | order_detail_query | client_profile_query)
+
+        valid_fields = [f.name for f in Order._meta.get_fields()]
+        try:
+            if order_by in valid_fields or order_by.lstrip('-') in valid_fields:
+                orders = orders.order_by(order_by)
+            else:
+                orders = orders.order_by('created_at')
+        except FieldError:
+            orders = orders.order_by('id')
+
+        orders = orders.select_related('client_id').prefetch_related(Prefetch('order_detail', queryset=OrderDetail.objects.select_related('product_id')))
+
+        client_profiles = {cp.client_id_id: cp for cp in ClientProfile.objects.filter(client_id__in=[o.client_id_id for o in orders])}
+        nvtt_ids = set()
+        client_lv1_ids = set()
+        for o in orders:
+            if o.client_id_id in client_profiles:
+                if client_profiles[o.client_id_id].nvtt_id:
+                    nvtt_ids.add(client_profiles[o.client_id_id].nvtt_id)
+                if client_profiles[o.client_id_id].client_lv1_id:
+                    client_lv1_ids.add(client_profiles[o.client_id_id].client_lv1_id)
+        employee_profiles = {ep.employee_id_id: ep for ep in EmployeeProfile.objects.filter(employee_id__in=nvtt_ids)}
+        client_lv1_profiles = {cp.client_id_id: cp for cp in ClientProfile.objects.filter(client_id__in=client_lv1_ids)}
+
+        total_orders = orders.count()
+        if limit == 0:
+            data = [self.get_order_fields(obj, Order, get_type_list, client_profiles, employee_profiles, client_lv1_profiles) for obj in orders]
+            return data, 1, 1, total_orders, None, limit
+
+        paginator = Paginator(orders, limit)
+        page_obj = paginator.get_page(page)
+        data = [self.get_order_fields(obj, Order, get_type_list, client_profiles, employee_profiles, client_lv1_profiles) for obj in page_obj]
+        return data, paginator.num_pages, page, total_orders, page_obj, limit
+
+    def get_order_fields(self, obj, model, get_type_list, client_profiles, employee_profiles, client_lv1_profiles):
+        order_detail = OrderDetail.objects.filter(order_id=obj)
+        client_data = client_profiles.get(obj.client_id_id)
+        client_name = client_data.register_name if client_data else None
+        nvtt_id = obj.nvtt_id if obj.nvtt_id else (client_data.nvtt_id if client_data else None)
+
+        nvtt = employee_profiles.get(nvtt_id, None)
+        nvtt_name = nvtt.register_name if nvtt else None
+        client_lv1 = client_lv1_profiles.get(client_data.client_lv1_id) if client_data else None
+        client_lv1_name = client_lv1.register_name if client_lv1 else None
+
+        client_info = {
+            'id': obj.client_id.id if obj.client_id else '',
+            'name': client_name,
+            'nvtt': nvtt_name,
+            'register_lv1': client_lv1_name
+        }
+        if get_type_list:
+            client_info['list_type'] = obj.list_type
+
+        fields = model._meta.fields
+        field_dict = {}
+        include_fields = ['id', 'date_get', 'date_company_get', 'date_delay', 'is_so', 'order_point', 'order_price', 'note', 'created_at', 'created_by']
+        for field in fields:
+            field_name = field.name
+            if field_name in include_fields:
+                include_fields.remove(field_name)
+                field_value = getattr(obj, field_name)
+                field_dict[field_name] = field_value
+
+        details_fields = OrderDetail._meta.fields
+        order_details = []
+        for obj in order_detail:
+            details_data = {}
+            order_details_include = ['product_id', 'order_quantity', 'order_box', 'product_price', 'point_get', 'note']
+            for field in details_fields:
+                field_name = field.name
+                if field_name in order_details_include:
+                    field_value = getattr(obj, field_name)
+                    if field_name == 'product_id':
+                        try:
+                            details_data['product_name'] = field_value.name or None
+                            field_value = field_value.id
+                        except AttributeError:
+                            field_value = None
+                    details_data[field_name] = field_value
+                    order_details_include.remove(field_name)
+            order_details.append(details_data)
+
+        field_dict['order_details'] = order_details
+        field_dict['clients'] = client_info
+        return field_dict
