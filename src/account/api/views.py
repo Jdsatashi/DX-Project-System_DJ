@@ -4,6 +4,7 @@ import time
 import pytz
 from django.contrib.auth import get_user_model
 from django.contrib.auth.hashers import check_password
+from django.db import transaction
 from django.db.models import Q, Max
 from django.http import HttpResponse
 from django.shortcuts import render
@@ -19,18 +20,15 @@ from rest_framework_simplejwt.exceptions import TokenError
 from rest_framework_simplejwt.tokens import RefreshToken as RestRefreshToken, AccessToken
 
 from account.api.serializers import UserSerializer, RegisterSerializer, response_verify_code, UserUpdateSerializer, \
-    UserWithPerm, PermSerializer, GroupPermSerializer, UserListSerializer, AllowanceOrder, GrantAccessSerializer, \
-    send_sms
+    UserWithPerm, PermSerializer, GroupPermSerializer, UserListSerializer, AllowanceOrder, send_sms
 from account.handlers.perms import get_full_permname, get_perm_name
-from account.handlers.token import deactivate_user_token
-from account.handlers.validate_perm import ValidatePermRest, check_perm
+from account.handlers.token import deactivate_user_token, deactivate_user_phone_token
+from account.handlers.validate_perm import check_perm
 from account.models import User, Verify, PhoneNumber, RefreshToken, TokenMapping, GroupPerm, Perm, GrantAccess
 from app.api_routes.handlers import get_token_for_user
 from app.logs import app_log
 from app.settings import pusher_client
 from marketing.price_list.models import PriceList, PointOfSeason
-from user_system.client_profile.api.serializers import ClientProfileSerializer
-from user_system.employee_profile.api.serializers import EmployeeProfileSerializer
 from utils.constants import status as user_status, maNhomND, admin_role, phone_magic, magic_verify_code, perm_actions
 from utils.env import TOKEN_LT
 from utils.helpers import generate_digits_code, generate_id, phone_validate, local_time, check_email
@@ -198,39 +196,41 @@ def otp_verify(request, pk):
             return Response({'message': 'Mã OTP không chính xác.'}, status=status.HTTP_400_BAD_REQUEST)
         # When verifying success
         if verify.is_verify_valid():
-            # Update verify
-            verify.is_verify = True
-            verify.verify_time = local_time()
-            # Activate user
-            verify.user.status = user_status[0]
-            verify.user.is_active = True
-            verify.user.save()
-            verify.save()
-            # Generate new token
-            token = get_token_for_user(verify.user)
-            set_user_perm(verify.user, True)
-            # Add data for refresh token
-            deactivate_user_token(verify.user)
-            try:
-                refresh_token = token['refresh']
-            except TokenError:
-                app_log.info(TokenError)
-                refresh_token = token
-            app_log.info(f"Test refresh token: {str(refresh_token)}")
-            access_token = create_access_token_from_refresh(str(refresh_token), pk)
-            # Create new and save active token
-            ref_token = RefreshToken.objects.create(user=verify.user, phone_number=phone,
-                                                    refresh_token=str(refresh_token), status="active")
-            verify.refresh_token = ref_token
-            verify.save()
-            # Add response data
-            serializer = UserSerializer(verify.user)
-            pusher_login(verify.user)
-            response = {'message': 'Successful verify phone number', 'user': serializer.data, 'phone_number': pk,
-                        'token': {
-                            'refresh': str(refresh_token),
-                            'access': str(access_token)
-                        }}
+            with transaction.atomic():
+                # Update verify
+                verify.is_verify = True
+                verify.verify_time = local_time()
+                # Activate user
+                verify.user.status = user_status[0]
+                verify.user.is_active = True
+                verify.user.save()
+                verify.save()
+                # Generate new token
+                token = get_token_for_user(verify.user)
+                set_user_perm(verify.user, True)
+                # Add data for refresh token
+                # deactivate_user_token(verify.user)
+                deactivate_user_phone_token(verify.user, verify.phone_verify)
+                try:
+                    refresh_token = token['refresh']
+                except TokenError:
+                    app_log.info(TokenError)
+                    refresh_token = token
+                app_log.info(f"Test refresh token: {str(refresh_token)}")
+                access_token = create_access_token_from_refresh(str(refresh_token), verify.phone_verify)
+                # Create new and save active token
+                ref_token = RefreshToken.objects.create(user=verify.user, phone_number=phone,
+                                                        refresh_token=str(refresh_token), status="active")
+                verify.refresh_token = ref_token
+                verify.save()
+                # Add response data
+                serializer = UserSerializer(verify.user)
+                pusher_login(verify.user)
+                response = {'message': 'Successful verify phone number', 'user': serializer.data, 'phone_number': pk,
+                            'token': {
+                                'refresh': str(refresh_token),
+                                'access': str(access_token)
+                            }}
             return Response(response, status=status.HTTP_200_OK)
         app_log.info("OTP code is expired")
         return Response({'message': 'Mã otp đã hết hạn'}, status=status.HTTP_200_OK)
@@ -274,29 +274,30 @@ def phone_login_2(request):
         # Get user from phone object
         user = phone.user
         app_log.info(f"Test token: {refresh_token}")
-        if refresh_token:
-            # Get new token
-            try:
-                new_token = create_access_token_from_refresh(refresh_token, phone_number)
-            except TokenError:
-                # If get new token error, refresh_token error
-                return Response({'message': 'Phiên đăng nhập đã hết hạn'},
-                                status=status.HTTP_401_UNAUTHORIZED)
-            pusher_login(user)
-            # Return token when not error
-            return Response({'refresh': refresh_token, 'access': new_token}, status.HTTP_200_OK)
-        else:
-            verify_code = generate_digits_code()
-            if phone_number == phone_magic:
-                verify_code = magic_verify_code
-            new_verify = Verify.objects.create(user=user, phone_verify=phone, verify_code=verify_code,
-                                               verify_type="SMS OTP")
-            response = response_verify_code(new_verify)
+        with transaction.atomic():
+            if refresh_token:
+                # Get new token
+                try:
+                    new_token = create_access_token_from_refresh(refresh_token, phone)
+                except TokenError:
+                    # If get new token error, refresh_token error
+                    return Response({'message': 'Phiên đăng nhập đã hết hạn'},
+                                    status=status.HTTP_401_UNAUTHORIZED)
+                # pusher_login(user)
+                # Return token when not error
+                return Response({'refresh': refresh_token, 'access': new_token}, status.HTTP_200_OK)
+            else:
+                verify_code = generate_digits_code()
+                if phone_number == phone_magic:
+                    verify_code = magic_verify_code
+                new_verify = Verify.objects.create(user=user, phone_verify=phone, verify_code=verify_code,
+                                                   verify_type="SMS OTP")
+                response = response_verify_code(new_verify)
 
-            message = f"[DONG XANH] Ma xac thuc cua ban la {verify_code}, tai app Thuoc BVTV Dong Xanh co hieu luc trong 3 phut. Vi ly do bao mat tuyet doi khong cung cap cho bat ky ai."
-            send_sms(phone_number, message)
+                message = f"[DONG XANH] Ma xac thuc cua ban la {verify_code}, tai app Thuoc BVTV Dong Xanh co hieu luc trong 3 phut. Vi ly do bao mat tuyet doi khong cung cap cho bat ky ai."
+                send_sms(phone_number, message)
 
-            return Response(response, status.HTTP_200_OK)
+                return Response(response, status.HTTP_200_OK)
     return Response({'message': f'phương thức {request.method} không hợp lệ'},
                     status=status.HTTP_405_METHOD_NOT_ALLOWED)
 
@@ -348,7 +349,7 @@ def admin_login(request):
             access_jti=access_token['jti'],
             refresh_jti=refresh['jti']
         )
-        pusher_login(user)
+        # pusher_login(user)
         return Response({'refresh': str(refresh), 'access': str(access_token)}, status=status.HTTP_200_OK)
 
     return Response({'message': f'phương thức {request.method} không hợp lệ'},
@@ -503,11 +504,13 @@ def get_token_from_refresh(refresh_token):
 def create_access_token_from_refresh(refresh_token_str, phone_number):
     refresh_token = RestRefreshToken(refresh_token_str)
     access_token = refresh_token.access_token
-    access_token['phone_number'] = phone_number
+    phone = phone_number.phone_number
+    access_token['phone_number'] = phone
 
     user = User.objects.get(id=refresh_token['user_id'])
     TokenMapping.objects.create(
         user=user,
+        phone_number=phone_number,
         access_jti=access_token['jti'],
         refresh_jti=refresh_token['jti'],
         expired_at=local_time() + datetime.timedelta(hours=int(TOKEN_LT))

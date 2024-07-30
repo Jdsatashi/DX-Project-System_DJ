@@ -4,7 +4,7 @@ from django.db.models import Q
 from rest_framework import serializers
 from rest_framework.exceptions import ValidationError
 
-from account.handlers.token import deactivate_user_token
+from account.handlers.token import deactivate_user_token, deactivate_user_phone_token
 from account.models import User, GroupPerm, Perm, Verify, PhoneNumber, GrantAccess
 from app.logs import app_log
 from app.settings import SMS_SERVICE
@@ -323,17 +323,19 @@ class UserWithPerm(serializers.ModelSerializer):
                             raise serializers.ValidationError(
                                 {'message': f'phone_number \'{phone_number}\' đã tồn tại'})
                     if len(remove_phone) >= 1:
-                        deactivate_user_token(instance)
+                        # deactivate_user_token(instance)
                         for phone_number in remove_phone:
-                            PhoneNumber.objects.get(phone_number=phone_number).delete()
+                            phone = PhoneNumber.objects.get(phone_number=phone_number)
+                            deactivate_user_phone_token(instance, phone)
+                            phone.delete()
                 handle_user(instance, group_data, perm_data, profile_data)
 
         except Exception as e:
             # Log the exception if needed
             app_log.error(f"Error updating user: {e}")
             # Rollback transaction and re-raise the exception
-            # raise ValidationError({'message': f'lỗi bật ngờ khi update user {instance.id}'})
-            raise e
+            raise ValidationError({'message': f'lỗi bật ngờ khi update user {instance.id}'})
+            # raise e
 
         return instance
 

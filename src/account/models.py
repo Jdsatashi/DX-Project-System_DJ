@@ -223,6 +223,7 @@ class RefreshToken(models.Model):
 
 class TokenMapping(models.Model):
     user = models.ForeignKey(User, null=True, on_delete=models.CASCADE)
+    phone_number = models.ForeignKey(PhoneNumber, null=True, on_delete=models.CASCADE)
     refresh_jti = models.CharField(max_length=255)
     access_jti = models.CharField(max_length=255)
     expired_at = models.DateTimeField(null=True)
