@@ -649,12 +649,33 @@ class ApiGetManageUser(APIView):
                 grant_user_obj = User.objects.get(id=entrust_users.upper())
             except User.DoesNotExist:
                 return Response({'message': f'user {manage_user} không tồn tại'}, status=status.HTTP_400_BAD_REQUEST)
+            print(f"Check grant user: {grant_user_obj}")
 
             # Validate perm
             manager_perm = get_full_permname(User, perm_actions['update'], manage_user_obj.id)
             grant_user_perm = get_full_permname(User, perm_actions['update'], grant_user_obj.id)
             is_manager_perm = check_perm(user, manager_perm, get_perm_name(User))
             is_grant_user_perm = check_perm(user, grant_user_perm, get_perm_name(User))
+
+            user_type = check_user_type(manage_user_obj)
+
+            if user_type == 'nvtt':
+                if grant_user_obj.clientprofile.nvtt_id != manage_user_obj.id:
+                    return Response({'message': f'user {entrust_users} không thuộc quản lý của user {manage_user}'},
+                                    status=status.HTTP_400_BAD_REQUEST)
+                users_list = User.objects.filter(clientprofile__nvtt_id=manage_user_obj.id)
+                get_user = request.query_params.get('get_user', '')
+                if get_user == 'npp':
+                    users_list = users_list.filter(Q(clientprofile__is_npp=True) | Q(group_user__name='npp'))
+                elif get_user == 'daily':
+                    users_list = users_list.exclude(Q(clientprofile__is_npp=True) | Q(group_user__name='npp'))
+                user_name = manage_user_obj.employeeprofile.register_name
+            else:
+                if grant_user_obj.clientprofile.client_lv1_id != manage_user_obj.id:
+                    return Response({'message': f'user {entrust_users} không thuộc quản lý của user {manage_user}'},
+                                    status=status.HTTP_400_BAD_REQUEST)
+                users_list = User.objects.filter(clientprofile__client_lv1_id=manage_user_obj.id)
+                user_name = manage_user_obj.clientprofile.register_name
 
             if not is_manager_perm and not is_grant_user_perm:
                 return Response({'message': 'không có quyền truy cập'}, status=status.HTTP_403_FORBIDDEN)
@@ -682,7 +703,14 @@ class ApiGetManageUser(APIView):
                     grant_access.active = is_allow
                     grant_access.save()
 
-            response_data = GrantAccessSerializer(grant_access).data
+            user_data = format_user_data(users_list, manage_user_obj)
+
+            response_data = {
+                'user_id': manage_user_obj.id,
+                'name': user_name,
+                'user_type': user_type,
+                'group_manage': user_data
+            }
             return Response(response_data, 200)
         else:
             return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
