@@ -762,7 +762,6 @@ class GetUserManager(APIView):
             return Response({'data': response})
 
 
-
 def search_users(query, users_list):
     search_queries = query.split(',')
     search_fields = ['id', 'username', 'email', 'phone_numbers__phone_number', 'clientprofile__register_name']
