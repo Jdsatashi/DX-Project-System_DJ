@@ -25,7 +25,9 @@ class ApiEventNumber(viewsets.GenericViewSet, mixins.ListModelMixin, mixins.Crea
         return perm_queryset(self)
 
     def list(self, request, *args, **kwargs):
-        response = filter_data(self, request, ['id', 'name', 'date_start', 'date_close', 'status'],
+        print(f"Here")
+        response = filter_data(self, request, ['id', 'name', 'date_start', 'date_close', 'status',
+                                               'user_join_event__user__id'],
                                **kwargs)
         return Response(response, status.HTTP_200_OK)
 
