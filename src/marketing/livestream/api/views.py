@@ -58,7 +58,7 @@ class ApiLiveStreamDetailComment(viewsets.GenericViewSet, mixins.ListModelMixin)
     def list(self, request, *args, **kwargs):
         livestream_id = self.kwargs.get('livestream_id')
         if not livestream_id:
-            return Response({'error': 'livestream_id is required'}, status=status.HTTP_400_BAD_REQUEST)
+            return Response({'message': 'livestream_id is required'}, status=status.HTTP_400_BAD_REQUEST)
 
         queryset = self.get_queryset().filter(live_stream_id=livestream_id)
         response = filter_data(self, request, ['comment', 'user__username', 'user__id', 'phone__phone_number'],

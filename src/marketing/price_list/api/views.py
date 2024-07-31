@@ -38,12 +38,14 @@ class GenericApiPriceList(viewsets.GenericViewSet, mixins.ListModelMixin, mixins
         return perm_queryset(self, user)
 
     def list(self, request, *args, **kwargs):
+        queryset = self.get_queryset()
         user_id = request.query_params.get('user', None)
-        user = User.objects.filter(id=user_id)
-        if not user.exists():
-            return ValidationError({'message': f'user id {user_id} not found'})
-        user = user.first()
-        queryset = perm_queryset(self, user)
+        if user_id:
+            user = User.objects.filter(id=user_id)
+            if not user.exists():
+                return Response({'message': f'user id {user_id} not found'})
+            user = user.first()
+            queryset = perm_queryset(self, user)
         response = filter_data(self, request, ['id', 'name', 'date_start', 'date_end'],
                                queryset=queryset, **kwargs)
         return Response(response, status.HTTP_200_OK)
@@ -51,12 +53,14 @@ class GenericApiPriceList(viewsets.GenericViewSet, mixins.ListModelMixin, mixins
     @action(methods=['get'], detail=False, url_path='now', url_name='now')
     def now(self, request, *args, **kwargs):
         today = timezone.localdate()
+        queryset = self.get_queryset()
         user_id = request.query_params.get('user', None)
-        user = User.objects.filter(id=user_id)
-        if not user.exists():
-            return ValidationError({'message': f'user id {user_id} not found'})
-        user = user.first()
-        queryset = perm_queryset(self, user)
+        if user_id:
+            user = User.objects.filter(id=user_id)
+            if not user.exists():
+                return Response({'message': f'user id {user_id} not found'})
+            user = user.first()
+            queryset = perm_queryset(self, user)
         queryset = queryset.filter(date_start__lte=today, date_end__gte=today).exclude(
             status='deactivate'
         ).order_by('-type', 'created_at')
@@ -77,12 +81,14 @@ class ApiSpecialOffer(viewsets.GenericViewSet, mixins.ListModelMixin, mixins.Cre
         return perm_queryset(self, user)
 
     def list(self, request, *args, **kwargs):
+        queryset = self.get_queryset()
         user_id = request.query_params.get('user', None)
-        user = User.objects.filter(id=user_id)
-        if not user.exists():
-            return ValidationError({'message': f'user id {user_id} not found'})
-        user = user.first()
-        queryset = perm_queryset(self, user)
+        if user_id:
+            user = User.objects.filter(id=user_id)
+            if not user.exists():
+                return Response({'message': f'user id {user_id} not found'})
+            user = user.first()
+            queryset = perm_queryset(self, user)
         response = filter_data(self, request, ['id', 'name', 'status', 'type_list', 'priority'],
                                queryset=queryset, **kwargs)
         return Response(response, status.HTTP_200_OK)
