@@ -28,7 +28,8 @@ class ApiLiveStream(viewsets.GenericViewSet, mixins.ListModelMixin, mixins.Creat
     permission_classes = [partial(ValidatePermRest, model=LiveStream)]
 
     def get_queryset(self):
-        return perm_queryset(self)
+        user = self.request.user
+        return perm_queryset(self, user)
 
     def list(self, request, *args, **kwargs):
         response = filter_data(self, request, ['title', 'date_released', 'live_url'],

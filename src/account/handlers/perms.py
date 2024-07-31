@@ -67,8 +67,7 @@ class DataFKModel:
         return foreign_keys
 
 
-def perm_queryset(self):
-    user = self.request.user
+def perm_queryset(self, user):
     model_class = self.serializer_class.Meta.model
     pk = self.kwargs.get('pk')
     if user.is_superuser:
@@ -85,15 +84,19 @@ def perm_queryset(self):
     perm_name = f'{content.app_label}_{content.model}'
     if pk:
         perm_name = f'{perm_name}_{pk}'
+    print(f"PERM QUERYSET: {perm_name}")
     # Get all price list ids which required permissions
     perms_content = Perm.objects.filter(name__icontains=perm_name)
     perm_req_id = {v.object_id for v in perms_content if v.object_id}
+    print(f"PERM perm_req_id: {perm_req_id}")
 
     # Get all price list ids which user has permissions
     for perm in all_permissions:
         if perm.startswith(action_perm + '_' + perm_name):
             _, object_id = perm.rsplit('_', 1)
             has_perm_id.append(object_id)
+    print(f"PERM has_perm_id: {has_perm_id}")
+
     # Exclude item which use not has permission
     exclude_id = list(perm_req_id - set(has_perm_id))
     return model_class.objects.exclude(id__in=exclude_id)

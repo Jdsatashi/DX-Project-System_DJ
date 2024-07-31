@@ -15,6 +15,7 @@ from rest_framework_simplejwt.authentication import JWTAuthentication
 
 from account.handlers.perms import perm_queryset
 from account.handlers.validate_perm import ValidatePermRest
+from account.models import User
 from app.logs import app_log
 from marketing.price_list.api.serializers import PriceListSerializer, SpecialOfferSerializer, PriceList2Serializer, \
     SpecialOfferProductSerializer
@@ -33,17 +34,30 @@ class GenericApiPriceList(viewsets.GenericViewSet, mixins.ListModelMixin, mixins
 
     def get_queryset(self):
         app_log.info(f"Getting query set")
-        return perm_queryset(self)
+        user = self.request.user
+        return perm_queryset(self, user)
 
     def list(self, request, *args, **kwargs):
+        user_id = request.query_params.get('user', None)
+        user = User.objects.filter(id=user_id)
+        if not user.exists():
+            return ValidationError({'message': f'user id {user_id} not found'})
+        user = user.first()
+        queryset = perm_queryset(self, user)
         response = filter_data(self, request, ['id', 'name', 'date_start', 'date_end'],
-                               **kwargs)
+                               queryset=queryset, **kwargs)
         return Response(response, status.HTTP_200_OK)
 
     @action(methods=['get'], detail=False, url_path='now', url_name='now')
     def now(self, request, *args, **kwargs):
         today = timezone.localdate()
-        queryset = self.get_queryset().filter(date_start__lte=today, date_end__gte=today).exclude(
+        user_id = request.query_params.get('user', None)
+        user = User.objects.filter(id=user_id)
+        if not user.exists():
+            return ValidationError({'message': f'user id {user_id} not found'})
+        user = user.first()
+        queryset = perm_queryset(self, user)
+        queryset = queryset.filter(date_start__lte=today, date_end__gte=today).exclude(
             status='deactivate'
         ).order_by('-type', 'created_at')
         response = filter_data(self, request, ['id', 'name', 'date_start', 'date_end'], queryset=queryset,
@@ -59,11 +73,18 @@ class ApiSpecialOffer(viewsets.GenericViewSet, mixins.ListModelMixin, mixins.Cre
     permission_classes = [partial(ValidatePermRest, model=PriceList)]
 
     def get_queryset(self):
-        return perm_queryset(self)
+        user = self.request.user
+        return perm_queryset(self, user)
 
     def list(self, request, *args, **kwargs):
+        user_id = request.query_params.get('user', None)
+        user = User.objects.filter(id=user_id)
+        if not user.exists():
+            return ValidationError({'message': f'user id {user_id} not found'})
+        user = user.first()
+        queryset = perm_queryset(self, user)
         response = filter_data(self, request, ['id', 'name', 'status', 'type_list', 'priority'],
-                               **kwargs)
+                               queryset=queryset, **kwargs)
         return Response(response, status.HTTP_200_OK)
 
 
@@ -75,8 +96,14 @@ class ApiSpecialOfferConsider(viewsets.GenericViewSet, mixins.ListModelMixin):
     # permission_classes = [partial(ValidatePermRest, model=PriceList)]
 
     def list(self, request, *args, **kwargs):
+        user_id = request.query_params.get('user', None)
+        user = User.objects.filter(id=user_id)
+        if not user.exists():
+            return ValidationError({'message': f'user id {user_id} not found'})
+        user = user.first()
+        queryset = perm_queryset(self, user)
         response = filter_data(self, request, ['id', 'name', 'status'],
-                               **kwargs)
+                               queryset=queryset, **kwargs)
         return Response(response, status.HTTP_200_OK)
 
 

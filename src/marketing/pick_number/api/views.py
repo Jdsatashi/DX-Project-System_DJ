@@ -2,11 +2,13 @@ from functools import partial
 
 from rest_framework import viewsets, mixins, status
 from rest_framework.authentication import BasicAuthentication
+from rest_framework.exceptions import ValidationError
 from rest_framework.response import Response
 from rest_framework_simplejwt.authentication import JWTAuthentication
 
 from account.handlers.perms import perm_queryset
 from account.handlers.validate_perm import ValidatePermRest
+from account.models import User
 from marketing.pick_number.api.serializers import UserJoinEventSerializer, EventNumberSerializer, NumberListSerializer, \
     UserJoinEventNumberSerializer
 from marketing.pick_number.models import UserJoinEvent, EventNumber, NumberList
@@ -22,12 +24,18 @@ class ApiEventNumber(viewsets.GenericViewSet, mixins.ListModelMixin, mixins.Crea
 
     # permission_classes = [partial(ValidatePermRest, model=EventNumber)]
     def get_queryset(self):
-        return perm_queryset(self)
+        user = self.request.user
+        return perm_queryset(self, user)
 
     def list(self, request, *args, **kwargs):
-        print(f"Here")
+        user_id = request.query_params.get('user', None)
+        user = User.objects.filter(id=user_id)
+        if not user.exists():
+            return ValidationError({'message': f'user id {user_id} not found'})
+        user = user.first()
+        queryset = perm_queryset(self, user)
         response = filter_data(self, request, ['id', 'name', 'date_start', 'date_close', 'status',
-                                               'user_join_event__user__id'],
+                                               'user_join_event__user__id'], queryset=queryset,
                                **kwargs)
         return Response(response, status.HTTP_200_OK)
 
