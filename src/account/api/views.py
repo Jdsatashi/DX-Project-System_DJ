@@ -590,8 +590,7 @@ class ApiGetManageUser(APIView):
         # Get user for checking manage group user
         user = request.user
         if not request.user.is_authenticated:
-            ctx = {'message': "Bạn chưa đăng nhập."}
-            return render(request, 'errors/403.html', ctx)
+            return Response({'message': 'tài khoản chưa xác thực'})
         user_id = request.query_params.get('user', '')
         if user_id != '':
             try:
@@ -635,7 +634,7 @@ class ApiGetManageUser(APIView):
     def post(self, request):
         user = request.user
         if not request.user.is_authenticated:
-            return ValidationError({'message': 'tài khoản chưa xác thực'})
+            return Response({'message': 'tài khoản chưa xác thực'})
         serializer = AllowanceOrder(data=request.data)
         if serializer.is_valid():
             manage_user = serializer.validated_data['manager']
@@ -725,12 +724,11 @@ class GetUserManager(APIView):
     def get(self, request, *args, **kwargs):
         user = request.user
         if not request.user.is_authenticated:
-            ctx = {'message': "Bạn chưa đăng nhập."}
-            return render(request, 'errors/403.html', ctx)
+            return Response({'message': 'tài khoản chưa xác thực'})
         type_user = request.query_params.get('get_user', '')
         available_type = ['nvtt', 'npp']
         if type_user not in available_type:
-            return ValidationError({'message': 'get_user không phù hợp'})
+            return Response({'message': 'get_user không phù hợp'})
         if type_user == 'nvtt':
             list_nvtt = User.objects.filter(group_user__name=type_user)
             list_nvtt_id = list_nvtt.values_list('id', flat=True).distinct()
