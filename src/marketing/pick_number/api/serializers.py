@@ -2,12 +2,14 @@ import time
 
 from django.db import transaction
 from rest_framework import serializers
+from rest_framework.exceptions import ValidationError
 from rest_framework.response import Response
 
 from account.handlers.restrict_serializer import BaseRestrictSerializer
 from app.logs import app_log
 from app.settings import pusher_client
-from marketing.pick_number.models import UserJoinEvent, NumberList, EventNumber, NumberSelected, calculate_point_query
+from marketing.pick_number.models import UserJoinEvent, NumberList, EventNumber, NumberSelected, calculate_point_query, \
+    PrizeEvent, AwardNumber
 
 
 class ReadNumberSerializer(serializers.ModelSerializer):
@@ -172,8 +174,86 @@ class UserJoinEventNumberSerializer(serializers.ModelSerializer):
         return instance
 
 
+# serializers.py
+
+class AwardNumberSerializer(BaseRestrictSerializer):
+    class Meta:
+        model = AwardNumber
+        fields = '__all__'
+
+
+class PrizeEventSerializer(serializers.ModelSerializer):
+    award_number = serializers.ListField(child=serializers.IntegerField(), allow_null=True, write_only=True, required=False)
+
+    class Meta:
+        model = PrizeEvent
+        fields = '__all__'
+        extra_kwargs = {
+            'event': {'required': False},
+        }
+
+    def to_representation(self, instance):
+        representation = super().to_representation(instance)
+        numbers = AwardNumber.objects.filter(prize=instance).values_list('number', flat=True)
+        representation['award_number'] = list(numbers)
+        return representation
+
+    def create(self, validated_data):
+        award_number_ids = validated_data.pop('award_number', None)
+        prize_event = super().create(validated_data)
+        if award_number_ids is not None:
+            self.update_award_numbers(prize_event, award_number_ids)
+        return prize_event
+
+    def update(self, instance, validated_data):
+        award_number_ids = validated_data.pop('award_number', None)
+        prize_event = super().update(instance, validated_data)
+        if award_number_ids is not None:
+            self.update_award_numbers(prize_event, award_number_ids)
+        return prize_event
+
+    def update_award_numbers(self, prize_event, award_number_ids):
+        if not award_number_ids:
+            return
+
+        # Get event prize
+        event_number = prize_event.event
+        if event_number is None:
+            raise ValidationError("PrizeEvent must be linked to an EventNumber to validate award numbers.")
+        # Get range numbers
+        range_number = event_number.range_number
+        # Get all number was used
+        used_numbers = set(AwardNumber.objects
+                           .filter(prize__event=event_number)
+                           .exclude(prize=prize_event)
+                           .values_list('number', flat=True)
+                           .distinct())
+        current_numbers = set(prize_event.award_number.values_list('number', flat=True))
+        new_numbers = set(award_number_ids)
+
+        # Determine numbers to be removed and to be added
+        numbers_to_remove = current_numbers - new_numbers
+        numbers_to_add = new_numbers - current_numbers - used_numbers
+
+        # Validate the new numbers
+        for number_id in numbers_to_add:
+            if number_id > range_number or number_id < 1:
+                raise ValidationError(f"Number {number_id} is out of the allowed range (1 to {range_number}).")
+            if number_id in used_numbers:
+                raise ValueError(f"Number {number_id} is already used in another PrizeEvent of this EventNumber.")
+
+        # Remove old numbers no longer needed
+        if numbers_to_remove:
+            AwardNumber.objects.filter(prize=prize_event, number__in=numbers_to_remove).delete()
+
+        # Create new award numbers
+        new_award_numbers = [AwardNumber(prize=prize_event, number=number) for number in numbers_to_add]
+        AwardNumber.objects.bulk_create(new_award_numbers)
+
+
 class EventNumberSerializer(BaseRestrictSerializer):
     users = serializers.ListField(child=serializers.CharField(), write_only=True, required=False)
+    prize_event = PrizeEventSerializer(many=True, required=False)
 
     class Meta:
         model = EventNumber
@@ -181,7 +261,6 @@ class EventNumberSerializer(BaseRestrictSerializer):
         read_only_fields = ('id', 'created_at', 'updated_at')
 
     def to_representation(self, instance):
-        """Convert `users` field from IDs to actual user representations."""
         representation = super().to_representation(instance)
         user_ids = UserJoinEvent.objects.filter(event=instance).values_list('user_id', flat=True)
         user_ids = list(set(user_ids))
@@ -189,23 +268,32 @@ class EventNumberSerializer(BaseRestrictSerializer):
         return representation
 
     def create(self, validated_data):
-        user_ids = validated_data.pop('users', [])
-        event_number = super().create(validated_data)
-
-        # Add users to UserJoinEvent
-        self._add_users_to_event(event_number, user_ids)
-
-        return event_number
+        users = validated_data.pop('users', [])
+        prize_events = validated_data.pop('prize_event', [])
+        with transaction.atomic():
+            event_number = super().create(validated_data)
+            self._manage_prize_events(event_number, prize_events)
+            self._add_users_to_event(event_number, users)
+            return event_number
 
     def update(self, instance, validated_data):
-        user_ids = validated_data.pop('users', [])
-        app_log.info(f"Test user id: {user_ids}")
-        event_number = super().update(instance, validated_data)
+        users = validated_data.pop('users', [])
+        prize_events = validated_data.pop('prize_event', [])
+        with transaction.atomic():
+            event_number = super().update(instance, validated_data)
+            instance.prize_event.all().delete()
+            self._manage_prize_events(event_number, prize_events)
+            self._add_users_to_event(event_number, users)
+            return event_number
 
-        # Add users to UserJoinEvent
-        self._add_users_to_event(event_number, user_ids)
-
-        return event_number
+    @staticmethod
+    def _manage_prize_events(event, prize_events_data):
+        for prize_data in prize_events_data:
+            prize_serializer = PrizeEventSerializer(data={**prize_data, "event": event.id})
+            if prize_serializer.is_valid(raise_exception=True):
+                prize_serializer.save()
+            else:
+                raise ValidationError({'message': "prize data is invalid"})
 
     @staticmethod
     def _add_users_to_event(event, user_ids):
@@ -217,20 +305,9 @@ class EventNumberSerializer(BaseRestrictSerializer):
             user_join = UserJoinEvent.objects.filter(event=event, user_id=user_id).first()
             if user_join is None:
                 user_join = UserJoinEvent.objects.create(event=event, user_id=user_id)
-            # analysis_point(event, user_join)
             total_point = calculate_point_query(user_join.user, event.date_start, event.date_close, event.price_list)
             user_join.total_point = total_point + user_join.bonus_point
             user_join.turn_pick = user_join.total_point // event.point_exchange - user_join.turn_selected
             user_join.save()
-            print(f"Calculate point: total {user_join.total_point} - turn_pick {user_join.turn_pick}")
         users_to_remove = current_user_ids - new_user_ids
         UserJoinEvent.objects.filter(event=event, user_id__in=users_to_remove).delete()
-        # for user_id in users_to_remove:
-        #     user_join = UserJoinEvent.objects.get(event=event, user_id=user_id)
-        #     numbers_selected = NumberSelected.objects.filter(user_event=user_join)
-        #     for number_sel in numbers_selected:
-        #         number_list = number_sel.number
-        #         number_list.repeat_count += 1
-        #         number_list.save()
-        #     numbers_selected.delete()
-        #     user_join.delete()

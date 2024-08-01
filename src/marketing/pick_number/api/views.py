@@ -10,8 +10,8 @@ from account.handlers.perms import perm_queryset
 from account.handlers.validate_perm import ValidatePermRest
 from account.models import User
 from marketing.pick_number.api.serializers import UserJoinEventSerializer, EventNumberSerializer, NumberListSerializer, \
-    UserJoinEventNumberSerializer
-from marketing.pick_number.models import UserJoinEvent, EventNumber, NumberList
+    UserJoinEventNumberSerializer, AwardNumberSerializer, PrizeEventSerializer
+from marketing.pick_number.models import UserJoinEvent, EventNumber, NumberList, PrizeEvent, AwardNumber
 from utils.model_filter_paginate import filter_data
 
 
@@ -20,9 +20,10 @@ class ApiEventNumber(viewsets.GenericViewSet, mixins.ListModelMixin, mixins.Crea
     serializer_class = EventNumberSerializer
     queryset = EventNumber.objects.all()
 
-    # authentication_classes = [JWTAuthentication, BasicAuthentication]
+    authentication_classes = [JWTAuthentication, BasicAuthentication]
 
-    # permission_classes = [partial(ValidatePermRest, model=EventNumber)]
+    permission_classes = [partial(ValidatePermRest, model=EventNumber)]
+
     def get_queryset(self):
         user = self.request.user
         return perm_queryset(self, user)
@@ -47,9 +48,9 @@ class ApiUserJoinEvent(viewsets.GenericViewSet, mixins.ListModelMixin, mixins.Cr
     serializer_class = UserJoinEventSerializer
     queryset = UserJoinEvent.objects.all()
 
-    # authentication_classes = [JWTAuthentication, BasicAuthentication]
+    authentication_classes = [JWTAuthentication, BasicAuthentication]
 
-    # permission_classes = [partial(ValidatePermRest, model=UserJoinEvent)]
+    permission_classes = [partial(ValidatePermRest, model=UserJoinEvent)]
 
     def list(self, request, *args, **kwargs):
         response = filter_data(self, request, ['id', 'event__id', 'event__name', 'user__id'],
@@ -62,7 +63,7 @@ class ApiNumberList(viewsets.GenericViewSet, mixins.ListModelMixin, mixins.Creat
     serializer_class = NumberListSerializer
     queryset = NumberList.objects.all()
 
-    # authentication_classes = [JWTAuthentication, BasicAuthentication]
+    authentication_classes = [JWTAuthentication, BasicAuthentication]
 
     # permission_classes = [partial(ValidatePermRest, model=NumberList)]
 
@@ -82,3 +83,37 @@ class ApiNumberList(viewsets.GenericViewSet, mixins.ListModelMixin, mixins.Creat
 class ApiPickNumber(viewsets.GenericViewSet, mixins.RetrieveModelMixin, mixins.UpdateModelMixin):
     serializer_class = UserJoinEventNumberSerializer
     queryset = UserJoinEvent.objects.all()
+
+    authentication_classes = [JWTAuthentication, BasicAuthentication]
+
+    permission_classes = [partial(ValidatePermRest, model=UserJoinEvent)]
+
+
+class ApiAwardNumber(viewsets.GenericViewSet, mixins.ListModelMixin, mixins.CreateModelMixin,
+                     mixins.RetrieveModelMixin, mixins.UpdateModelMixin, mixins.DestroyModelMixin):
+    serializer_class = AwardNumberSerializer
+    queryset = AwardNumber.objects.all()
+
+    authentication_classes = [JWTAuthentication, BasicAuthentication]
+
+    permission_classes = [partial(ValidatePermRest, model=UserJoinEvent)]
+
+    def list(self, request, *args, **kwargs):
+        response = filter_data(self, request, ['id', 'prize__prize_name', 'prize__event__name', 'prize__prize_id', 'prize__event__id', 'number'],
+                               **kwargs)
+        return Response(response, status.HTTP_200_OK)
+
+
+class ApiPrizeEvent(viewsets.GenericViewSet, mixins.ListModelMixin, mixins.CreateModelMixin,
+                    mixins.RetrieveModelMixin, mixins.UpdateModelMixin, mixins.DestroyModelMixin):
+    serializer_class = PrizeEventSerializer
+    queryset = PrizeEvent.objects.all()
+
+    authentication_classes = [JWTAuthentication, BasicAuthentication]
+
+    permission_classes = [partial(ValidatePermRest, model=UserJoinEvent)]
+
+    def list(self, request, *args, **kwargs):
+        response = filter_data(self, request, ['event__name', 'event__id', 'prize_name', 'note', 'id'],
+                               **kwargs)
+        return Response(response, status.HTTP_200_OK)

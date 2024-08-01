@@ -4,7 +4,7 @@ from django.db import models, transaction
 from django.db.models import F, Sum, FloatField
 from rest_framework.exceptions import ValidationError
 
-from account.models import User
+from account.models import User, PhoneNumber
 from app.logs import app_log
 from marketing.order.models import OrderDetail, Order
 from marketing.price_list.models import PriceList
@@ -78,10 +78,6 @@ class EventNumber(models.Model):
         numbers_to_add = new_numbers - current_numbers_set
         numbers_to_remove = current_numbers_set - new_numbers
 
-        app_log.info(f"Test number to add: {numbers_to_add}")
-        app_log.info(f"Test number to remove: {numbers_to_remove}")
-        start_time2 = time.time()
-
         # Add new numbers
         number_list_to_add = [
             NumberList(
@@ -92,10 +88,7 @@ class EventNumber(models.Model):
             for num in numbers_to_add
         ]
         NumberList.objects.bulk_create(number_list_to_add)
-        app_log.info(f"Time For loop 1: {time.time() - start_time2}")
-        app_log.info(f"Test old: {old_limit_repeat}")
 
-        start_time2 = time.time()
         # Prepare list for bulk update
         number_list_to_update = []
 
@@ -121,17 +114,13 @@ class EventNumber(models.Model):
 
         # Bulk update existing numbers
         NumberList.objects.bulk_update(number_list_to_update, ['repeat_count'])
-        app_log.info(f"Time For loop 2: {time.time() - start_time2}")
 
         # Validate and possibly remove numbers
-        start_time2 = time.time()
         for num in numbers_to_remove:
             number_list = NumberList.objects.get(event=self, number=num)
             if NumberSelected.objects.filter(number=number_list).exists():
                 raise ValueError(f"Cannot reduce range_number, number {num} is already selected.")
             number_list.delete()
-        app_log.info(f"Time For loop 3: {time.time() - start_time2}")
-
         app_log.info(f"Time complete update NumberList: {time.time() - start_time}")
 
     def validate_update(self, old_limit_repeat):
@@ -153,7 +142,7 @@ class EventNumber(models.Model):
             event=self,
             number__in=list(number_selected)
         ).order_by('repeat_count').first()
-        app_log.info(f"Test smallest repeat: {smallest_repeat.repeat_count}")
+        print(f"Test smallest repeat: {smallest_repeat}")
         if smallest_repeat:
             result_reduce_limit = (self.limit_repeat - (old_limit_repeat - smallest_repeat.repeat_count))
             app_log.info(f"Result reduce limit: {result_reduce_limit}")
@@ -183,6 +172,7 @@ class NumberList(models.Model):
 class UserJoinEvent(models.Model):
     id = models.CharField(max_length=32, primary_key=True, unique=True, editable=False)
     user = models.ForeignKey(User, on_delete=models.CASCADE, related_name='user_join_event')
+    phone = models.ForeignKey(PhoneNumber, null=True, on_delete=models.CASCADE, related_name='user_join_event')
     event = models.ForeignKey(EventNumber, on_delete=models.CASCADE, related_name='user_join_event')
 
     total_point = models.FloatField(default=0)
@@ -215,6 +205,24 @@ class NumberSelected(models.Model):
     def save(self, *args, **kwargs):
         self.validate_unique(exclude=None)
         super().save(*args, **kwargs)
+
+
+class PrizeEvent(models.Model):
+    event = models.ForeignKey(EventNumber, on_delete=models.CASCADE, related_name='prize_event')
+    prize_name = models.CharField(max_length=128, null=False)
+    reward_value = models.CharField(max_length=256, null=True)
+    reward_number = models.IntegerField(default=0)
+    note = models.TextField(null=True)
+
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+
+class AwardNumber(models.Model):
+    prize = models.ForeignKey(PrizeEvent, on_delete=models.CASCADE, related_name='award_number')
+    number = models.IntegerField(null=False)
+
+    created_at = models.DateTimeField(auto_now_add=True)
 
 
 def calculate_point_query(user, date_start, date_end, price_list=None):
