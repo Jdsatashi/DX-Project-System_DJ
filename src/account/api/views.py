@@ -782,13 +782,20 @@ def format_user_data(users_list, manager):
             user_type = 'npp'
         user_phones = user.phone_numbers.filter().values_list('phone_number', flat=True)
         grant_access, _ = GrantAccess.objects.get_or_create(manager=manager, grant_user=user)
+
+        main_pl = PriceList.get_main_pl()
+        point, _ = PointOfSeason.objects.get_or_create(user=user, price_list=main_pl)
+        point.auto_point()
+        point.save()
+
         user_dict = {
             'id': user.id,
             'name': user_name_,
             'phone': list(user_phones),
             'user_type': user_type,
             'is_access': grant_access.active,
-            'is_allow': grant_access.allow
+            'is_allow': grant_access.allow,
+            'point': point.point
         }
         user_data.append(user_dict)
     return user_data

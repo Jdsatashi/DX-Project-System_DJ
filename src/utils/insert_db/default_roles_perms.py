@@ -38,8 +38,7 @@ def create_initial_permission():
 
 def set_user_perm(user_instance, add):
     app_log.info(user_instance)
-    user_ins = User.objects.get(username=user_instance)
-    content_type = ContentType.objects.get_for_model(user_ins)
+    content_type = ContentType.objects.get_for_model(user_instance)
     perm_name = f'{content_type.app_label}_{content_type.model}_{user_instance.id}'
     tasks = perm_actions['full']
     for task in tasks:
@@ -50,7 +49,7 @@ def set_user_perm(user_instance, add):
                 name=perm_name_,
                 defaults={'note': f'{task.capitalize()} {content_type.model}', 'content_type': content_type})
             if add and task != 'destroy':
-                user_ins.perm_user.add(perm_, through_defaults={'allow': True})
+                user_instance.perm_user.add(perm_, through_defaults={'allow': True})
         except IntegrityError:
             continue
 

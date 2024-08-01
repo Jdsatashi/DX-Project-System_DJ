@@ -5,7 +5,7 @@ from django.contrib.auth.hashers import is_password_usable, make_password
 from django.contrib.auth.models import AbstractBaseUser, BaseUserManager, PermissionsMixin
 from django.contrib.contenttypes.fields import GenericForeignKey
 from django.contrib.contenttypes.models import ContentType
-from django.db import models
+from django.db import models, transaction
 from django.utils import timezone
 from pyodbc import IntegrityError
 
@@ -189,6 +189,7 @@ class User(AbstractBaseUser, PermissionsMixin):
 class PhoneNumber(models.Model):
     phone_number = models.CharField(max_length=24, primary_key=True)
     user = models.ForeignKey(User, related_name='phone_numbers', null=True, on_delete=models.CASCADE)
+    # type = models.CharField(max_length=64)
 
 
 # Table for save Token
@@ -284,9 +285,6 @@ class Perm(models.Model):
 
     class Meta:
         db_table = 'users_perm'
-
-    def __str__(self):
-        return f"{self.name}"
 
 
 # GroupPerm as a Permissions Group or Roles User
@@ -385,19 +383,23 @@ class GrantAccess(models.Model):
         #     self.active = self.allow
         self.active = self.allow
         super().save(*args, **kwargs)
-        if self.allow and self.active:
-            self.grant_perm_manager()
-        else:
-            self.remove_grant_perm()
+        with transaction.atomic():
+            if self.allow and self.active:
+                self.grant_perm_manager()
+            else:
+                print(f"Remove perms")
+                self.remove_grant_perm()
 
     def grant_perm_manager(self):
         before_manage_perm = get_all_user_perms_sql(self.manager.id)
         user_perms = get_all_user_perms_sql(self.grant_user.id)
 
         adding_perm = list(set(user_perms) - set(before_manage_perm))
-        self.grant_perms.set(adding_perm)
+
         for perm in adding_perm:
+            app_log.info(f"TEST PERMNAME: {perm}")
             perm_obj = self.grant_user.userperm_set.get(perm=perm)
+            self.grant_perms.add(perm)
             self.manager.perm_user.add(perm, through_defaults={'allow': perm_obj.allow})
 
     def remove_grant_perm(self):

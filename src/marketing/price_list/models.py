@@ -141,7 +141,10 @@ def calculate_point(order_details, price_list):
     for order_detail in order_details:
         # if order_detail.point_get == 0:
         product = order_detail.product_id
-        product_price = ProductPrice.objects.get(price_list=price_list, product=product)
+        try:
+            product_price = ProductPrice.objects.get(price_list=price_list, product=product)
+        except ProductPrice.DoesNotExist:
+            continue
         quantity = order_detail.order_quantity
         if product_price.point is not None or product_price.point != 0:
             order_point = product_price.point * (quantity / product_price.quantity_in_box)
