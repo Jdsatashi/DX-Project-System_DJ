@@ -19,6 +19,7 @@ def send_firebase_notification3(title, body, registration_tokens, data):
     :param data: Additional custom data to send with the notification
     """
     app_log.info(f"Handling upload notify to FIREBASE")
+    print(f"Handling upload notify to FIREBASE")
 
     message = messaging.MulticastMessage(
         notification=messaging.Notification(
@@ -33,23 +34,27 @@ def send_firebase_notification3(title, body, registration_tokens, data):
         response = messaging.send_each_for_multicast(message)
         app_log.info(f"FIREBASE response: {response}")
         app_log.info('{0} messages were sent successfully'.format(response.success_count))
+        print('{0} messages were sent successfully'.format(response.success_count))
         return response
     except Exception as e:
         app_log.error(f"Error sending notification to FIREBASE: {e}")
-        return None
+        raise Exception("Error when sending message")
 
 
 @shared_task
 def send_notification_task(notification_data):
-    # Deserialize data
+    print("Task started")
     data = json.loads(notification_data)
-    # Logic to send notification
-    send_firebase_notification3(data['title'], data['short_description'], data['registration_tokens'], data['my_data'])
+    print(f"Loaded data for notification: {data}")
+    response = send_firebase_notification3(data['title'], data['short_description'], data['registration_tokens'], data['my_data'])
+    print(f"Notification sent with response: {response}")
+    return response
 
 
 def schedule_notification(notify_instance):
     now = make_aware(datetime.now())
     alert_datetime = make_aware(datetime.combine(notify_instance.alert_date, notify_instance.alert_time))
+    app_log.info(f"Schedule function Notification")
 
     if alert_datetime <= now:
         # Send notification immediately
