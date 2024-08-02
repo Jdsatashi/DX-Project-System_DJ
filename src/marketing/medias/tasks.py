@@ -1,107 +1,85 @@
+import json
+from datetime import datetime
+
 from celery import shared_task
-from django.db import transaction
-from rest_framework.exceptions import ValidationError
+from django.utils.timezone import make_aware
+from firebase_admin import messaging
 
-from account.handlers.restrict_serializer import list_user_has_perm, list_group_has_perm, create_full_perm, add_perm
-from account.models import User
 from app.logs import app_log
-from marketing.medias.handles import send_firebase_notification
-from marketing.medias.models import Notification, NotificationUser, NotificationFile
-from system.file_upload.models import FileUpload
-from utils.constants import perm_actions
+from app.redis_db import redis_db
 
 
-@shared_task
-def send_notification_task(notification_id):
-    app_log.info(f'Starting task to send notification with ID: {notification_id}')
+def send_firebase_notification3(title, body, registration_tokens, data):
+    """
+    Function to send a Firebase notification with custom data.
+
+    :param title: Title of the notification
+    :param body: Body of the notification
+    :param registration_tokens: List of device registration tokens
+    :param data: Additional custom data to send with the notification
+    """
+    app_log.info(f"Handling upload notify to FIREBASE")
+
+    message = messaging.MulticastMessage(
+        notification=messaging.Notification(
+            title=title,
+            body=body,
+        ),
+        data=data,
+        tokens=registration_tokens
+    )
     try:
-        notification = Notification.objects.get(id=notification_id)
-        app_log.info(f'Notification found: {notification.title}')
-
-        # Lấy danh sách người dùng và gửi thông báo
-        users = NotificationUser.objects.filter(notify=notification)
-        registration_tokens = list(users.values_list('user__device_token', flat=True))
-
-        # Construct data
-        my_data = {
-            "notification_id": str(notification.id),
-            "click_action": "click_action"
-        }
-
-        test = send_firebase_notification(notification.title, notification.short_description, registration_tokens, my_data)
-        print(f"Testing reponse send firebase: {test}")
-        app_log.info(f'Notification sent successfully for ID: {notification_id}')
-    except Notification.DoesNotExist:
-        app_log.error(f'Notification with ID {notification_id} does not exist')
-    except Exception as e:
-        app_log.error(f'Error sending notification with ID {notification_id}: {str(e)}')
-
-
-@shared_task
-def send_notification_task2(notification_id, user_ids):
-    app_log.info(f'Starting task to send notification with ID: {notification_id}')
-    try:
-        notification = Notification.objects.get(id=notification_id)
-        app_log.info(f'Notification found: {notification.title}')
-
-        # Lấy danh sách người dùng và gửi thông báo
-        users = NotificationUser.objects.filter(notify=notification, user__id__in=user_ids)
-        registration_tokens = list(users.values_list('user__device_token', flat=True))
-
-        # Construct data
-        my_data = {
-            "notification_id": str(notification.id),
-            "click_action": "click_action"
-        }
-
-        response = send_firebase_notification(notification.title, notification.short_description, registration_tokens, my_data)
-
-        app_log.info(f'Notification sent successfully for ID: {notification.id}')
-
+        # response = messaging.send_multicast(message)
+        response = messaging.send_each_for_multicast(message)
         app_log.info(f"FIREBASE response: {response}")
         app_log.info('{0} messages were sent successfully'.format(response.success_count))
-
-    except Notification.DoesNotExist:
-        app_log.error(f'Notification with ID {notification_id} does not exist')
+        return response
     except Exception as e:
-        app_log.error(f'Error sending notification with ID {notification_id}: {str(e)}')
+        app_log.error(f"Error sending notification to FIREBASE: {e}")
+        return None
 
 
 @shared_task
-def create_and_send_notification_task(validated_data, users, groups, files, notify_id=None):
-    try:
-        with transaction.atomic():
-            if notify_id:
-                notify = Notification.objects.get(id=notify_id)
-                notify.alert_date = validated_data['alert_date']
-                notify.alert_time = validated_data['alert_time']
-                notify.title = validated_data['title']
-                notify.content = validated_data['content']
-                notify.save()
-            else:
-                notify = Notification.objects.create(**validated_data)
+def send_notification_task(notification_data):
+    # Deserialize data
+    data = json.loads(notification_data)
+    # Logic to send notification
+    send_firebase_notification3(data['title'], data['short_description'], data['registration_tokens'], data['my_data'])
 
-            list_perm = create_full_perm(Notification, notify.id, perm_actions['view'])
 
-            existed_user_allow = list_user_has_perm(list_perm, True)
-            existed_group_allow = list_group_has_perm(list_perm, True)
+def schedule_notification(notify_instance):
+    now = make_aware(datetime.now())
+    alert_datetime = make_aware(datetime.combine(notify_instance.alert_date, notify_instance.alert_time))
 
-            add_perm({'type': 'users', 'data': users, 'existed': existed_user_allow}, list_perm, True)
-            add_perm({'type': 'group', 'data': groups, 'existed': existed_group_allow}, list_perm, True)
+    if alert_datetime <= now:
+        # Send notification immediately
+        send_notification_now(notify_instance)
+    else:
+        # Calculate delay for the notification
+        delay = (alert_datetime - now).total_seconds()
 
-            user_in_group = User.objects.filter(group_user__name__in=groups).exclude(is_superuser=True).distinct()
-            users_from_ids = User.objects.filter(id__in=users).distinct()
-            combined_users = user_in_group | users_from_ids
-            distinct_users = combined_users.distinct()
+        notification_data = {
+            'title': notify_instance.title,
+            'short_description': notify_instance.short_description,
+            'registration_tokens': list(
+                notify_instance.notification_users.values_list('user__device_token', flat=True)),
+            'my_data': {
+                "notification_id": str(notify_instance.id),
+                "click_action": "click_action"
+            }
+        }
 
-            notify_users = [NotificationUser(notify=notify, user=user) for user in distinct_users]
-            NotificationUser.objects.bulk_create(notify_users)
+        # Serialize data and store in Redis or pass directly to Celery task
+        notification_data_json = json.dumps(notification_data)
+        redis_db.set(f"notification:{notify_instance.id}", notification_data_json)
+        send_notification_task.apply_async((notification_data_json,), countdown=delay)
 
-            for file in files:
-                file_upload = FileUpload.objects.create(file=file)
-                NotificationFile.objects.create(notify=notify, file=file_upload)
 
-            send_notification_task.apply_async((notify.id,))
-    except Exception as e:
-        app_log.error(f"Error when handle notify and send FCM: \n{e}")
-        raise ValidationError({'error': f'Error when handle notify {validated_data["title"]} and send FCM'})
+def send_notification_now(notify_instance):
+    # Immediate notification logic
+    registration_tokens = list(notify_instance.notification_users.values_list('user__device_token', flat=True))
+    my_data = {
+        "notification_id": str(notify_instance.id),
+        "click_action": "click_action"
+    }
+    send_firebase_notification3(notify_instance.title, notify_instance.short_description, registration_tokens, my_data)
