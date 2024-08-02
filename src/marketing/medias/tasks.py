@@ -19,15 +19,27 @@ def send_firebase_notification3(title, body, registration_tokens, data):
     :param data: Additional custom data to send with the notification
     """
     app_log.info(f"Handling upload notify to FIREBASE")
-    print(f"Handling upload notify to FIREBASE")
+    valid_tokens = [token for token in registration_tokens if isinstance(token, str) and token.strip()]
 
+    if not valid_tokens:
+        app_log.warning("No valid registration tokens provided. Exiting notification send.")
+        return
+
+    print(f"Handling upload notify to FIREBASE")
+    msg_data = {
+        'title': title,
+        'body': body,
+        'data': data,
+        'registration_tokens': valid_tokens
+    }
+    app_log.info(f"Checking message data: f{msg_data}")
     message = messaging.MulticastMessage(
         notification=messaging.Notification(
             title=title,
             body=body,
         ),
         data=data,
-        tokens=registration_tokens
+        tokens=valid_tokens
     )
     try:
         # response = messaging.send_multicast(message)
