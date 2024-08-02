@@ -35,10 +35,10 @@ def send_firebase_notification3(title, body, registration_tokens, data):
         app_log.info(f"FIREBASE response: {response}")
         app_log.info('{0} messages were sent successfully'.format(response.success_count))
         print('{0} messages were sent successfully'.format(response.success_count))
-        return response
+        return response.success_count
     except Exception as e:
         app_log.error(f"Error sending notification to FIREBASE: {e}")
-        raise Exception("Error when sending message")
+        raise None
 
 
 @shared_task
