@@ -17,6 +17,50 @@ from utils.env import APP_SERVER
 from firebase_admin import messaging
 
 
+def send_firebase_notification(title, body, registration_tokens, data):
+    """
+    Function to send a Firebase notification with custom data.
+
+    :param title: Title of the notification
+    :param body: Body of the notification
+    :param registration_tokens: List of device registration tokens
+    :param data: Additional custom data to send with the notification
+    """
+    app_log.info(f"Handling upload notify to FIREBASE")
+    valid_tokens = [token for token in registration_tokens if isinstance(token, str) and token.strip()]
+
+    if not valid_tokens:
+        app_log.warning("No valid registration tokens provided. Exiting notification send.")
+        return
+
+    print(f"Handling upload notify to FIREBASE")
+    msg_data = {
+        'title': title,
+        'body': body,
+        'data': data,
+        'registration_tokens': valid_tokens
+    }
+    app_log.info(f"Checking message data: f{msg_data}")
+    message = messaging.MulticastMessage(
+        notification=messaging.Notification(
+            title=title,
+            body=body,
+        ),
+        data=data,
+        tokens=valid_tokens
+    )
+    try:
+        # response = messaging.send_multicast(message)
+        response = messaging.send_each_for_multicast(message)
+        app_log.info(f"FIREBASE response: {response}")
+        app_log.info('{0} messages were sent successfully'.format(response.success_count))
+        print('{0} messages were sent successfully'.format(response.success_count))
+        return response.success_count
+    except Exception as e:
+        app_log.error(f"Error sending notification to FIREBASE: {e}")
+        raise None
+
+
 class NotificationSerializer(serializers.ModelSerializer):
     users = serializers.ListField(child=serializers.CharField(), write_only=True, allow_null=True, required=False)
     groups = serializers.ListField(child=serializers.CharField(), write_only=True, allow_null=True, required=False)
@@ -100,8 +144,8 @@ class NotificationSerializer(serializers.ModelSerializer):
                     "notification_id": str(notify.id),
                     "click_action": "click_action"
                 }
-                # send_firebase_notification3(notify.title, notify.short_description, registration_tokens, my_data)
-                schedule_notification(notify)
+                send_firebase_notification(notify.title, notify.short_description, registration_tokens, my_data)
+                # schedule_notification(notify)
                 return notify
         except Exception as e:
             raise e
@@ -177,8 +221,8 @@ class NotificationSerializer(serializers.ModelSerializer):
                     "notification_id": str(notify.id),
                     "click_action": "click_action"
                 }
-                # send_firebase_notification3(notify.title, notify.short_description, registration_tokens, my_data)
-                schedule_notification(notify)
+                send_firebase_notification(notify.title, notify.short_description, registration_tokens, my_data)
+                # schedule_notification(notify)
                 return notify
         except Exception as e:
             raise e
