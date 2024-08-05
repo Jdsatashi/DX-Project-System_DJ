@@ -24,14 +24,6 @@ def create_initial_permission(apps, schema_editor):
                                     content_type=content_type)
 
 
-def create_draft_perm(apps, schema_editor):
-    matching_perm = Perm.objects.filter(name__icontains="draft").all()
-    list_drafts_perm = list(matching_perm)
-    group_perm, _ = GroupPerm.objects.get_or_create(name="group_draft")
-    for q in list_drafts_perm:
-        group_perm.perm.add(q.name, through_defaults={'allow': True})
-
-
 def create_admin_perm(apps, schema_editor):
     matching_perms = Perm.objects.filter(name__icontains='all')
     list_perms = list(matching_perms)
@@ -52,6 +44,5 @@ class Migration(migrations.Migration):
 
     operations = [
         migrations.RunPython(create_initial_permission),
-        migrations.RunPython(create_draft_perm),
         migrations.RunPython(create_admin_perm),
     ]
