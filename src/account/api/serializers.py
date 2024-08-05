@@ -352,9 +352,9 @@ class UserWithPerm(serializers.ModelSerializer):
                         main_phone_obj = instance.phone_numbers.filter(phone_number=main_phone)
                         if main_phone_obj.exists():
                             origin_main = instance.phone_numbers.filter(type='main').first()
-                            origin_main.type = 'sub'
-                            origin_main.save()
-                            print(f"Test main phone 2: {main_phone}")
+                            if origin_main:
+                                origin_main.type = 'sub'
+                                origin_main.save()
                             phone = main_phone_obj.first()
                             phone.type = 'main'
                             phone.save()
@@ -365,8 +365,8 @@ class UserWithPerm(serializers.ModelSerializer):
             # Log the exception if needed
             app_log.error(f"Error updating user: {e}")
             # Rollback transaction and re-raise the exception
-            raise ValidationError({'message': f'lỗi bật ngờ khi update user {instance.id}'})
-            # raise e
+            # raise ValidationError({'message': f'lỗi bật ngờ khi update user {instance.id}'})
+            raise e
 
         return instance
 
