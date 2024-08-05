@@ -784,6 +784,8 @@ def search_users(query, users_list):
 
 def format_user_data(users_list, manager):
     user_data = []
+    main_pl = PriceList.get_main_pl()
+    user_point = PointOfSeason.objects.filter(user__in=users_list, price_list=main_pl)
     for user in users_list:
         user_name_ = user.clientprofile.register_name or ''
         user_type = 'daily'
@@ -792,10 +794,9 @@ def format_user_data(users_list, manager):
         user_phones = user.phone_numbers.filter().values_list('phone_number', flat=True)
         grant_access, _ = GrantAccess.objects.get_or_create(manager=manager, grant_user=user)
 
-        main_pl = PriceList.get_main_pl()
-        point, _ = PointOfSeason.objects.get_or_create(user=user, price_list=main_pl)
-        point.auto_point()
-        point.save()
+        point = user_point.filter(user=user).first()
+        # point.auto_point()
+        # point.save()
 
         user_dict = {
             'id': user.id,
