@@ -328,12 +328,9 @@ class UserWithPerm(serializers.ModelSerializer):
                 # Update phone
                 if phone_data is not None:
                     current_phone = instance.phone_numbers.filter().values_list('phone_number', flat=True).distinct()
-                    print(f"Test current phone: {current_phone}")
                     add_phone = set(phone_data) - set(list(current_phone))
                     remove_phone = list(set(list(current_phone)) - set(phone_data))
-                    print(f"Test add_phone: {add_phone}")
 
-                    print(f"Test main phone: {main_phone} - {main_phone in add_phone}")
                     # Loop inserting data phone
                     for phone_number in add_phone:
                         is_valid, phone_number = phone_validate(phone_number)
@@ -351,8 +348,12 @@ class UserWithPerm(serializers.ModelSerializer):
                             deactivate_user_phone_token(instance, phone)
                             phone.delete()
                     if main_phone:
+
                         main_phone_obj = instance.phone_numbers.filter(phone_number=main_phone)
                         if main_phone_obj.exists():
+                            origin_main = instance.phone_numbers.filter(type='main').first()
+                            origin_main.type = 'sub'
+                            origin_main.save()
                             print(f"Test main phone 2: {main_phone}")
                             phone = main_phone_obj.first()
                             phone.type = 'main'
