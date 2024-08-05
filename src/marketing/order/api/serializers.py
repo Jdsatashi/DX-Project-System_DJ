@@ -12,7 +12,7 @@ from account.handlers.validate_perm import ValidatePermRest
 from account.models import PhoneNumber, User
 from app.logs import app_log
 from marketing.livestream.models import LiveStreamOfferRegister
-from marketing.order.models import Order, OrderDetail
+from marketing.order.models import Order, OrderDetail, SeasonalStatistic, SeasonalStatisticUser
 from marketing.price_list.models import ProductPrice, SpecialOfferProduct
 from marketing.sale_statistic.models import SaleStatistic, SaleTarget
 from user_system.client_profile.models import ClientProfile
@@ -389,15 +389,6 @@ class ProductStatisticsSerializer(serializers.Serializer):
     total_cashback = serializers.IntegerField(required=False)
 
 
-class ClientProfileSerializer(serializers.ModelSerializer):
-    nvtt = serializers.CharField(source='nvtt.register_name', read_only=True)
-    register_lv1 = serializers.CharField(source='register_lv1.register_name', read_only=True)
-
-    class Meta:
-        model = ClientProfile
-        fields = ['id', 'register_name', 'nvtt', 'register_lv1']
-
-
 class Order3Serializer(serializers.Serializer):
     id = serializers.CharField()
     date_get = serializers.DateField()
@@ -417,3 +408,36 @@ class OrderDetail3Serializer(serializers.Serializer):
     product_price = serializers.IntegerField()
     point_get = serializers.FloatField()
     note = serializers.CharField()
+
+
+class SeasonStatsUserPointSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = SeasonalStatisticUser
+        exclude = ('total_turnover', )
+        read_only_fields = ('redundant_point', 'total_point', )
+
+
+class SeasonStatsUserPointRead(serializers.ModelSerializer):
+    class Meta:
+        model = SeasonalStatisticUser
+        exclude = ('total_turnover', 'season_stats')
+        read_only_fields = ('redundant_point', 'total_point', )
+
+
+class SeasonalStatisticSerializer(serializers.ModelSerializer):
+    users_stats = serializers.SerializerMethodField()
+
+    class Meta:
+        model = SeasonalStatistic
+        exclude = ('users', )
+        read_only_fields = ('id', 'created_by', 'created_at')
+        extra_kwargs = {
+            'note': {'allow_null': True}
+        }
+
+    def get_users_stats(self, obj):
+        if obj.type == 'point':
+            users_stats = SeasonalStatisticUser.objects.filter(season_stats=obj)
+            serializer = SeasonStatsUserPointRead(users_stats, many=True)
+            return serializer.data
+        return []

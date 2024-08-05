@@ -2,7 +2,8 @@ import time
 from datetime import datetime
 
 from django.db import models
-from django.db.models import Sum
+from django.db.models import Sum, Case, When, FloatField, F
+from django.db.models.functions import Abs, Coalesce
 from rest_framework.exceptions import ValidationError
 
 from account.models import User
@@ -240,3 +241,68 @@ def update_all_sale_statistics_for_user_2(user):
                 total_turnover=total_turnover,
                 available_turnover=total_turnover - sale_statistic.used_turnover,
             )
+
+
+class SeasonalStatistic(models.Model):
+    name = models.CharField(max_length=255, null=True)
+
+    start_date = models.DateField(null=False)
+    end_date = models.DateField(null=False)
+
+    type = models.CharField(null=False, choices=(('point', 'điểm'), ('turn_over', 'doanh số')))
+
+    users = models.ManyToManyField(User, through='SeasonalStatisticUser', related_name='seasonal_statistics')
+
+    note = models.TextField(null=True)
+
+    created_by = models.CharField(max_length=255, null=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+
+
+class SeasonalStatisticUser(models.Model):
+    user = models.ForeignKey(User, on_delete=models.CASCADE, related_name='season_stats_user')
+    season_stats = models.ForeignKey(SeasonalStatistic, on_delete=models.CASCADE, related_name='season_stats_user')
+
+    turn_per_point = models.FloatField(null=True)
+    turn_pick = models.IntegerField(null=True)
+    redundant_point = models.FloatField(null=True)
+
+    total_turnover = models.BigIntegerField(default=0)
+    total_point = models.FloatField(default=0)
+
+
+def update_season_stats_users(season_stats_user: SeasonalStatisticUser):
+    season_stats = season_stats_user.season_stats
+    user = season_stats_user.user
+    orders = Order.objects.filter(
+        client_id=user, date_get__gte=season_stats.start_date, date_get__lte=season_stats.end_date)
+    print(f"Check order: {orders.count()} - {orders}")
+    # Calculate total price and points from orders
+    order_totals = orders.aggregate(
+        total_price=Sum('order_price'),
+        total_points=Sum('order_point')
+    )
+    print(f"Check calculate: {order_totals}")
+    # Calculate total quantity, boxes, and cashback from all order details related to the filtered orders
+    # order_detail_totals = OrderDetail.objects.filter(
+    #     order_id__in=orders
+    # ).aggregate(
+    #     total_quantity=Sum('order_quantity'),
+    #     total_boxes=Sum('order_box'),
+    #     total_cashback=Sum(F('order_quantity') * F('product_price'), output_field=models.FloatField())
+    # )
+    total_point = order_totals['total_points']
+    turn_per_point = season_stats_user.turn_per_point or 0
+    try:
+        turn_pick = season_stats_user.turn_pick or total_point // turn_per_point
+    except ZeroDivisionError:
+        turn_pick = 0
+    try:
+        redundant_point = total_point % turn_per_point
+    except ZeroDivisionError:
+        redundant_point = 0
+
+    season_stats_user.total_point = total_point
+    season_stats_user.turn_pick = turn_pick
+    season_stats_user.redundant_point = redundant_point
+    return season_stats_user

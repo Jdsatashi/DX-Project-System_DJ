@@ -23,8 +23,9 @@ from account.handlers.perms import DataFKModel, get_perm_name
 from account.handlers.validate_perm import ValidatePermRest
 from account.models import User
 from app.logs import app_log
-from marketing.order.api.serializers import OrderSerializer, ProductStatisticsSerializer
-from marketing.order.models import Order, OrderDetail
+from marketing.order.api.serializers import OrderSerializer, ProductStatisticsSerializer, SeasonalStatisticSerializer, \
+    SeasonStatsUserPointSerializer
+from marketing.order.models import Order, OrderDetail, SeasonalStatistic, SeasonalStatisticUser
 from user_system.client_profile.models import ClientProfile
 from user_system.employee_profile.models import EmployeeProfile
 from utils.constants import maNhomND
@@ -952,11 +953,13 @@ class OrderReportView(APIView):
         }
         try:
             if page_obj.has_next():
-                next_page = build_absolute_uri_with_params(request, {'page': page_obj.next_page_number(), 'limit': limit})
+                next_page = build_absolute_uri_with_params(request,
+                                                           {'page': page_obj.next_page_number(), 'limit': limit})
                 response_data['next_page'] = next_page
 
             if page_obj.has_previous():
-                prev_page = build_absolute_uri_with_params(request, {'page': page_obj.previous_page_number(), 'limit': limit})
+                prev_page = build_absolute_uri_with_params(request,
+                                                           {'page': page_obj.previous_page_number(), 'limit': limit})
                 response_data['prev_page'] = prev_page
         except AttributeError:
             pass
@@ -988,14 +991,17 @@ class OrderReportView(APIView):
         if nvtt_query and nvtt_query != '':
             nvtt_list = nvtt_query.split(',')
             app_log.info(f'Test nvtt list: {nvtt_list}')
-            nvtt_ids = EmployeeProfile.objects.filter(Q(register_name__in=nvtt_list) | Q(employee_id__in=nvtt_list)).values_list('employee_id', flat=True)
+            nvtt_ids = EmployeeProfile.objects.filter(
+                Q(register_name__in=nvtt_list) | Q(employee_id__in=nvtt_list)).values_list('employee_id', flat=True)
             client_profile_query = Q(client_id__clientprofile__nvtt_id__in=nvtt_ids)
             orders = orders.filter(client_profile_query)
 
         if npp_query and npp_query != '':
             npp_list = npp_query.split(',')
             app_log.info(f'Test npp list: {npp_list}')
-            npp_ids = ClientProfile.objects.filter(Q(register_name__in=npp_list, is_npp=True) | Q(client_id__in=npp_list, is_npp=True)).values_list('client_id', flat=True)
+            npp_ids = ClientProfile.objects.filter(
+                Q(register_name__in=npp_list, is_npp=True) | Q(client_id__in=npp_list, is_npp=True)).values_list(
+                'client_id', flat=True)
             client_profile_query = Q(client_id__in=npp_ids)
             orders = orders.filter(client_profile_query)
 
@@ -1003,7 +1009,9 @@ class OrderReportView(APIView):
             daily_list = daily_query.split(',')
             exclude_groups = ["NVTT", "TEST", maNhomND]
 
-            daily_ids = ClientProfile.objects.filter(Q(register_name__in=daily_list) | Q(client_id__in=daily_list)).exclude(client_group_id__name__in=exclude_groups, is_npp=True).values_list('client_id', flat=True)
+            daily_ids = ClientProfile.objects.filter(
+                Q(register_name__in=daily_list) | Q(client_id__in=daily_list)).exclude(
+                client_group_id__name__in=exclude_groups, is_npp=True).values_list('client_id', flat=True)
 
             client_query = Q(client_id__in=daily_ids)
             orders = orders.filter(client_query)
@@ -1015,8 +1023,11 @@ class OrderReportView(APIView):
             client_profile_query = Q()
             for part in query_parts:
                 order_query |= Q(id__icontains=part) | Q(date_get__icontains=part) | Q(date_company_get__icontains=part)
-                order_detail_query |= Q(order_detail__product_id__id__icontains=part) | Q(order_detail__product_id__name__icontains=part)
-                client_profile_query |= Q(client_id__clientprofile__register_name__icontains=part) | Q(client_id__clientprofile__nvtt_id__icontains=part) | Q(client_id__clientprofile__client_group_id__id__icontains=part)
+                order_detail_query |= Q(order_detail__product_id__id__icontains=part) | Q(
+                    order_detail__product_id__name__icontains=part)
+                client_profile_query |= Q(client_id__clientprofile__register_name__icontains=part) | Q(
+                    client_id__clientprofile__nvtt_id__icontains=part) | Q(
+                    client_id__clientprofile__client_group_id__id__icontains=part)
 
             if strict_mode:
                 orders = orders.filter(order_query & order_detail_query & client_profile_query)
@@ -1032,9 +1043,11 @@ class OrderReportView(APIView):
         except FieldError:
             orders = orders.order_by('id')
 
-        orders = orders.select_related('client_id').prefetch_related(Prefetch('order_detail', queryset=OrderDetail.objects.select_related('product_id')))
+        orders = orders.select_related('client_id').prefetch_related(
+            Prefetch('order_detail', queryset=OrderDetail.objects.select_related('product_id')))
 
-        client_profiles = {cp.client_id_id: cp for cp in ClientProfile.objects.filter(client_id__in=[o.client_id_id for o in orders])}
+        client_profiles = {cp.client_id_id: cp for cp in
+                           ClientProfile.objects.filter(client_id__in=[o.client_id_id for o in orders])}
         nvtt_ids = set()
         client_lv1_ids = set()
         for o in orders:
@@ -1048,12 +1061,15 @@ class OrderReportView(APIView):
 
         total_orders = orders.count()
         if limit == 0:
-            data = [self.get_order_fields(obj, Order, get_type_list, client_profiles, employee_profiles, client_lv1_profiles) for obj in orders]
+            data = [self.get_order_fields(obj, Order, get_type_list, client_profiles, employee_profiles,
+                                          client_lv1_profiles) for obj in orders]
             return data, 1, 1, total_orders, None, limit
 
         paginator = Paginator(orders, limit)
         page_obj = paginator.get_page(page)
-        data = [self.get_order_fields(obj, Order, get_type_list, client_profiles, employee_profiles, client_lv1_profiles) for obj in page_obj]
+        data = [
+            self.get_order_fields(obj, Order, get_type_list, client_profiles, employee_profiles, client_lv1_profiles)
+            for obj in page_obj]
         return data, paginator.num_pages, page, total_orders, page_obj, limit
 
     def get_order_fields(self, obj, model, get_type_list, client_profiles, employee_profiles, client_lv1_profiles):
@@ -1078,7 +1094,8 @@ class OrderReportView(APIView):
 
         fields = model._meta.fields
         field_dict = {}
-        include_fields = ['id', 'date_get', 'date_company_get', 'date_delay', 'is_so', 'order_point', 'order_price', 'note', 'created_at', 'created_by']
+        include_fields = ['id', 'date_get', 'date_company_get', 'date_delay', 'is_so', 'order_point', 'order_price',
+                          'note', 'created_at', 'created_by']
         for field in fields:
             field_name = field.name
             if field_name in include_fields:
@@ -1108,3 +1125,31 @@ class OrderReportView(APIView):
         field_dict['order_details'] = order_details
         field_dict['clients'] = client_info
         return field_dict
+
+
+class ApiSeasonalStatisticUser(viewsets.GenericViewSet, mixins.ListModelMixin, mixins.CreateModelMixin,
+                               mixins.RetrieveModelMixin, mixins.UpdateModelMixin, mixins.DestroyModelMixin):
+    serializer_class = SeasonStatsUserPointSerializer
+    queryset = SeasonalStatisticUser.objects.all()
+    authentication_classes = [JWTAuthentication, BasicAuthentication, SessionAuthentication]
+
+    permission_classes = [partial(ValidatePermRest, model=SeasonalStatisticUser)]
+
+    def list(self, request, *args, **kwargs):
+        response = filter_data(self, request, ['id', 'date_get', 'date_company_get', 'client_id__id'],
+                               **kwargs)
+        return Response(response, status.HTTP_200_OK)
+
+
+class ApiSeasonalStatistic(viewsets.GenericViewSet, mixins.ListModelMixin, mixins.CreateModelMixin,
+                           mixins.RetrieveModelMixin, mixins.UpdateModelMixin, mixins.DestroyModelMixin):
+    serializer_class = SeasonalStatisticSerializer
+    queryset = SeasonalStatistic.objects.all()
+    authentication_classes = [JWTAuthentication, BasicAuthentication, SessionAuthentication]
+
+    permission_classes = [partial(ValidatePermRest, model=SeasonalStatistic)]
+
+    def list(self, request, *args, **kwargs):
+        response = filter_data(self, request, ['id', 'name', 'start_date', 'end_date', 'type'],
+                               **kwargs)
+        return Response(response, status.HTTP_200_OK)

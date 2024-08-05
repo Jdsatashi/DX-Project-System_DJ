@@ -2,7 +2,7 @@ from django.urls import path
 from rest_framework.routers import DefaultRouter
 
 from marketing.order.api.views import GenericApiOrder, ProductStatisticsView, OrderReportView, \
-    ExportReport, TotalStatisticsView
+    ExportReport, TotalStatisticsView, ApiSeasonalStatistic, ApiSeasonalStatisticUser
 from utils.constants import actions_views, actions_detail
 
 app_name = "api_order"
@@ -13,6 +13,12 @@ router.register('genericview', GenericApiOrder, basename='api_order')
 order_views = GenericApiOrder.as_view(actions_views)
 order_details = GenericApiOrder.as_view(actions_detail)
 
+stats_users_views = ApiSeasonalStatisticUser.as_view(actions_views)
+stats_users_details = ApiSeasonalStatisticUser.as_view(actions_detail)
+
+stats_season_views = ApiSeasonalStatistic.as_view(actions_views)
+stats_season_details = ApiSeasonalStatistic.as_view(actions_detail)
+
 
 urlpatterns = [
     path('', order_views, name='api_order_view'),
@@ -21,5 +27,11 @@ urlpatterns = [
     path('statistic/', ProductStatisticsView.as_view()),
     path('total-statistic/', TotalStatisticsView.as_view()),
     path('report/', OrderReportView.as_view(), name='order_report'),
-    path('report/export/', ExportReport.as_view())
+    path('report/export/', ExportReport.as_view()),
+
+    path('season-stats-users/', stats_users_views, name='api_stats_users_views'),
+    path('season-stats-users/<pk>', stats_users_details, name='api_stats_users_details'),
+
+    path('season-stats/', stats_season_views, name='api_stats_season_views'),
+    path('season-stats/<pk>', stats_season_details, name='api_stats_season_details'),
 ]
