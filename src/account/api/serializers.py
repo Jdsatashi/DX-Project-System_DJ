@@ -81,11 +81,12 @@ class GroupNameSerializer(serializers.ModelSerializer):
 class UserListSerializer(serializers.ModelSerializer):
     phone = serializers.SerializerMethodField()
     profile = serializers.SerializerMethodField()
+    main_phone = serializers.SerializerMethodField()
     group_user = GroupNameSerializer(many=True, read_only=True)
 
     class Meta:
         model = User
-        fields = ['id', 'email', 'status', 'user_type', 'phone', 'group_user', 'profile']
+        fields = ['id', 'email', 'status', 'user_type', 'phone', 'main_phone', 'group_user', 'profile']
 
     def get_phone(self, obj):
         return list(obj.phone_numbers.values_list('phone_number', flat=True))
@@ -97,6 +98,13 @@ class UserListSerializer(serializers.ModelSerializer):
         elif obj.user_type == 'employee':
             employee_profile = getattr(obj, 'employeeprofile', None)
             return EmployeeProfileList(employee_profile).data if employee_profile else None
+        return None
+
+    def get_main_phone(self, obj):
+        main_phone = obj.phone_numbers.filter(type='main').first()
+        if main_phone:
+            print(f"{main_phone.phone_number}")
+            return main_phone.phone_number
         return None
 
 
@@ -216,6 +224,7 @@ class UserWithPerm(serializers.ModelSerializer):
     phone = serializers.ListField(child=serializers.CharField(), write_only=True, required=False, allow_null=True)
     profile = serializers.JSONField(write_only=True, required=False, allow_null=True)
     group_user = GroupNameSerializer(many=True, read_only=True)
+    main_phone = serializers.CharField(write_only=True, required=False, allow_null=True)
 
     class Meta:
         model = User
@@ -230,7 +239,12 @@ class UserWithPerm(serializers.ModelSerializer):
     def to_representation(self, instance):
         representation = super().to_representation(instance)
         representation['phone'] = [phone.phone_number for phone in instance.phone_numbers.all()]
-
+        main_phone = instance.phone_numbers.filter(type='main').first()
+        if main_phone:
+            print(f"{main_phone.phone_number}")
+            representation['main_phone'] = main_phone.phone_number
+        else:
+            representation['main_phone'] = None
         # Add profile data to representation
         if instance.user_type == 'employee':
             profile = EmployeeProfile.objects.filter(employee_id=instance).first()
@@ -259,6 +273,7 @@ class UserWithPerm(serializers.ModelSerializer):
         perm_data = validated_data.pop('perm', None)
         phone_data = validated_data.pop('phone', None)
         profile_data = validated_data.pop('profile', None)
+        main_phone = validated_data.pop('main_phone', None)
 
         try:
             with transaction.atomic():
@@ -270,7 +285,7 @@ class UserWithPerm(serializers.ModelSerializer):
                         {'message': f"email '{email}' already exists"})
 
                 user = super().create(validated_data)
-
+                print(f"Test main phone: {main_phone}")
                 # Create phone
                 if phone_data:
                     for phone_number in phone_data:
@@ -279,7 +294,10 @@ class UserWithPerm(serializers.ModelSerializer):
                         if not is_valid:
                             raise serializers.ValidationError({'message': f'"{phone_number}" không hợp lệ'})
                         try:
-                            PhoneNumber.objects.create(phone_number=phone_number, user=user)
+                            phone = PhoneNumber.objects.create(phone_number=phone_number, user=user)
+                            if phone.phone_number == main_phone:
+                                phone.type = 'main'
+                                phone.save()
                         except IntegrityError:
                             raise serializers.ValidationError(
                                 {'message': f'"{phone_number}" đã tồn tại'})
@@ -298,6 +316,7 @@ class UserWithPerm(serializers.ModelSerializer):
         perm_data = validated_data.pop('perm', None)
         phone_data = validated_data.pop('phone', None)
         profile_data = validated_data.pop('profile', None)
+        main_phone = validated_data.pop('main_phone', None)
 
         try:
             with transaction.atomic():
@@ -312,6 +331,9 @@ class UserWithPerm(serializers.ModelSerializer):
                     print(f"Test current phone: {current_phone}")
                     add_phone = set(phone_data) - set(list(current_phone))
                     remove_phone = list(set(list(current_phone)) - set(phone_data))
+                    print(f"Test add_phone: {add_phone}")
+
+                    print(f"Test main phone: {main_phone} - {main_phone in add_phone}")
                     # Loop inserting data phone
                     for phone_number in add_phone:
                         is_valid, phone_number = phone_validate(phone_number)
@@ -328,6 +350,14 @@ class UserWithPerm(serializers.ModelSerializer):
                             phone = PhoneNumber.objects.get(phone_number=phone_number)
                             deactivate_user_phone_token(instance, phone)
                             phone.delete()
+                    if main_phone:
+                        main_phone_obj = instance.phone_numbers.filter(phone_number=main_phone)
+                        if main_phone_obj.exists():
+                            print(f"Test main phone 2: {main_phone}")
+                            phone = main_phone_obj.first()
+                            phone.type = 'main'
+                            phone.save()
+
                 handle_user(instance, group_data, perm_data, profile_data)
 
         except Exception as e:

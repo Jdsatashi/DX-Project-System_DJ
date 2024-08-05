@@ -225,7 +225,7 @@ def otp_verify(request, pk):
                 verify.save()
                 # Add response data
                 serializer = UserSerializer(verify.user)
-                pusher_login(verify.user)
+                # pusher_login(verify.user)
                 response = {'message': 'Successful verify phone number', 'user': serializer.data, 'phone_number': pk,
                             'token': {
                                 'refresh': str(refresh_token),
@@ -572,15 +572,24 @@ class ApiUpdateDeviceCode(APIView):
             # Decode access token
             token = AccessToken(str(access_token))
             # Get user object from user id in access token
-            user = get_user_model().objects.get(id=token['user_id'])
+            # user = get_user_model().objects.get(id=token['user_id'])
+            try:
+                phone_obj = PhoneNumber.objects.get(phone_number=token['phone_number'])
+            except PhoneNumber.DoesNotExist:
+                return Response({'message': 'phone number not exists'})
+            user = phone_obj.user
+            # Get device token from data
             device_code = request.data.get('device_code', None)
-            user.device_token = device_code
-            user.save()
-            return Response({'user_id': user.id, 'device_token': user.device_token}, status=status.HTTP_200_OK)
+            # Handle with database
+            with transaction.atomic():
+                phone_obj.device_code = device_code
+                phone_obj.save()
+            return Response({'user_id': user.id, 'phone_number': phone_obj.phone_number,
+                             'device_token': phone_obj.device_code}, status=status.HTTP_200_OK)
         except Exception as e:
-            # raise e
-            return Response({'message': 'token không hợp lệ hoặc đã hết hạn', 'details': str(e)},
-                            status=status.HTTP_401_UNAUTHORIZED)
+            raise e
+            # return Response({'message': 'token không hợp lệ hoặc đã hết hạn', 'details': str(e)},
+            #               status=status.HTTP_401_UNAUTHORIZED)
 
 
 class ApiGetManageUser(APIView):

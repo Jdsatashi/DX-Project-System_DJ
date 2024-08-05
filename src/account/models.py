@@ -6,8 +6,10 @@ from django.contrib.auth.models import AbstractBaseUser, BaseUserManager, Permis
 from django.contrib.contenttypes.fields import GenericForeignKey
 from django.contrib.contenttypes.models import ContentType
 from django.db import models, transaction
+from django.db.models import Q
 from django.utils import timezone
 from pyodbc import IntegrityError
+from rest_framework.exceptions import ValidationError
 
 from account.queries import get_all_user_perms_sql
 from app.logs import app_log
@@ -57,7 +59,7 @@ class User(AbstractBaseUser, PermissionsMixin):
     group_user = models.ManyToManyField('GroupPerm', through='UserGroupPerm', blank=True, related_name='users_rela')
     perm_user = models.ManyToManyField('Perm', through='UserPerm', blank=True, related_name='users_rela')
 
-    device_token = models.CharField(max_length=255, null=True)
+    # device_token = models.CharField(max_length=255, null=True)
 
     # System auth django attribute
     is_active = models.BooleanField(default=True)
@@ -189,7 +191,16 @@ class User(AbstractBaseUser, PermissionsMixin):
 class PhoneNumber(models.Model):
     phone_number = models.CharField(max_length=24, primary_key=True)
     user = models.ForeignKey(User, related_name='phone_numbers', null=True, on_delete=models.CASCADE)
-    # type = models.CharField(max_length=64)
+    device_code = models.CharField(max_length=255, null=True)
+    type = models.CharField(max_length=64, choices=(('main', 'main'), ('sub', 'sub')), default='sub')
+
+    def save(self, *args, **kwargs):
+        if self.type == 'main':
+            existing_main = (PhoneNumber.objects.filter(user=self.user, type='main')
+                             .exclude(phone_number=self.phone_number))
+            if existing_main.exists():
+                raise ValidationError({"message": "each user can only have one 'main' phone number."})
+        super().save(*args, **kwargs)
 
 
 # Table for save Token
