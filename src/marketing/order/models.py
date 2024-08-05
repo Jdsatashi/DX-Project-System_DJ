@@ -249,7 +249,7 @@ class SeasonalStatistic(models.Model):
     start_date = models.DateField(null=False)
     end_date = models.DateField(null=False)
 
-    type = models.CharField(null=False, choices=(('point', 'điểm'), ('turn_over', 'doanh số')))
+    type = models.CharField(null=False, choices=(('point', 'điểm'), ('turnover', 'doanh số')))
 
     users = models.ManyToManyField(User, through='SeasonalStatisticUser', related_name='seasonal_statistics')
 
@@ -270,19 +270,31 @@ class SeasonalStatisticUser(models.Model):
     total_turnover = models.BigIntegerField(default=0)
     total_point = models.FloatField(default=0)
 
+    def save(self, *args, **kwargs):
+        if self.pk is None:
+            # It's a new record
+            if SeasonalStatisticUser.objects.filter(user=self.user, season_stats=self.season_stats).exists():
+                raise ValidationError({
+                                          'message': f'SeasonalStatisticUser with user {self.user} and season stats {self.season_stats} already exists.'})
+        else:
+            # It's an update
+            if SeasonalStatisticUser.objects.filter(user=self.user, season_stats=self.season_stats).exclude(
+                    pk=self.pk).exists():
+                raise ValidationError({
+                                          'message': f'SeasonalStatisticUser with user {self.user} and season stats {self.season_stats} already exists in another record.'})
+        super().save(*args, **kwargs)
+
 
 def update_season_stats_users(season_stats_user: SeasonalStatisticUser):
     season_stats = season_stats_user.season_stats
     user = season_stats_user.user
     orders = Order.objects.filter(
         client_id=user, date_get__gte=season_stats.start_date, date_get__lte=season_stats.end_date)
-    print(f"Check order: {orders.count()} - {orders}")
     # Calculate total price and points from orders
     order_totals = orders.aggregate(
         total_price=Sum('order_price'),
         total_points=Sum('order_point')
     )
-    print(f"Check calculate: {order_totals}")
     # Calculate total quantity, boxes, and cashback from all order details related to the filtered orders
     # order_detail_totals = OrderDetail.objects.filter(
     #     order_id__in=orders
@@ -291,7 +303,7 @@ def update_season_stats_users(season_stats_user: SeasonalStatisticUser):
     #     total_boxes=Sum('order_box'),
     #     total_cashback=Sum(F('order_quantity') * F('product_price'), output_field=models.FloatField())
     # )
-    total_point = order_totals['total_points']
+    total_point = order_totals.get('total_points', 0) or 0
     turn_per_point = season_stats_user.turn_per_point or 0
     try:
         turn_pick = season_stats_user.turn_pick or total_point // turn_per_point

@@ -12,7 +12,8 @@ from account.handlers.validate_perm import ValidatePermRest
 from account.models import PhoneNumber, User
 from app.logs import app_log
 from marketing.livestream.models import LiveStreamOfferRegister
-from marketing.order.models import Order, OrderDetail, SeasonalStatistic, SeasonalStatisticUser
+from marketing.order.models import Order, OrderDetail, SeasonalStatistic, SeasonalStatisticUser, \
+    update_season_stats_users
 from marketing.price_list.models import ProductPrice, SpecialOfferProduct
 from marketing.sale_statistic.models import SaleStatistic, SaleTarget
 from user_system.client_profile.models import ClientProfile
@@ -185,7 +186,8 @@ class OrderSerializer(BaseRestrictSerializer):
                     pass
                 else:
                     print(f"Status active")
-                    self.update_sale_statistic(instance, user_sale_statistic, instance.order_price, instance.is_so, False)
+                    self.update_sale_statistic(instance, user_sale_statistic, instance.order_price, instance.is_so,
+                                               False)
                 # Delete related order details
                 OrderDetail.objects.filter(order_id=instance).delete()
 
@@ -217,7 +219,7 @@ class OrderSerializer(BaseRestrictSerializer):
             if (special_offer.live_stream is not None and
                     not LiveStreamOfferRegister.objects.filter(phone__in=phones, register=True).exists()):
                 raise serializers.ValidationError({'message': f'số điện thoại không nằm trong ưu đãi livestream'
-                                                            f'{special_offer.live_stream.id}'})
+                                                              f'{special_offer.live_stream.id}'})
 
             if special_offer.status == 'deactivate':
                 raise serializers.ValidationError({'message': 'ưu đãi đã hết hạn'})
@@ -413,23 +415,25 @@ class OrderDetail3Serializer(serializers.Serializer):
 class SeasonStatsUserPointSerializer(serializers.ModelSerializer):
     class Meta:
         model = SeasonalStatisticUser
-        exclude = ('total_turnover', )
-        read_only_fields = ('redundant_point', 'total_point', )
+        exclude = ('total_turnover',)
+        read_only_fields = ('redundant_point', 'total_point',)
 
 
 class SeasonStatsUserPointRead(serializers.ModelSerializer):
     class Meta:
         model = SeasonalStatisticUser
         exclude = ('total_turnover', 'season_stats')
-        read_only_fields = ('redundant_point', 'total_point', )
+        read_only_fields = ('redundant_point', 'total_point',)
 
 
 class SeasonalStatisticSerializer(serializers.ModelSerializer):
     users_stats = serializers.SerializerMethodField()
+    users = serializers.ListField(child=serializers.CharField(), write_only=True, required=False)
 
     class Meta:
         model = SeasonalStatistic
-        exclude = ('users', )
+        # exclude = ('users', )
+        fields = '__all__'
         read_only_fields = ('id', 'created_by', 'created_at')
         extra_kwargs = {
             'note': {'allow_null': True}
@@ -441,3 +445,53 @@ class SeasonalStatisticSerializer(serializers.ModelSerializer):
             serializer = SeasonStatsUserPointRead(users_stats, many=True)
             return serializer.data
         return []
+
+    def create(self, validated_data):
+        user_ids = validated_data.pop('users', [])
+        try:
+            with transaction.atomic():
+                instance = SeasonalStatistic.objects.create(**validated_data)
+                self.update_users(instance, user_ids)
+                return instance
+        except Exception as e:
+            # Log the exception if needed
+            app_log.error(f"Error creating user: {e}")
+            # Rollback transaction and re-raise the exception
+            raise ValidationError({'message': 'lỗi bất ngờ khi create SeasonalStatistic', 'error': e})
+
+    def update(self, instance, validated_data):
+        user_ids = validated_data.pop('users', [])
+        try:
+            with transaction.atomic():
+                for attr, value in validated_data.items():
+                    setattr(instance, attr, value)
+                instance.save()
+                self.update_users(instance, user_ids)
+                return instance
+        except Exception as e:
+            # Log the exception if needed
+            app_log.error(f"Error creating user: {e}")
+            # Rollback transaction and re-raise the exception
+            raise ValidationError({'message': 'lỗi bất ngờ khi update SeasonalStatistic', 'error': e})
+
+    def update_users(self, instance: SeasonalStatistic, user_ids: list):
+        # Assign list for create objects
+        create_stats_users = list()
+
+        for user_id in user_ids:
+            # Get objects SeasonalStatisticUser for handling
+            stats_user = SeasonalStatisticUser.objects.filter(user_id=user_id, season_stats=instance)
+            # Not existed, add to create list
+            if not stats_user.exists():
+                new_statistic_user = SeasonalStatisticUser(user_id=user_id, season_stats=instance)
+                new_statistic_user = update_season_stats_users(new_statistic_user)
+                print(f"Test: {create_stats_users}")
+                create_stats_users.append(new_statistic_user)
+            # Existed, update stats
+            else:
+                update_stats_user = update_season_stats_users(stats_user.first())
+                update_stats_user.save()
+        # Remove un-use user
+        SeasonalStatisticUser.objects.filter(season_stats=instance).exclude(user_id__in=user_ids).delete()
+        # Create all users stats on create list
+        SeasonalStatisticUser.objects.bulk_create(create_stats_users)

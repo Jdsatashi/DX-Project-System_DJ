@@ -1150,6 +1150,10 @@ class ApiSeasonalStatistic(viewsets.GenericViewSet, mixins.ListModelMixin, mixin
     permission_classes = [partial(ValidatePermRest, model=SeasonalStatistic)]
 
     def list(self, request, *args, **kwargs):
-        response = filter_data(self, request, ['id', 'name', 'start_date', 'end_date', 'type'],
-                               **kwargs)
+        queryset = self.get_queryset()
+        stats_type = request.query_params.get('type', None)
+        if stats_type:
+            queryset = queryset.filter(type=stats_type)
+        response = filter_data(self, request, ['id', 'name', 'start_date', 'end_date'],
+                               queryset=queryset, **kwargs)
         return Response(response, status.HTTP_200_OK)
