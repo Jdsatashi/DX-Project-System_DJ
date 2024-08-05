@@ -2,7 +2,7 @@ from datetime import datetime, date, timedelta
 
 from django.apps import apps
 from django.db import models
-from django.db.models import Q
+from django.db.models import Q, Sum
 from django.utils.timezone import make_aware
 
 from account.models import User
@@ -74,7 +74,7 @@ class PointOfSeason(models.Model):
     bonus_point = models.FloatField(null=True, blank=True, default=0)
     redundant = models.FloatField(null=True, blank=True, default=0)
 
-    def auto_point(self):
+    def auto_point2(self):
         Order = apps.get_model('order', 'Order')
         OrderDetail = apps.get_model('order', 'OrderDetail')
         user_orders = Order.objects.filter(client_id=self.user, price_list_id=self.price_list)
@@ -83,6 +83,20 @@ class PointOfSeason(models.Model):
         print(f"Testing point: {point} - {total_point}")
         self.point = point
         self.total_point = total_point
+
+    def auto_point(self):
+        Order = apps.get_model('order', 'Order')
+        OrderDetail = apps.get_model('order', 'OrderDetail')
+
+        user_orders = Order.objects.filter(client_id=self.user, price_list_id=self.price_list)
+
+        order_details = OrderDetail.objects.filter(order_id__in=user_orders)
+
+        total_points = order_details.aggregate(total_point=Sum('point_get'))['total_point'] or 0
+
+        print(f"Total points: {total_points}")
+        self.point = total_points
+        self.total_point = total_points
 
 
 class SpecialOffer(models.Model):
