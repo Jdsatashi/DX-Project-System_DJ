@@ -795,6 +795,9 @@ def format_user_data(users_list, manager):
         grant_access, _ = GrantAccess.objects.get_or_create(manager=manager, grant_user=user)
 
         point = user_point.filter(user=user).first()
+        input_point = 0
+        if point:
+            input_point = point.point
         # point.auto_point()
         # point.save()
 
@@ -805,7 +808,7 @@ def format_user_data(users_list, manager):
             'user_type': user_type,
             'is_access': grant_access.active,
             'is_allow': grant_access.allow,
-            'point': point.point
+            'point': input_point
         }
         user_data.append(user_dict)
     return user_data
