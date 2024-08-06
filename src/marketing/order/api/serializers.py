@@ -504,36 +504,85 @@ class SeasonalStatisticSerializer(serializers.ModelSerializer):
             # Log the exception if needed
             app_log.error(f"Error creating user: {e}")
             # Rollback transaction and re-raise the exception
-            raise ValidationError({'message': 'lỗi bất ngờ khi update SeasonalStatistic', 'error': e})
+            # raise ValidationError({'message': 'lỗi bất ngờ khi update SeasonalStatistic', 'error': e})
+            raise e
 
     def handle_user_file(self, file):
         # Read the Excel file using pandas
         try:
             df = pd.read_excel(file, engine='openpyxl')
-            # Assume that 'khach_hang' is the column header for user IDs in the first column
-            user_ids = df['khach_hang'].dropna().unique().tolist()
-            return user_ids
+            # Clean data to ensure there are no NaN values where not expected
+            df = df.fillna({'diem_1_tem': 0, 'so_tem': 0})  # Replace NaN with 0 in these columns
+            df = df.dropna(subset=['khach_hang'])  # Ensure no NaN values in 'khach_hang'
+
+            # Transform dataframe to the desired list of dictionaries format
+            user_data = [
+                {row['khach_hang']: {'turn_per_point': row['diem_1_tem'], 'turn_pick': row['so_tem']}}
+                for index, row in df.iterrows()
+            ]
+            return user_data
         except Exception as e:
             raise ValidationError({'user_file': f'Failed to read file: {str(e)}'})
 
     def update_users(self, instance: SeasonalStatistic, user_ids: list):
         # Assign list for create objects
         create_stats_users = list()
-
+        update_stats_users = list()
         for user_id in user_ids:
-            # Get objects SeasonalStatisticUser for handling
-            stats_user = SeasonalStatisticUser.objects.filter(user_id=user_id, season_stats=instance)
-            # Not existed, add to create list
-            if not stats_user.exists():
-                new_statistic_user = SeasonalStatisticUser(user_id=user_id, season_stats=instance)
-                new_statistic_user = update_season_stats_users(new_statistic_user)
-                print(f"Test: {create_stats_users}")
-                create_stats_users.append(new_statistic_user)
-            # Existed, update stats
+            if isinstance(user_id, str):
+                # Validate user exists
+                user = User.objects.filter(id=user_id)
+                if not user.exists():
+                    continue
+                # Get objects SeasonalStatisticUser for handling
+                stats_user = SeasonalStatisticUser.objects.filter(user_id=user_id, season_stats=instance)
+                # Not existed, add to create list
+                if not stats_user.exists():
+                    new_statistic_user = SeasonalStatisticUser(user_id=user_id, season_stats=instance)
+                    new_statistic_user = update_season_stats_users(new_statistic_user)
+                    create_stats_users.append(new_statistic_user)
+                # Existed, update stats
+                else:
+                    upd_stats_user = update_season_stats_users(stats_user.first())
+                    update_stats_users.append(upd_stats_user)
+            elif isinstance(user_id, dict):
+                # Get user id from dict user data
+                user_data = user_id
+                my_user_id = list(user_data.keys())[0]
+                # Validate user id
+                user = User.objects.filter(id=my_user_id)
+                if not user.exists():
+                    continue
+                # Get data of user dict
+                input_data = user_data[my_user_id]
+                # Query season user stats
+                stats_user = SeasonalStatisticUser.objects.filter(user_id=my_user_id, season_stats=instance)
+                # Prepare input data
+                turn_per_point = input_data['turn_per_point']
+                turn_pick = input_data['turn_pick']
+                # Create when stats user not exits
+                if not stats_user.exists():
+                    new_statistic_user = SeasonalStatisticUser(
+                        user_id=my_user_id, season_stats=instance, turn_pick=turn_pick, turn_per_point=turn_per_point)
+                    # Update total point
+                    new_statistic_user = update_season_stats_users(new_statistic_user)
+                    # Add stats object to bulk create list
+                    create_stats_users.append(new_statistic_user)
+                # Existed, update stats
+                else:
+                    # Get stats
+                    stats_user = stats_user.first()
+                    # Update turn_pick and turn_per_point
+                    stats_user.turn_pick = turn_pick
+                    stats_user.turn_per_point = turn_per_point
+                    # Update total point and redundant point
+                    upd_stats_user = update_season_stats_users(stats_user)
+                    # Add stats object to update bulk list
+                    update_stats_users.append(upd_stats_user)
             else:
-                update_stats_user = update_season_stats_users(stats_user.first())
-                update_stats_user.save()
+                raise ValidationError({'message': 'user_ids not acceptable type'})
         # Remove un-use user
         SeasonalStatisticUser.objects.filter(season_stats=instance).exclude(user_id__in=user_ids).delete()
         # Create all users stats on create list
         SeasonalStatisticUser.objects.bulk_create(create_stats_users)
+        SeasonalStatisticUser.objects.bulk_update(update_stats_users, ['turn_per_point', 'turn_pick', 'redundant_point', 'total_point'])

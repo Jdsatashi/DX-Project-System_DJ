@@ -305,16 +305,17 @@ def update_season_stats_users(season_stats_user: SeasonalStatisticUser):
     # )
     total_point = order_totals.get('total_points', 0) or 0
     turn_per_point = season_stats_user.turn_per_point or 0
+    # try:
+    #     turn_pick = season_stats_user.turn_pick or total_point // turn_per_point
+    # except ZeroDivisionError:
+    #     turn_pick = 0
+    turn_pick = season_stats_user.turn_pick or 0
     try:
-        turn_pick = season_stats_user.turn_pick or total_point // turn_per_point
-    except ZeroDivisionError:
-        turn_pick = 0
-    try:
-        redundant_point = total_point % turn_per_point
+        redundant_point = total_point % (turn_per_point * turn_pick) if total_point > (turn_per_point * turn_pick) else 0
     except ZeroDivisionError:
         redundant_point = 0
 
     season_stats_user.total_point = total_point
-    season_stats_user.turn_pick = turn_pick
+    # season_stats_user.turn_pick = turn_pick
     season_stats_user.redundant_point = redundant_point
     return season_stats_user
