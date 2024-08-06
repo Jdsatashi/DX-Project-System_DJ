@@ -5,6 +5,7 @@ from functools import partial
 from io import BytesIO
 
 import openpyxl
+import pandas as pd
 from django.core.exceptions import FieldError
 from django.core.paginator import Paginator
 from django.db.models import Sum, Q, Case, When, FloatField, F
@@ -15,6 +16,7 @@ from openpyxl.styles import Font, Alignment, PatternFill
 from openpyxl.utils import get_column_letter
 from rest_framework import viewsets, mixins, status
 from rest_framework.authentication import BasicAuthentication, SessionAuthentication
+from rest_framework.decorators import action
 from rest_framework.response import Response
 from rest_framework.views import APIView
 from rest_framework_simplejwt.authentication import JWTAuthentication
@@ -1157,3 +1159,50 @@ class ApiSeasonalStatistic(viewsets.GenericViewSet, mixins.ListModelMixin, mixin
         response = filter_data(self, request, ['id', 'name', 'start_date', 'end_date'],
                                queryset=queryset, **kwargs)
         return Response(response, status.HTTP_200_OK)
+
+    @action(detail=True, methods=['get'], url_path='export')
+    def export(self, request, *args, pk=None):
+        try:
+            season_statistic = self.get_object()
+            users_stats = SeasonalStatisticUser.objects.filter(season_stats=season_statistic).values(
+                'user__id', 'user__clientprofile__client_lv1_id', 'user__clientprofile__nvtt_id',
+                'turn_per_point', 'turn_pick', 'redundant_point', 'total_point'
+            )
+            df = pd.DataFrame(list(users_stats))
+
+            client_ids = df['user__clientprofile__client_lv1_id']
+            nvtt_ids = df['user__clientprofile__nvtt_id']
+
+            client_lv1 = dict(
+                ClientProfile.objects.filter(client_id_id__in=client_ids).values_list('client_id', 'register_name'))
+            nvtt = dict(
+                EmployeeProfile.objects.filter(employee_id_id__in=nvtt_ids).values_list('employee_id', 'register_name'))
+
+            df.rename(columns={
+                'user__id': 'Mã Khách Hàng',
+                # 'client_lv1_id': 'NPP',
+                # 'nvtt_id': 'NVTT',
+                'user__clientprofile__client_lv1_id': 'NPP',
+                'user__clientprofile__nvtt_id': 'NVTT',
+                'turn_per_point': 'Điểm/Tem',
+                'turn_pick': 'Số tem',
+                'redundant_point': 'Điểm dư',
+                'total_point': 'Tổng điểm'
+            }, inplace=True)
+            df['NPP'] = df['NPP'].map(client_lv1)
+            df['NVTT'] = df['NVTT'].map(nvtt)
+
+            response = HttpResponse(content_type='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet', )
+            response['Content-Disposition'] = f'attachment; filename="{season_statistic.name}.xlsx"'
+            with pd.ExcelWriter(response, engine='openpyxl') as writer:
+                df.to_excel(writer, index=False, sheet_name='Season Stats')
+                worksheet = writer.sheets['Season Stats']
+                # Set column widths (Excel column width units)
+                worksheet.column_dimensions['A'].width = 124 / 7  # Approximation to Excel units
+                worksheet.column_dimensions['B'].width = 140 / 7
+                worksheet.column_dimensions['C'].width = 140 / 7
+
+            return response
+        except Exception as e:
+            # return Response({'error': str(e)}, status=status.HTTP_400_BAD_REQUEST)
+            raise e

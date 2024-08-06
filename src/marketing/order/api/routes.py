@@ -34,4 +34,5 @@ urlpatterns = [
 
     path('season-stats/', stats_season_views, name='api_stats_season_views'),
     path('season-stats/<pk>', stats_season_details, name='api_stats_season_details'),
+    path('season-stats/<pk>/export', ApiSeasonalStatistic.as_view({'get': 'export'}), name='api_export_stats_season_details'),
 ]

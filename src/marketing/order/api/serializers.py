@@ -1,5 +1,6 @@
 from datetime import datetime
 
+import pandas as pd
 from django.db import transaction
 from django.db.models import Sum
 from django.utils import timezone
@@ -420,15 +421,33 @@ class SeasonStatsUserPointSerializer(serializers.ModelSerializer):
 
 
 class SeasonStatsUserPointRead(serializers.ModelSerializer):
+    nvtt = serializers.SerializerMethodField()
+    npp = serializers.SerializerMethodField()
+
     class Meta:
         model = SeasonalStatisticUser
         exclude = ('total_turnover', 'season_stats')
         read_only_fields = ('redundant_point', 'total_point',)
 
+    def get_nvtt(self, obj):
+        nvtt_id = obj.user.clientprofile.nvtt_id
+        nvtt = User.objects.filter(id=nvtt_id).first()
+        if nvtt:
+            return nvtt.employeeprofile.register_name
+        return None
+
+    def get_npp(self, obj):
+        npp_id = obj.user.clientprofile.client_lv1_id
+        npp = User.objects.filter(id=npp_id).first()
+        if npp:
+            return npp.clientprofile.register_name
+        return None
+
 
 class SeasonalStatisticSerializer(serializers.ModelSerializer):
     users_stats = serializers.SerializerMethodField()
     users = serializers.ListField(child=serializers.CharField(), write_only=True, required=False)
+    user_file = serializers.FileField(write_only=True, required=False)
 
     class Meta:
         model = SeasonalStatistic
@@ -439,6 +458,11 @@ class SeasonalStatisticSerializer(serializers.ModelSerializer):
             'note': {'allow_null': True}
         }
 
+    def to_representation(self, instance: SeasonalStatistic):
+        ret = super().to_representation(instance)
+        ret['users'] = instance.users.filter().values_list('id', flat=True).distinct()
+        return ret
+
     def get_users_stats(self, obj):
         if obj.type == 'point':
             users_stats = SeasonalStatisticUser.objects.filter(season_stats=obj)
@@ -448,7 +472,11 @@ class SeasonalStatisticSerializer(serializers.ModelSerializer):
 
     def create(self, validated_data):
         user_ids = validated_data.pop('users', [])
+        user_file = validated_data.pop('user_file', None)
+
         try:
+            if user_file:
+                user_ids = self.handle_user_file(user_file)
             with transaction.atomic():
                 instance = SeasonalStatistic.objects.create(**validated_data)
                 self.update_users(instance, user_ids)
@@ -461,7 +489,11 @@ class SeasonalStatisticSerializer(serializers.ModelSerializer):
 
     def update(self, instance, validated_data):
         user_ids = validated_data.pop('users', [])
+        user_file = validated_data.pop('user_file', None)
+
         try:
+            if user_file:
+                user_ids = self.handle_user_file(user_file)
             with transaction.atomic():
                 for attr, value in validated_data.items():
                     setattr(instance, attr, value)
@@ -473,6 +505,16 @@ class SeasonalStatisticSerializer(serializers.ModelSerializer):
             app_log.error(f"Error creating user: {e}")
             # Rollback transaction and re-raise the exception
             raise ValidationError({'message': 'lỗi bất ngờ khi update SeasonalStatistic', 'error': e})
+
+    def handle_user_file(self, file):
+        # Read the Excel file using pandas
+        try:
+            df = pd.read_excel(file, engine='openpyxl')
+            # Assume that 'khach_hang' is the column header for user IDs in the first column
+            user_ids = df['khach_hang'].dropna().unique().tolist()
+            return user_ids
+        except Exception as e:
+            raise ValidationError({'user_file': f'Failed to read file: {str(e)}'})
 
     def update_users(self, instance: SeasonalStatistic, user_ids: list):
         # Assign list for create objects
