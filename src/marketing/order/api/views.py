@@ -1138,7 +1138,7 @@ class ApiSeasonalStatisticUser(viewsets.GenericViewSet, mixins.ListModelMixin, m
     permission_classes = [partial(ValidatePermRest, model=SeasonalStatisticUser)]
 
     def list(self, request, *args, **kwargs):
-        response = filter_data(self, request, ['id', 'date_get', 'date_company_get', 'client_id__id'],
+        response = filter_data(self, request, ['id', 'user__id', 'user__username', 'season_stats__id', 'season_stats__name'],
                                **kwargs)
         return Response(response, status.HTTP_200_OK)
 
