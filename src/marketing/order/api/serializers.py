@@ -445,7 +445,7 @@ class SeasonStatsUserPointRead(serializers.ModelSerializer):
 
 
 class SeasonalStatisticSerializer(serializers.ModelSerializer):
-    users_stats = serializers.SerializerMethodField()
+    # users_stats = serializers.SerializerMethodField()
     users = serializers.ListField(child=serializers.CharField(), write_only=True, required=False)
     user_file = serializers.FileField(write_only=True, required=False)
 
@@ -461,6 +461,12 @@ class SeasonalStatisticSerializer(serializers.ModelSerializer):
     def to_representation(self, instance: SeasonalStatistic):
         ret = super().to_representation(instance)
         ret['users'] = instance.users.filter().values_list('id', flat=True).distinct()
+        request = self.context.get('request')
+
+        if (request and request.method == 'GET'
+                and hasattr(request, 'resolver_match')
+                and request.resolver_match.kwargs.get('pk')):
+            ret['users_stats'] = self.get_users_stats(instance)
         return ret
 
     def get_users_stats(self, obj):
