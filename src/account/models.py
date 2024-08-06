@@ -409,9 +409,10 @@ class GrantAccess(models.Model):
 
         for perm in adding_perm:
             app_log.info(f"TEST PERMNAME: {perm}")
-            perm_obj = self.grant_user.userperm_set.get(perm=perm)
-            self.grant_perms.add(perm)
-            self.manager.perm_user.add(perm, through_defaults={'allow': perm_obj.allow})
+            perm_obj = self.grant_user.userperm_set.filter(perm=perm).first()
+            if perm_obj:
+                self.grant_perms.add(perm)
+                self.manager.perm_user.add(perm, through_defaults={'allow': perm_obj.allow})
 
     def remove_grant_perm(self):
         grant_perm = self.grant_perms.all()
