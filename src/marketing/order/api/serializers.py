@@ -15,6 +15,7 @@ from app.logs import app_log
 from marketing.livestream.models import LiveStreamOfferRegister
 from marketing.order.models import Order, OrderDetail, SeasonalStatistic, SeasonalStatisticUser, \
     update_season_stats_users
+from marketing.pick_number.models import UserJoinEvent
 from marketing.price_list.models import ProductPrice, SpecialOfferProduct
 from marketing.sale_statistic.models import SaleStatistic, SaleTarget
 from user_system.client_profile.models import ClientProfile
@@ -590,5 +591,6 @@ class SeasonalStatisticSerializer(serializers.ModelSerializer):
         # Remove un-use user
         SeasonalStatisticUser.objects.filter(season_stats=instance).exclude(user_id__in=user_ids).delete()
         # Create all users stats on create list
+        print("Im update here")
         SeasonalStatisticUser.objects.bulk_create(create_stats_users)
         SeasonalStatisticUser.objects.bulk_update(update_stats_users, ['turn_per_point', 'turn_pick', 'redundant_point', 'total_point'])
