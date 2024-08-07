@@ -1,12 +1,12 @@
 import time
 
 from django.db import models, transaction
-from django.db.models import F, Sum, FloatField
+from django.db.models import Sum, FloatField
 from rest_framework.exceptions import ValidationError
 
 from account.models import User, PhoneNumber
 from app.logs import app_log
-from marketing.order.models import OrderDetail, Order
+from marketing.order.models import OrderDetail, Order, SeasonalStatistic
 from marketing.price_list.models import PriceList
 from utils.helpers import self_id
 
@@ -14,13 +14,17 @@ from utils.helpers import self_id
 # Create your models here.
 class EventNumber(models.Model):
     id = models.CharField(max_length=16, primary_key=True, unique=True, editable=False)
+
+    table_point = models.ForeignKey(SeasonalStatistic, on_delete=models.CASCADE, null=True, related_name='event_number')
+
     name = models.CharField(max_length=255, null=False)
-    price_list = models.ForeignKey(PriceList, null=True, on_delete=models.CASCADE, related_name='event_number')
     date_start = models.DateField()
     date_close = models.DateField()
     range_number = models.IntegerField()
     limit_repeat = models.IntegerField(default=1)
-    point_exchange = models.FloatField(default=1)
+
+    date_result = models.DateField(null=True)
+
     status = models.CharField(max_length=24, default='active')
 
     created_at = models.DateTimeField(auto_now_add=True)
@@ -172,14 +176,13 @@ class NumberList(models.Model):
 class UserJoinEvent(models.Model):
     id = models.CharField(max_length=32, primary_key=True, unique=True, editable=False)
     user = models.ForeignKey(User, on_delete=models.CASCADE, related_name='user_join_event')
-    phone = models.ForeignKey(PhoneNumber, null=True, on_delete=models.CASCADE, related_name='user_join_event')
     event = models.ForeignKey(EventNumber, on_delete=models.CASCADE, related_name='user_join_event')
 
     total_point = models.FloatField(default=0)
-    used_point = models.FloatField(default=0)
     bonus_point = models.FloatField(default=0)
 
-    turn_pick = models.IntegerField(default=0)
+    turn_per_point = models.IntegerField(null=True)
+    turn_pick = models.IntegerField(null=True)
     turn_selected = models.IntegerField(default=0)
 
     created_at = models.DateTimeField(auto_now_add=True)
@@ -221,6 +224,17 @@ class PrizeEvent(models.Model):
 class AwardNumber(models.Model):
     prize = models.ForeignKey(PrizeEvent, on_delete=models.CASCADE, related_name='award_number')
     number = models.IntegerField(null=False)
+    turn_roll = models.IntegerField(default=0)
+
+    created_at = models.DateTimeField(auto_now_add=True)
+
+
+class PickNumberLog(models.Model):
+    event = models.ForeignKey(EventNumber, on_delete=models.CASCADE, related_name='pick_number_log')
+    user = models.ForeignKey(User, on_delete=models.CASCADE, related_name='pick_number_log')
+    phone = models.ForeignKey(PhoneNumber, on_delete=models.CASCADE, related_name='pick_number_log', null=True)
+    number = models.IntegerField(null=False)
+    action = models.CharField(null=False)
 
     created_at = models.DateTimeField(auto_now_add=True)
 

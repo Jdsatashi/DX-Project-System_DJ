@@ -2,7 +2,7 @@ from django.urls import path
 from rest_framework.routers import DefaultRouter
 
 from marketing.pick_number.api.views import ApiEventNumber, ApiUserJoinEvent, ApiNumberList, ApiPickNumber, \
-    ApiAwardNumber, ApiPrizeEvent
+    ApiAwardNumber, ApiPrizeEvent, ApiPickNumberLog
 from utils.constants import actions_views, actions_detail
 
 app_name = "api_pick_number"
@@ -47,4 +47,5 @@ urlpatterns = [
 
     path('reward/', award_number_views, name='api_award_number_views'),
     path('reward/<pk>', award_number_details, name='api_award_number_details'),
+    path('pick-number-logs/', ApiPickNumberLog.as_view({'get': 'list'}))
 ]

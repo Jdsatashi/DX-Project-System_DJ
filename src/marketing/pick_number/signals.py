@@ -1,11 +1,11 @@
-from django.db.models.signals import post_save, pre_delete
+from django.db.models.signals import post_save, pre_delete, m2m_changed
 from django.dispatch import receiver
 
 from app.logs import app_log
-from marketing.order.models import Order
+from marketing.order.models import Order, SeasonalStatistic, SeasonalStatisticUser
 from marketing.pick_number.models import EventNumber, UserJoinEvent, calculate_point_query, NumberSelected
 
-
+"""
 @receiver(post_save, sender=Order)
 def update_user_join_event(sender, instance, created, **kwargs):
     app_log.info(f"Signals is working")
@@ -27,7 +27,45 @@ def update_user_join_event(sender, instance, created, **kwargs):
                 user_join.save()
             else:
                 continue
+"""
 
+
+@receiver(m2m_changed, sender=SeasonalStatistic.users.through)
+def handle_user_perm_change(sender, instance: SeasonalStatistic, action, reverse, model, pk_set, **kwargs):
+    stats_users = SeasonalStatisticUser.objects.filter(season_stats=instance)
+    for stats_user in stats_users:
+        user_join_event = UserJoinEvent.objects.filter(user=stats_user.user, event__table_point=instance)
+        user_join_event.turn_per_point = stats_user.turn_per_point
+        user_join_event.turn_pick = stats_user.turn_pick
+        user_join_event.total_point = stats_user.total_point
+        user_join_event.save()
+    user_ids = stats_users.values_list('user_id', flat=True).distinct()
+    UserJoinEvent.objects.filter(event__table_point=instance).exclude(user_id__in=user_ids).delete()
+
+
+@receiver(post_save, sender=SeasonalStatisticUser)
+def update_event_number(sender, instance: SeasonalStatisticUser, created, **kwargs):
+    user_join_events = UserJoinEvent.objects.filter(user=instance.user, event__table_point=instance.season_stats)
+    for user_join_event in user_join_events:
+        user_join_event.turn_per_point = instance.turn_per_point if instance.turn_per_point else user_join_event.turn_per_point
+        user_join_event.turn_pick = instance.turn_pick if instance.turn_pick else user_join_event.turn_pick
+        user_join_event.total_point = instance.total_point if instance.total_point else user_join_event.total_point
+        user_join_event.save()
+
+
+# @receiver(post_save, sender=EventNumber)
+# def update_user_eventnumber(sender, instance: EventNumber, created, **kwargs):
+#     print(f"Signal update eventnumber working")
+# stats_users = SeasonalStatisticUser.objects.filter(season_stats__event_number=instance)
+# print(f"Check users: {stats_users}")
+# for stats_user in stats_users:
+#     print(f"Looping user join event: {stats_user}")
+#     turn_per_point = stats_user.turn_per_point
+#     turn_pick = stats_user.turn_pick
+#     total_point = stats_user.total_point
+#     user_event = UserJoinEvent.objects.create(
+#         user=stats_user.user, event=instance, total_point=total_point, turn_pick=turn_pick, turn_per_point=turn_per_point)
+#     print(user_event)
 
 @receiver(pre_delete, sender=UserJoinEvent)
 def update_repeat_count(sender, instance, **kwargs):
