@@ -1,3 +1,4 @@
+import time
 from typing import Union, Type
 
 from django.contrib.contenttypes.models import ContentType
@@ -59,10 +60,9 @@ class BaseRestrictSerializer(serializers.ModelSerializer):
     def handle_restrict(self, data: dict, _id: Union[str, int], model: Type[Model]) -> None:
         """ Handle adding rule Perm for specific Object to created object """
         # Get action for full CRUD perm
+        start_time = time.time()
         user_actions = data.get('allow_actions', [])
-        print(f"Test user actions: {user_actions}")
         list_perm = create_full_perm(model, _id, user_actions)
-        app_log.info(f"Testing list perm: {list_perm}")
         # Get users has perm
         existed_user_allow = list_user_has_perm(list_perm, True)
         existed_user_restrict = list_user_has_perm(list_perm, False)
@@ -77,6 +77,7 @@ class BaseRestrictSerializer(serializers.ModelSerializer):
                  list_perm, False)
         add_perm({'type': 'group', 'data': data['restrict_nhom'], 'existed': existed_group_restrict},
                  list_perm, False)
+        app_log.info(f"Complete add perm: {time.time() - start_time}")
 
 
 def add_perm(items: dict, perms: [list, None], allow: bool):
@@ -145,8 +146,6 @@ def update_group_perm(item_data, perms, items, allow, exited):
     except models.ObjectDoesNotExist:
         field = 'allow' if allow else 'restrict'
         raise serializers.ValidationError({'message': f'Field error at "{field}_{items["type"]}"'})
-    app_log.info(f"Test update_group_perm: {perms}")
-    app_log.info(f"Test exited: {exited}")
     # Looping handle with permissions
     for perm in perms:
         group_perm = group.perm.filter(name=perm)
