@@ -8,6 +8,7 @@ from django.utils.timezone import make_aware
 from account.models import User
 from marketing.livestream.models import LiveStream
 from marketing.product.models import Product
+from system_func.models import PeriodSeason
 
 
 # Create your models here.
@@ -65,40 +66,6 @@ class ProductPrice(models.Model):
     point = models.FloatField(null=True, blank=True)
 
 
-class PointOfSeason(models.Model):
-    price_list = models.ForeignKey(PriceList, null=True, on_delete=models.SET_NULL)
-    user = models.ForeignKey(User, null=True, on_delete=models.SET_NULL)
-    point = models.FloatField(null=True, blank=True, default=0)
-    total_point = models.FloatField(null=True, blank=True, default=0)
-    used_point = models.FloatField(null=True, blank=True, default=0)
-    bonus_point = models.FloatField(null=True, blank=True, default=0)
-    redundant = models.FloatField(null=True, blank=True, default=0)
-
-    def auto_point2(self):
-        Order = apps.get_model('order', 'Order')
-        OrderDetail = apps.get_model('order', 'OrderDetail')
-        user_orders = Order.objects.filter(client_id=self.user, price_list_id=self.price_list)
-        order_details = OrderDetail.objects.filter(order_id__in=user_orders)
-        point, total_point = calculate_point(order_details, self.price_list)
-        print(f"Testing point: {point} - {total_point}")
-        self.point = point
-        self.total_point = total_point
-
-    def auto_point(self):
-        Order = apps.get_model('order', 'Order')
-        OrderDetail = apps.get_model('order', 'OrderDetail')
-
-        user_orders = Order.objects.filter(client_id=self.user, price_list_id=self.price_list)
-
-        order_details = OrderDetail.objects.filter(order_id__in=user_orders)
-
-        total_points = order_details.aggregate(total_point=Sum('point_get'))['total_point'] or 0
-
-        print(f"Total points: {total_points}")
-        self.point = total_points
-        self.total_point = total_points
-
-
 class SpecialOffer(models.Model):
     id = models.CharField(max_length=64, primary_key=True)
     name = models.CharField(max_length=255)
@@ -149,31 +116,6 @@ class SpecialOfferProduct(models.Model):
     max_order_box = models.IntegerField(null=True)
 
 
-def calculate_point(order_details, price_list):
-    point = 0
-    total_point = 0
-    for order_detail in order_details:
-        # if order_detail.point_get == 0:
-        product = order_detail.product_id
-        try:
-            product_price = ProductPrice.objects.get(price_list=price_list, product=product)
-        except ProductPrice.DoesNotExist:
-            continue
-        quantity = order_detail.order_quantity
-        if product_price.point is not None or product_price.point != 0:
-            order_point = product_price.point * (quantity / product_price.quantity_in_box)
-
-            if order_detail.point_get == 0 or order_detail.point_get is None:
-                order_detail.point_get = order_point
-                order_detail.save()
-            if order_detail.product_price == 0 or order_detail.product_price is None:
-                order_detail.product_price = float(quantity) * float(product_price.price)
-                order_detail.save()
-            point += order_point
-            total_point += order_point
-    return point, total_point
-
-
 def get_month_start_end(date):
     # Get the first day of the month
     month_start = date.replace(day=1)
@@ -215,7 +157,6 @@ def calculate_turnover(user, date):
         sale_stat.save()
 
 
-
 def get_user_ordered(date):
     Order = apps.get_model('order', 'Order')
     User = apps.get_model('account', 'User')
@@ -230,11 +171,3 @@ def get_user_ordered(date):
     users_ordered = User.objects.filter(id__in=user_ids)
 
     return users_ordered
-
-
-def test():
-    date = datetime.today()
-
-    users = get_user_ordered(date)
-    for user in users:
-        calculate_turnover(user, date)
