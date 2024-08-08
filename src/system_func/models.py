@@ -1,4 +1,4 @@
-from datetime import datetime
+from datetime import datetime, time
 
 from django.apps import apps
 from django.db import models
@@ -44,10 +44,8 @@ class PointOfSeason(models.Model):
         Order = apps.get_model('order', 'Order')
         OrderDetail = apps.get_model('order', 'OrderDetail')
         current_period = PeriodSeason.objects.filter(type='point', period='current').first()
-        start_date = datetime.strptime(current_period.from_date, '%d/%m/%Y')
-        end_date = datetime.strptime(current_period.to_date, '%d/%m/%Y')
-
-        end_date = end_date.replace(hour=23, minute=59, second=59)
+        start_date = current_period.from_date
+        end_date = datetime.combine(current_period.to_date, time(23, 59, 59))
 
         user_orders = Order.objects.filter(client_id=self.user, date_get__range=(start_date, end_date))
 

@@ -170,7 +170,6 @@ class NumberList(models.Model):
         return f"{self.event} - {self.number}"
 
     def save(self, *args, **kwargs):
-        print(f"Checking self id: {self.id}")
         if not self.id or self.id == '' or self.pk == '':
             self.id = f"{self.event.id}_{self.number}"
         super().save(*args, **kwargs)

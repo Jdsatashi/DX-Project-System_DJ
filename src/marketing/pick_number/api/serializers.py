@@ -7,6 +7,7 @@ from rest_framework.response import Response
 from rest_framework_simplejwt.exceptions import TokenError
 from rest_framework_simplejwt.tokens import AccessToken
 
+from account.handlers.perms import get_perm_name
 from account.handlers.restrict_serializer import BaseRestrictSerializer
 from account.models import User, PhoneNumber
 from app.logs import app_log
@@ -14,6 +15,7 @@ from app.settings import pusher_client
 from marketing.order.models import SeasonalStatisticUser
 from marketing.pick_number.models import UserJoinEvent, NumberList, EventNumber, NumberSelected, calculate_point_query, \
     PrizeEvent, AwardNumber, PickNumberLog
+from utils.constants import perm_actions
 
 
 class ReadNumberSerializer(serializers.ModelSerializer):
@@ -307,22 +309,33 @@ class EventNumberSerializer(BaseRestrictSerializer):
         return representation
 
     def create(self, validated_data):
-        users = validated_data.pop('users', [])
-        prize_events = validated_data.pop('prize_event', [])
+        data, perm_data = self.split_data(validated_data)
+        users = data.pop('users', [])
+        prize_events = data.pop('prize_event', [])
         with transaction.atomic():
-            event_number = super().create(validated_data)
+            event_number = super().create(data)
             self._manage_prize_events(event_number, prize_events)
             self._add_users_to_event(event_number, users)
+            add_user = self._add_users_to_event(event_number, users)
+            if perm_data['restrict']:
+                perm_data['allow_actions'] = perm_actions['self']
+                perm_data['allow_users'] = add_user
+                self.handle_restrict(perm_data, event_number.id, self.Meta.model)
             return event_number
 
     def update(self, instance, validated_data):
-        users = validated_data.pop('users', [])
-        prize_events = validated_data.pop('prize_event', [])
+        data, perm_data = self.split_data(validated_data)
+        users = data.pop('users', [])
+        prize_events = data.pop('prize_event', [])
         with transaction.atomic():
-            event_number = super().update(instance, validated_data)
+            event_number = super().update(instance, data)
             instance.prize_event.all().delete()
             self._manage_prize_events(event_number, prize_events)
-            self._add_users_to_event(event_number, users)
+            add_user = self._add_users_to_event(event_number, users)
+            if perm_data['restrict']:
+                perm_data['allow_actions'] = perm_actions['self']
+                perm_data['allow_users'] = add_user
+                self.handle_restrict(perm_data, instance.id, self.Meta.model)
             return event_number
 
     @staticmethod
@@ -335,10 +348,11 @@ class EventNumberSerializer(BaseRestrictSerializer):
                 raise ValidationError({'message': "prize data is invalid"})
 
     @staticmethod
-    def _add_users_to_event(event, user_ids):
+    def _add_users_to_event(event: EventNumber, user_ids):
         stats_users = SeasonalStatisticUser.objects.filter(season_stats__event_number=event)
         print(f"Check users: {stats_users}")
         added_id = list()
+
         for stats_user in stats_users:
             print(f"Looping user join event: {stats_user}")
             turn_per_point = stats_user.turn_per_point
@@ -357,8 +371,10 @@ class EventNumberSerializer(BaseRestrictSerializer):
                 user_event = UserJoinEvent.objects.create(
                     user=stats_user.user, event=event, total_point=total_point, turn_pick=turn_pick,
                     turn_per_point=turn_per_point)
+
             added_id.append(user_event.id)
         UserJoinEvent.objects.filter(event=event).exclude(id__in=added_id).delete()
+        return stats_users.values_list('user_id', flat=True).distinct()
 
     #     current_user_ids = set(UserJoinEvent.objects.filter(event=event).values_list('user_id', flat=True))
     #     new_user_ids = set(user_ids)

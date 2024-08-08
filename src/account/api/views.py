@@ -430,7 +430,7 @@ def check_token(request):
                 user_data = UserWithPerm(user).data
                 if not user.is_superuser and not user.group_user.filter(name=admin_role).exists():
                     # If not admin calculate point
-                    period = PeriodSeason.objects.filter(type='point', period='current')
+                    period = PeriodSeason.objects.filter(type='point', period='current').first()
                     point, _ = PointOfSeason.objects.get_or_create(user=user, period=period)
                     point.auto_point()
                     point.save()
@@ -454,9 +454,9 @@ def check_token(request):
             else:
                 return Response({'message': 'Token đã hết hạn'}, status=status.HTTP_401_UNAUTHORIZED)
 
-        except Exception as e:
+        except TokenError:
             # raise e
-            return Response({'message': 'Token không hợp lệ hoặc đã hết hạn', 'details': str(e)},
+            return Response({'message': 'Token không hợp lệ hoặc đã hết hạn'},
                             status=status.HTTP_401_UNAUTHORIZED)
     return Response({'message': 'GET method not supported'}, status=status.HTTP_405_METHOD_NOT_ALLOWED)
 
