@@ -99,7 +99,13 @@ def perm_queryset(self, user):
 
     # Exclude item which use not has permission
     exclude_id = list(perm_req_id - set(has_perm_id))
-    return model_class.objects.exclude(id__in=exclude_id)
+
+    queryset = model_class.objects.exclude(id__in=exclude_id)
+
+    # Check if the model has a 'status' field and exclude deactivated items
+    if hasattr(model_class, 'status'):
+        queryset = queryset.exclude(status='deactivate')
+    return queryset
 
 
 def get_full_permname(model, action, pk):
