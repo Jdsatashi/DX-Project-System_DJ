@@ -785,8 +785,8 @@ def search_users(query, users_list):
 
 def format_user_data(users_list, manager):
     user_data = []
-    main_pl = PriceList.get_main_pl()
-    user_point = PointOfSeason.objects.filter(user__in=users_list, price_list=main_pl)
+    period = PeriodSeason.objects.filter(type='point', period='current').first()
+    user_point = PointOfSeason.objects.filter(user__in=users_list, period=period)
     for user in users_list:
         user_name_ = user.clientprofile.register_name or ''
         user_type = 'daily'
