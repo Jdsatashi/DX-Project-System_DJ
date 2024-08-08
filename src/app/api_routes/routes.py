@@ -27,5 +27,6 @@ urlpatterns = [
     path('sale-statistic/', include('marketing.sale_statistic.api.routes', 'api_sale_statistic')),
     path('event-number/', include('marketing.pick_number.api.routes', 'api_pick_number')),
     path('media/', include('marketing.medias.api.notify.routes', 'api_media')),
-    path('media/banner/', include('marketing.medias.api.banner.routes', 'api_banner'))
+    path('media/banner/', include('marketing.medias.api.banner.routes', 'api_banner')),
+    path('system-config/', include('system_func.api.routes')),
 ]
