@@ -1,16 +1,13 @@
-import time
-
 from django.db import transaction
-from django.db.models import Q
 from rest_framework import serializers
 from rest_framework.exceptions import ValidationError
 
-from account.handlers.perms import get_full_permname, get_user_by_permname, get_perm_name
+from account.handlers.perms import get_full_permname, get_perm_name
 from account.handlers.restrict_serializer import BaseRestrictSerializer
-from account.models import GroupPerm, User, Perm
+from account.models import GroupPerm, Perm
 from account.queries import get_user_by_permname_sql, get_user_like_permname_sql
 from app.logs import app_log
-from marketing.price_list.models import PriceList, ProductPrice, PointOfSeason, SpecialOfferProduct, SpecialOffer
+from marketing.price_list.models import PriceList, ProductPrice, SpecialOfferProduct, SpecialOffer
 from marketing.product.models import Product
 
 
@@ -235,18 +232,6 @@ class PriceList2Serializer(serializers.ModelSerializer):
         user_manage = list(user_group)
         ret['users'] = user_manage
         return ret
-
-
-class UserPointView(serializers.ModelSerializer):
-    class Meta:
-        model = PointOfSeason
-        fields = ['point']
-
-
-class UserPoint(BaseRestrictSerializer):
-    class Meta:
-        model = PointOfSeason
-        fields = '__all__'
 
 
 class SpecialOfferProductSerializer(serializers.ModelSerializer):

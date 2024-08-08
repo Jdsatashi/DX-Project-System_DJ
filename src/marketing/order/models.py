@@ -1,13 +1,11 @@
-import time
 from datetime import datetime
 
 from django.db import models
-from django.db.models import Sum, Case, When, FloatField, F
-from django.db.models.functions import Abs, Coalesce
+from django.db.models import Sum
 from rest_framework.exceptions import ValidationError
 
 from account.models import User
-from marketing.price_list.models import ProductPrice, PriceList, PointOfSeason, SpecialOffer, SpecialOfferProduct
+from marketing.price_list.models import ProductPrice, PriceList, SpecialOffer, SpecialOfferProduct
 from marketing.product.models import Product
 from marketing.sale_statistic.models import SaleStatistic
 from utils.helpers import local_time

@@ -28,7 +28,8 @@ from account.models import User, Verify, PhoneNumber, RefreshToken, TokenMapping
 from app.api_routes.handlers import get_token_for_user
 from app.logs import app_log
 from app.settings import pusher_client
-from marketing.price_list.models import PriceList, PointOfSeason
+from marketing.price_list.models import PriceList
+from system_func.models import PeriodSeason, PointOfSeason
 from utils.constants import status as user_status, maNhomND, admin_role, phone_magic, magic_verify_code, perm_actions
 from utils.env import TOKEN_LT
 from utils.helpers import generate_digits_code, generate_id, phone_validate, local_time, check_email
@@ -429,8 +430,8 @@ def check_token(request):
                 user_data = UserWithPerm(user).data
                 if not user.is_superuser and not user.group_user.filter(name=admin_role).exists():
                     # If not admin calculate point
-                    main_pl = PriceList.get_main_pl()
-                    point, _ = PointOfSeason.objects.get_or_create(user=user, price_list=main_pl)
+                    period = PeriodSeason.objects.filter(type='point', period='current')
+                    point, _ = PointOfSeason.objects.get_or_create(user=user, period=period)
                     point.auto_point()
                     point.save()
                     # Create json response data of user
@@ -842,6 +843,14 @@ def check_user_type(user):
     if user.user_type == 'farmer':
         return 'farmer'
     return 'unknown'
+
+
+class ApiGrantAccessSerializer(viewsets.GenericViewSet, mixins.ListModelMixin, mixins.CreateModelMixin,
+                               mixins.RetrieveModelMixin, mixins.UpdateModelMixin, mixins.DestroyModelMixin):
+    serializer_class = UserWithPerm
+    queryset = User.objects.all()
+
+    authentication_classes = [JWTAuthentication, BasicAuthentication, SessionAuthentication]
 
 
 class ImportUser(APIView):
