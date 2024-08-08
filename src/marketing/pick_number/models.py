@@ -85,13 +85,13 @@ class EventNumber(models.Model):
         # Add new numbers
         number_list_to_add = [
             NumberList(
+                id=f'{self.id}_{num}',
                 number=num,
                 repeat_count=self.limit_repeat,
                 event=self
             )
             for num in numbers_to_add
         ]
-        NumberList.objects.bulk_create(number_list_to_add)
 
         # Prepare list for bulk update
         number_list_to_update = []
@@ -125,6 +125,8 @@ class EventNumber(models.Model):
             if NumberSelected.objects.filter(number=number_list).exists():
                 raise ValueError(f"Cannot reduce range_number, number {num} is already selected.")
             number_list.delete()
+        NumberList.objects.bulk_create(number_list_to_add)
+
         app_log.info(f"Time complete update NumberList: {time.time() - start_time}")
 
     def validate_update(self, old_limit_repeat):
@@ -168,7 +170,8 @@ class NumberList(models.Model):
         return f"{self.event} - {self.number}"
 
     def save(self, *args, **kwargs):
-        if not self.id or self.id == '':
+        print(f"Checking self id: {self.id}")
+        if not self.id or self.id == '' or self.pk == '':
             self.id = f"{self.event.id}_{self.number}"
         super().save(*args, **kwargs)
 
