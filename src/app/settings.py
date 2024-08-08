@@ -80,6 +80,8 @@ MY_APPS = [
     'marketing.sale_statistic',
     'marketing.pick_number',
     'marketing.medias',
+    # Default variables system setting
+    'system_func'
 ]
 
 # Application definition
