@@ -63,7 +63,8 @@ class GenericApiPriceList(viewsets.GenericViewSet, mixins.ListModelMixin, mixins
             queryset = perm_queryset(self, user)
         order_by = request.data.get('order_by', '') or request.query_params.get('order_by', '')
         if order_by == '':
-            order_by = 'type'
+            request.query_params['order_by'] = 'type'
+
         queryset = queryset.filter(date_start__lte=today, date_end__gte=today).exclude(
             status='deactivate'
         ).order_by(order_by, 'created_at')
