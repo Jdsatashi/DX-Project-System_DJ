@@ -42,10 +42,10 @@ urlpatterns = [
     path('number-list/', event_number_list_views, name='api_event_number_views'),
     path('number-list/<pk>', event_number_list_details, name='api_event_number_details'),
 
-    path('reward/', reward_views, name='api_reward_views'),
-    path('reward/<pk>', reward_details, name='api_reward_details'),
+    path('award-number/', reward_views, name='api_reward_views'),
+    path('award-number/<pk>', reward_details, name='api_reward_details'),
 
-    path('award-number/', award_number_views, name='api_award_number_views'),
-    path('award-number/<pk>', award_number_details, name='api_award_number_details'),
+    path('reward/', award_number_views, name='api_award_number_views'),
+    path('reward/<pk>', award_number_details, name='api_award_number_details'),
     path('pick-number-logs/', ApiPickNumberLog.as_view({'get': 'list'}))
 ]
