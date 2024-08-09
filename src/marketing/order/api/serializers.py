@@ -1,5 +1,3 @@
-from datetime import datetime
-
 import pandas as pd
 from django.db import transaction
 from django.db.models import Sum
@@ -15,10 +13,8 @@ from app.logs import app_log
 from marketing.livestream.models import LiveStreamOfferRegister
 from marketing.order.models import Order, OrderDetail, SeasonalStatistic, SeasonalStatisticUser, \
     update_season_stats_users
-from marketing.pick_number.models import UserJoinEvent
 from marketing.price_list.models import ProductPrice, SpecialOfferProduct
 from marketing.sale_statistic.models import SaleStatistic, SaleTarget
-from user_system.client_profile.models import ClientProfile
 
 
 class OrderDetailSerializer(BaseRestrictSerializer):
@@ -349,13 +345,9 @@ class OrderSerializer(BaseRestrictSerializer):
                     user_sale_statistic.save()
             else:
                 print(f"- turnover: {total_price}")
-                print(f"Test 1: {user_sale_statistic.total_turnover}")
                 user_sale_statistic.total_turnover = user_sale_statistic.total_turnover - total_price
-                print(f"Test 2: {user_sale_statistic.total_turnover}")
                 user_sale_statistic.available_turnover = user_sale_statistic.total_turnover - user_sale_statistic.used_turnover
-                print(f"Test 3: {user_sale_statistic.total_turnover}")
                 user_sale_statistic.save()
-                print(f"Test 4: {user_sale_statistic.total_turnover}")
 
     def update_order_by(self):
         try:
@@ -593,4 +585,5 @@ class SeasonalStatisticSerializer(serializers.ModelSerializer):
         # Create all users stats on create list
         print("Im update here")
         SeasonalStatisticUser.objects.bulk_create(create_stats_users)
-        SeasonalStatisticUser.objects.bulk_update(update_stats_users, ['turn_per_point', 'turn_pick', 'redundant_point', 'total_point'])
+        SeasonalStatisticUser.objects.bulk_update(update_stats_users,
+                                                  ['turn_per_point', 'turn_pick', 'redundant_point', 'total_point'])
