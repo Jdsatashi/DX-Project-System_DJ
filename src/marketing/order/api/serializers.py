@@ -12,7 +12,7 @@ from account.models import PhoneNumber, User
 from app.logs import app_log
 from marketing.livestream.models import LiveStreamOfferRegister
 from marketing.order.models import Order, OrderDetail, SeasonalStatistic, SeasonalStatisticUser, \
-    update_season_stats_users
+    update_season_stats_users, create_or_get_sale_stats_user
 from marketing.price_list.models import ProductPrice, SpecialOfferProduct
 from marketing.sale_statistic.models import SaleStatistic, SaleTarget
 
@@ -101,7 +101,8 @@ class OrderSerializer(BaseRestrictSerializer):
             return order
         except Exception as e:
             app_log.error(f"Error when create order: {e}")
-            raise serializers.ValidationError({'message': 'unexpected error'})
+            raise e
+            # raise serializers.ValidationError({'message': 'unexpected error'})
 
     def update(self, instance, validated_data):
         # Split insert data
@@ -139,9 +140,10 @@ class OrderSerializer(BaseRestrictSerializer):
                         setattr(detail, attr, value)
                     detail.save()
                 else:
-                    prices, point = self.calculate_price_and_point(instance, product_id, quantity)
+                    prices, point, box = self.calculate_price_and_point(instance, product_id, quantity)
                     detail_data['product_price'] = prices
                     detail_data['point_get'] = point
+                    detail_data['order_box'] = float(box)
                     detail = OrderDetail(order_id=instance, **detail_data)
                     detail.save()
                     detail_id = detail.id
@@ -202,9 +204,9 @@ class OrderSerializer(BaseRestrictSerializer):
         # Get special offer
         special_offer = data.get('new_special_offer')
         # Get current SaleStatistic of user
-        today = timezone.now().date()
-        first_day_of_month = today.replace(day=1)
-        user_sale_statistic, _ = SaleStatistic.objects.get_or_create(user=user, month=first_day_of_month)
+        get_date = data.get('date_get')
+        first_day_of_month = get_date.replace(day=1)
+        user_sale_statistic = create_or_get_sale_stats_user(user=user, month=first_day_of_month)
         month_target = SaleTarget.objects.filter(month=first_day_of_month).first()
         is_consider = False
         # Validate Order if it was special_offer
@@ -277,17 +279,23 @@ class OrderSerializer(BaseRestrictSerializer):
             if order.new_special_offer:
                 product_price = SpecialOfferProduct.objects.get(special_offer=order.new_special_offer,
                                                                 product=product_id)
-                prices = float(product_price.price) * float(quantity) if product_price.price is not None else 0
-                point = (float(product_price.point) * (quantity / product_price.quantity_in_box)
-                         if product_price.point is not None else 0)
             else:
                 product_price = ProductPrice.objects.get(price_list=order.price_list_id, product=product_id)
-                prices = float(product_price.price) * float(quantity) if product_price.price is not None else 0
-                point = float(product_price.point) * (
-                        quantity / product_price.quantity_in_box) if product_price.point is not None else 0
+            prices, point, box = self.calculate_box_point(product_price, quantity)
         except (ProductPrice.DoesNotExist, SpecialOfferProduct.DoesNotExist):
             raise serializers.ValidationError({'message': 'sản phẩm không thuộc ưu đãi hoặc bảng giá'})
-        return prices, point
+        return prices, point, box
+
+    @staticmethod
+    def calculate_box_point(product_price, quantity):
+        prices = float(product_price.price) * float(quantity) if product_price.price is not None else 0
+        point = (float(product_price.point) * (quantity / product_price.quantity_in_box)
+                 if product_price.point is not None else 0)
+        try:
+            box = int(quantity) / int(product_price.quantity_in_box)
+        except ZeroDivisionError:
+            box = 0
+        return prices, point, box
 
     def calculate_total_price_and_point(self, order, order_details_data):
         details = []
@@ -295,12 +303,12 @@ class OrderSerializer(BaseRestrictSerializer):
             quantity = detail_data.get('order_quantity')
             product_id = detail_data.pop('product_id')
 
-            prices, point = self.calculate_price_and_point(order, product_id, quantity)
+            prices, point, box = self.calculate_price_and_point(order, product_id, quantity)
 
             # Add result calculate to detail_data
             detail_data['product_price'] = prices
             detail_data['point_get'] = point
-
+            detail_data['order_box'] = float(box)
             if order.is_so:
                 so_obj = SpecialOfferProduct.objects.get(special_offer=order.new_special_offer, product=product_id)
                 detail_data['price_list_so'] = so_obj.cashback
@@ -320,34 +328,34 @@ class OrderSerializer(BaseRestrictSerializer):
             # Calculate used turnover based on SaleTarget for the month of order.created_at
             order_month = order.date_get.replace(day=1)
             sale_target = SaleTarget.objects.filter(month=order_month).first()
+            sale_stats = create_or_get_sale_stats_user(user_sale_statistic.user, order_month)
+            # if not sale_target:
+            #     raise serializers.ValidationError({'message': f'không tìm thấy doanh số tháng {order_month}'})
+            # if status:
+                # if is_so:
+                #     target = order.new_special_offer.target
+                #     target = target if target != 0 else sale_target.month_target
+                #     app_log.info(f"TESTING TARGET: {target}")
+                #
+                #     used_turnover = sum(
+                #         detail.order_box * target
+                #         for detail in order.order_detail.all()
+                #     )
+                #     if order.new_special_offer.count_turnover:
+                #         user_sale_statistic.total_turnover += total_price
 
-            if not sale_target:
-                raise serializers.ValidationError({'message': f'không tìm thấy doanh số tháng {order_month}'})
-            if status:
-                if is_so:
-                    target = order.new_special_offer.target
-                    target = target if target != 0 else sale_target.month_target
-                    app_log.info(f"TESTING TARGET: {target}")
-
-                    used_turnover = sum(
-                        detail.order_box * target
-                        for detail in order.order_detail.all()
-                    )
-                    if order.new_special_offer.count_turnover:
-                        user_sale_statistic.total_turnover += total_price
-
-                    user_sale_statistic.used_turnover += used_turnover
-                    user_sale_statistic.available_turnover = user_sale_statistic.total_turnover - user_sale_statistic.used_turnover
-                    user_sale_statistic.save()
-                else:
-                    user_sale_statistic.total_turnover += total_price
-                    user_sale_statistic.available_turnover = user_sale_statistic.total_turnover - user_sale_statistic.used_turnover
-                    user_sale_statistic.save()
-            else:
-                print(f"- turnover: {total_price}")
-                user_sale_statistic.total_turnover = user_sale_statistic.total_turnover - total_price
-                user_sale_statistic.available_turnover = user_sale_statistic.total_turnover - user_sale_statistic.used_turnover
-                user_sale_statistic.save()
+                    # user_sale_statistic.used_turnover += used_turnover
+                    # user_sale_statistic.available_turnover = user_sale_statistic.total_turnover - user_sale_statistic.used_turnover
+                    # user_sale_statistic.save()
+                # else:
+                    # user_sale_statistic.total_turnover += total_price
+                    # user_sale_statistic.available_turnover = user_sale_statistic.total_turnover - user_sale_statistic.used_turnover
+                    # user_sale_statistic.save()
+            # else:
+                # print(f"- turnover: {total_price}")
+                # user_sale_statistic.total_turnover = user_sale_statistic.total_turnover - total_price
+                # user_sale_statistic.available_turnover = user_sale_statistic.total_turnover - user_sale_statistic.used_turnover
+                # user_sale_statistic.save()
 
     def update_order_by(self):
         try:

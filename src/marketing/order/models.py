@@ -1,13 +1,16 @@
-from datetime import datetime
+from datetime import datetime, timedelta, date
 
+from dateutil.relativedelta import relativedelta
 from django.db import models
-from django.db.models import Sum
+from django.db.models import Sum, FloatField, Q
+from django.db.models.functions import TruncMonth
+from django.utils.dateparse import parse_date
 from rest_framework.exceptions import ValidationError
 
 from account.models import User
 from marketing.price_list.models import ProductPrice, PriceList, SpecialOffer, SpecialOfferProduct
 from marketing.product.models import Product
-from marketing.sale_statistic.models import SaleStatistic
+from marketing.sale_statistic.models import SaleStatistic, SaleTarget
 from utils.helpers import local_time
 
 
@@ -58,8 +61,8 @@ class Order(models.Model):
         self.calculate_totals()
         super().save(*args, **kwargs)
 
-        if is_new:
-            update_sale_statistics_for_user(self.client_id)
+        # if is_new:
+        # update_sale_statistics_for_user(self.client_id)
 
     # def save(self, *args, **kwargs):
     #     is_new = self._state.adding
@@ -163,82 +166,161 @@ class OrderBackupDetail(models.Model):
     note = models.CharField(max_length=255, null=True)
 
 
+# def update_sale_statistics_for_user(user):
+#     # Trích xuất tháng và năm từ 'date_get', và gom nhóm các Order theo tháng.
+#     monthly_orders = Order.objects.filter(client_id=user).annotate(
+#         month=TruncMonth('date_get')
+#     ).values('month').annotate(
+#         total_turnover=Sum('order_price', output_field=FloatField())
+#     ).order_by('month')
+#     last_month = None
+#     is_first_loop = True
+#     for data in monthly_orders:
+#         month = data['month']
+#         total_turnover = data['total_turnover']
+#
+#         if is_first_loop:
+#             is_first_loop = False
+#             last_month = month - relativedelta(months=1)
+#
+#         try:
+#             last_sale_stats = SaleStatistic.objects.get(user=user, month=last_month)
+#             last_month_turnover = last_sale_stats.available_turnover
+#         except SaleStatistic.DoesNotExist:
+#             last_month_turnover = 0
+#         print(f"`{last_month}` turn over: {last_month_turnover}")
+#         sale_statistic = SaleStatistic.objects.filter(user=user, month=month)
+#         if not sale_statistic.exists():
+#             sale_statistic = SaleStatistic.objects.create(
+#                 user=user, month=month, total_turnover=total_turnover,
+#                 available_turnover=total_turnover, last_month_turnover=last_month_turnover
+#             )
+#         else:
+#             sale_statistic = sale_statistic.first()
+#             if sale_statistic.last_month_turnover <= 0:
+#                 sale_statistic.last_month_turnover = last_month_turnover
+#             sale_statistic.total_turnover = total_turnover - sale_statistic.minus_turnover + sale_statistic.bonus_turnover
+#             sale_statistic.available_turnover = sale_statistic.total_turnover - sale_statistic.used_turnover
+#             sale_statistic.save()
+#
+#         print(f"{month} | {sale_statistic}: {sale_statistic.available_turnover}")
+#         last_month = month
+
+
 def update_sale_statistics_for_user(user):
     # Lấy tất cả các Order của user
-    orders = Order.objects.filter(client_id=user).order_by('created_at')
+    orders = (Order.objects.filter(client_id=user)
+              .exclude(Q(Q(is_so=True) & Q(status='deactivate') &
+                         Q(Q(Q(id_so__isnull=False) &
+                             Q(id_offer_consider__isnull=False)) |
+                           Q(Q(new_special_offer__isnull=False) &
+                             Q(new_special_offer__count_turnover=True)))))
+              .order_by('date_get'))
 
     # Tạo dictionary để lưu trữ doanh số cho mỗi tháng
     monthly_sales = {}
-    bonus_turnover = 0
 
     for order in orders:
-        # Lấy tháng từ ngày tạo Order
-        order_month = order.created_at.date().replace(day=1)
+        order_month = order.date_get.replace(day=1)
 
-        # Khởi tạo giá trị doanh số nếu chưa có trong dictionary
         if order_month not in monthly_sales:
             monthly_sales[order_month] = 0
 
-        # Tính toán doanh số cho Order
-        # if order.new_special_offer and order.new_special_offer.count_turnover is not False:
-        #     monthly_sales[order_month] += order.order_price or 0
         if not order.new_special_offer:
             monthly_sales[order_month] += order.order_price or 0
 
+    last_month = None
+    is_first_loop = True
+
     for month, total_turnover in monthly_sales.items():
-        sale_statistic, created = SaleStatistic.objects.get_or_create(
-            user=user,
-            month=month,
-            defaults={
-                'total_turnover': total_turnover + bonus_turnover,
-                'available_turnover': total_turnover + bonus_turnover,
-            }
-        )
-        if not created:
-            # Nếu SaleStatistic đã tồn tại, cập nhật giá trị
-            SaleStatistic.objects.filter(pk=sale_statistic.pk).update(
-                total_turnover=total_turnover + bonus_turnover,
-                available_turnover=total_turnover + bonus_turnover - sale_statistic.used_turnover,
+        if is_first_loop:
+            is_first_loop = False
+            last_month = month - relativedelta(months=1)
+        print(f"Loop on month: {month} - {last_month} | Total: {total_turnover}")
+        try:
+            last_sale_stats = SaleStatistic.objects.get(user=user, month=last_month)
+            last_month_turnover = last_sale_stats.available_turnover
+        except SaleStatistic.DoesNotExist:
+            last_month_turnover = 0
+        print(f"`{last_month}` turn over: {last_month_turnover}")
+        sale_statistic = SaleStatistic.objects.filter(user=user, month=month)
+        if not sale_statistic.exists():
+            print(f"Create with las_month: {last_month_turnover}")
+            sale_statistic = SaleStatistic.objects.create(
+                user=user, month=month, total_turnover=total_turnover,
+                available_turnover=total_turnover, last_month_turnover=last_month_turnover
             )
+            print(f"After create: {sale_statistic.last_month_turnover}")
+        else:
+            print(f"Update with las_month: {last_month_turnover}")
+            sale_statistic = sale_statistic.first()
+            sale_statistic.last_month_turnover = last_month_turnover
+            sale_statistic.total_turnover = total_turnover - sale_statistic.minus_turnover + sale_statistic.bonus_turnover
+            sale_statistic.available_turnover = sale_statistic.total_turnover - sale_statistic.used_turnover
+            sale_statistic.save()
+            print(f"After update: {sale_statistic.last_month_turnover}")
+
+        print(f"{month} | {sale_statistic}: {sale_statistic.available_turnover} - {sale_statistic.last_month_turnover}")
+        last_month = month
 
 
-def update_all_sale_statistics_for_user_2(user):
-    # Lấy tất cả các Order của user
-    orders = Order.objects.filter(client_id=user).order_by('created_at')
+def create_or_get_sale_stats_user(user: User, month) -> SaleStatistic | None:
+    if isinstance(month, str):
+        month = parse_date(month)
+    if not isinstance(month, date) or month.day != 1:
+        raise ValidationError("Month must be the first day of the month in 'YYYY-MM-DD' format.")
+    next_month = month + relativedelta(months=1)
+    last_month = month - relativedelta(months=1)
 
-    # Tạo dictionary để lưu trữ doanh số cho mỗi tháng
-    monthly_sales = {}
+    orders = Order.objects.filter(client_id=user, date_get__range=(month, next_month - timedelta(days=1)))
+    orders_count = (orders
+                    .exclude(Q(Q(is_so=True) & Q(status='deactivate') &
+                               Q(Q(Q(id_so__isnull=False) &
+                                   Q(id_offer_consider__isnull=False)) |
+                                 Q(Q(new_special_offer__isnull=False) &
+                                   Q(new_special_offer__count_turnover=True)))))
+                    .order_by('date_get'))
+    orders_so = (orders.filter(Q(Q(is_so=True) & Q(new_special_offer__isnull=False))))
+    total_used = 0
+    sale_target, _ = SaleTarget.objects.get_or_create(month=month)
+    for order in orders_so:
+        result = OrderDetail.objects.filter(order_id=order).aggregate(total_order_box=Sum('order_box'))
+        total_order_box = result.get('total_order_box', 0) or 0
+        target = order.new_special_offer.target if order.new_special_offer.target > 0 else sale_target.month_target
+        total_used += total_order_box * target
+    if orders_count.exists():
+        total_turnover = OrderDetail.objects.filter(order_id__in=orders).aggregate(total_price=Sum('product_price'))[
+                             'total_price'] or 0
 
-    for order in orders:
-        # Lấy tháng từ ngày tạo Order
-        order_month = order.created_at.date().replace(day=1)
+        # try:
+        #     last_sale_stats = SaleStatistic.objects.get(user=user, month=last_month)
+        #     last_month_turnover = last_sale_stats.available_turnover
+        # except SaleStatistic.DoesNotExist:
+        #     last_month_turnover = 0
+        last_sale_stats = create_or_get_sale_stats_user(user, last_month)
+        if last_sale_stats is not None:
+            last_month_turnover = last_sale_stats.available_turnover
+        else:
+            last_month_turnover = 0
 
-        # Khởi tạo giá trị doanh số nếu chưa có trong dictionary
-        if order_month not in monthly_sales:
-            monthly_sales[order_month] = 0
-
-        # Tính toán doanh số cho Order
-        if order.new_special_offer and order.new_special_offer.count_turnover:
-            monthly_sales[order_month] += order.order_price or 0
-        elif not order.new_special_offer:
-            monthly_sales[order_month] += order.order_price or 0
-
-    # Cập nhật hoặc tạo mới SaleStatistic cho từng tháng
-    for month, total_turnover in monthly_sales.items():
-        sale_statistic, created = SaleStatistic.objects.get_or_create(
-            user=user,
-            month=month,
-            defaults={
-                'total_turnover': total_turnover,
-                'available_turnover': total_turnover,
-            }
-        )
-        if not created:
-            # Nếu SaleStatistic đã tồn tại, cập nhật giá trị
-            SaleStatistic.objects.filter(pk=sale_statistic.pk).update(
-                total_turnover=total_turnover,
-                available_turnover=total_turnover - sale_statistic.used_turnover,
+        sale_statistic = SaleStatistic.objects.filter(user=user, month=month)
+        if not sale_statistic.exists():
+            sale_statistic = SaleStatistic.objects.create(
+                user=user, month=month, total_turnover=total_turnover,
+                available_turnover=(total_turnover - total_used), last_month_turnover=last_month_turnover,
+                used_turnover=total_used
             )
+        else:
+            sale_statistic = sale_statistic.first()
+            if sale_statistic.last_month_turnover <= 0:
+                sale_statistic.last_month_turnover = last_month_turnover
+            sale_statistic.total_turnover = total_turnover - sale_statistic.minus_turnover + sale_statistic.bonus_turnover
+            sale_statistic.used_turnover = total_used
+            sale_statistic.available_turnover = sale_statistic.total_turnover - sale_statistic.used_turnover
+            sale_statistic.save()
+        return sale_statistic
+    else:
+        return None
 
 
 class SeasonalStatistic(models.Model):
@@ -273,13 +355,13 @@ class SeasonalStatisticUser(models.Model):
             # It's a new record
             if SeasonalStatisticUser.objects.filter(user=self.user, season_stats=self.season_stats).exists():
                 raise ValidationError({
-                                          'message': f'SeasonalStatisticUser with user {self.user} and season stats {self.season_stats} already exists.'})
+                    'message': f'SeasonalStatisticUser with user {self.user} and season stats {self.season_stats} already exists.'})
         else:
             # It's an update
             if SeasonalStatisticUser.objects.filter(user=self.user, season_stats=self.season_stats).exclude(
                     pk=self.pk).exists():
                 raise ValidationError({
-                                          'message': f'SeasonalStatisticUser with user {self.user} and season stats {self.season_stats} already exists in another record.'})
+                    'message': f'SeasonalStatisticUser with user {self.user} and season stats {self.season_stats} already exists in another record.'})
         super().save(*args, **kwargs)
 
 
@@ -289,10 +371,16 @@ def update_season_stats_users(season_stats_user: SeasonalStatisticUser):
     orders = Order.objects.filter(
         client_id=user, date_get__gte=season_stats.start_date, date_get__lte=season_stats.end_date)
     # Calculate total price and points from orders
-    order_totals = orders.aggregate(
-        total_price=Sum('order_price'),
-        total_points=Sum('order_point')
+    order_details = OrderDetail.objects.filter(order_id__in=orders)
+
+    # Tính tổng giá trị và điểm từ chi tiết đơn hàng
+    totals = order_details.aggregate(
+        total_price=Sum('product_price'),
+        total_points=Sum('point_get')
     )
+
+    total_price = totals.get('total_price', 0) or 0
+    total_point = totals.get('total_points', 0) or 0
     # Calculate total quantity, boxes, and cashback from all order details related to the filtered orders
     # order_detail_totals = OrderDetail.objects.filter(
     #     order_id__in=orders
@@ -301,15 +389,16 @@ def update_season_stats_users(season_stats_user: SeasonalStatisticUser):
     #     total_boxes=Sum('order_box'),
     #     total_cashback=Sum(F('order_quantity') * F('product_price'), output_field=models.FloatField())
     # )
-    total_point = order_totals.get('total_points', 0) or 0
     turn_per_point = season_stats_user.turn_per_point or 0
-    # try:
-    #     turn_pick = season_stats_user.turn_pick or total_point // turn_per_point
-    # except ZeroDivisionError:
-    #     turn_pick = 0
+    if season_stats_user.turn_pick == 0:
+        try:
+            turn_pick = season_stats_user.turn_pick or total_point // turn_per_point
+        except ZeroDivisionError:
+            turn_pick = 0
     turn_pick = season_stats_user.turn_pick or 0
     try:
-        redundant_point = total_point % (turn_per_point * turn_pick) if total_point > (turn_per_point * turn_pick) else 0
+        redundant_point = total_point % (turn_per_point * turn_pick) if total_point > (
+                turn_per_point * turn_pick) else 0
     except ZeroDivisionError:
         redundant_point = 0
 
