@@ -283,7 +283,7 @@ class OrderSerializer(BaseRestrictSerializer):
                                                                 product=product_id)
                 prices = float(product_price.price) * float(quantity) if product_price.price is not None else 0
                 point = (float(product_price.point) * (quantity / product_price.quantity_in_box)
-                         if product_price.point is not None and order.new_special_offer.count_turnover else 0)
+                         if product_price.point is not None else 0)
             else:
                 product_price = ProductPrice.objects.get(price_list=order.price_list_id, product=product_id)
                 prices = float(product_price.price) * float(quantity) if product_price.price is not None else 0
