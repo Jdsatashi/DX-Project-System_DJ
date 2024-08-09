@@ -1,6 +1,6 @@
 import pandas as pd
 from django.db import transaction
-from django.db.models import Sum
+from django.db.models import Sum, Q, Prefetch
 from django.utils import timezone
 from rest_framework import serializers
 from rest_framework.exceptions import ValidationError
@@ -13,6 +13,7 @@ from app.logs import app_log
 from marketing.livestream.models import LiveStreamOfferRegister
 from marketing.order.models import Order, OrderDetail, SeasonalStatistic, SeasonalStatisticUser, \
     update_season_stats_users, create_or_get_sale_stats_user
+from marketing.pick_number.models import UserJoinEvent
 from marketing.price_list.models import ProductPrice, SpecialOfferProduct
 from marketing.sale_statistic.models import SaleStatistic, SaleTarget
 from system_func.models import PeriodSeason, PointOfSeason
@@ -91,6 +92,7 @@ class OrderSerializer(BaseRestrictSerializer):
                     else:
                         self.update_sale_statistic(order, user_sale_statistic, order.order_price, is_so, True)
                     update_point(order.client_id)
+                    update_season_stats_user(order.client_id, order.date_get)
                     # Create perms
                     restrict = perm_data.get('restrict')
                     if restrict:
@@ -168,6 +170,7 @@ class OrderSerializer(BaseRestrictSerializer):
             else:
                 self.update_sale_statistic(instance, user_sale_statistic, instance.order_price, is_so, True)
             update_point(instance.client_id)
+            update_season_stats_user(instance.client_id, instance.date_get)
             restrict = perm_data.get('restrict')
             if restrict:
                 self.handle_restrict(perm_data, instance.id, self.Meta.model)
@@ -180,6 +183,7 @@ class OrderSerializer(BaseRestrictSerializer):
                 print(f"Deleting")
                 # Implement any custom logic before deletion here
                 user = instance.client_id
+                date_get = instance.date_get
                 month = instance.date_get.replace(day=1)
                 user_sale_statistic, _ = SaleStatistic.objects.get_or_create(user=user, month=month)
                 if instance.status == 'deactivate':
@@ -194,7 +198,7 @@ class OrderSerializer(BaseRestrictSerializer):
                 # Delete the order instance
                 instance.delete()
                 update_point(user)
-
+                update_season_stats_user(user, date_get)
         except Exception as e:
             app_log.error(f"Error when deleting order: {e}")
             raise serializers.ValidationError({'message': 'unexpected error during deletion'})
@@ -603,3 +607,53 @@ def update_point(user):
     point, _ = PointOfSeason.objects.get_or_create(user=user, period=period)
     point.auto_point()
     point.save()
+
+
+def update_season_stats_user2(user: User, date_get):
+    season_stats_user = SeasonalStatisticUser.objects.filter(
+        user=user, season_stats__type='point',
+        season_stats__start_date__lte=date_get,
+        season_stats__end_date__gte=date_get
+    )
+    if season_stats_user.exists():
+        update_stats_users = list()
+        number_events = season_stats_user.values_list('season_stats__event_number__id', flat=True).distinct()
+        user_join_events = UserJoinEvent.objects.filter(user=user, event__id__in=number_events)
+        print(f"Check user join event: {user_join_events}")
+        for stats_user in season_stats_user:
+            upd_stats_user = update_season_stats_users(stats_user)
+            update_stats_users.append(upd_stats_user)
+
+        SeasonalStatisticUser.objects.bulk_update(update_stats_users,
+                                                  ['turn_per_point', 'turn_pick', 'redundant_point', 'total_point'])
+        for user_join_event in user_join_events:
+            stats_user = season_stats_user.filter(season_stats__event_number__user_join_event=user_join_event).first()
+            user_join_event.turn_per_point = stats_user.turn_per_point
+            user_join_event.turn_pick = stats_user.turn_pick
+            user_join_event.total_point = stats_user.total_point
+            user_join_event.save()
+
+
+def update_season_stats_user(user: User, date_get):
+    season_stats_users = SeasonalStatisticUser.objects.filter(
+        user=user,
+        season_stats__type='point',
+        season_stats__start_date__lte=date_get,
+        season_stats__end_date__gte=date_get
+    )
+
+    if season_stats_users.exists():
+        update_stats_users = []
+
+        for stats_user in season_stats_users:
+            updated_stats_user = update_season_stats_users(stats_user)
+            update_stats_users.append(updated_stats_user)
+
+            user_join_events = UserJoinEvent.objects.filter(user=user, event__table_point=stats_user.season_stats)
+            for user_join_event in user_join_events:
+                user_join_event.turn_per_point = updated_stats_user.turn_per_point
+                user_join_event.turn_pick = updated_stats_user.turn_pick
+                user_join_event.total_point = updated_stats_user.total_point
+                user_join_event.save()
+
+        SeasonalStatisticUser.objects.bulk_update(update_stats_users, ['turn_per_point', 'turn_pick', 'redundant_point', 'total_point'])

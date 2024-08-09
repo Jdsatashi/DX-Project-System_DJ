@@ -368,8 +368,9 @@ class SeasonalStatisticUser(models.Model):
 def update_season_stats_users(season_stats_user: SeasonalStatisticUser):
     season_stats = season_stats_user.season_stats
     user = season_stats_user.user
-    orders = Order.objects.filter(
+    orders = (Order.objects.filter(
         client_id=user, date_get__gte=season_stats.start_date, date_get__lte=season_stats.end_date)
+              .exclude(status='deactivate'))
     # Calculate total price and points from orders
     order_details = OrderDetail.objects.filter(order_id__in=orders)
 
@@ -390,19 +391,28 @@ def update_season_stats_users(season_stats_user: SeasonalStatisticUser):
     #     total_cashback=Sum(F('order_quantity') * F('product_price'), output_field=models.FloatField())
     # )
     turn_per_point = season_stats_user.turn_per_point or 0
-    if season_stats_user.turn_pick == 0:
-        try:
-            turn_pick = season_stats_user.turn_pick or total_point // turn_per_point
-        except ZeroDivisionError:
-            turn_pick = 0
-    turn_pick = season_stats_user.turn_pick or 0
+
     try:
-        redundant_point = total_point % (turn_per_point * turn_pick) if total_point > (
-                turn_per_point * turn_pick) else 0
+        turn_pick = season_stats_user.turn_pick or total_point // turn_per_point
     except ZeroDivisionError:
+        turn_pick = None
+    if turn_pick:
+        pickable = total_point // turn_per_point
+        if not pickable + 1 > turn_pick > pickable - 1:
+            turn_pick = pickable
+
+    # turn_pick = season_stats_user.turn_pick or 0
+    season_stats_user.turn_pick = turn_pick
+    if season_stats_user.turn_pick:
+        try:
+            redundant_point = total_point % (turn_per_point * turn_pick) if total_point > (
+                    turn_per_point * turn_pick) else 0
+        except ZeroDivisionError:
+            redundant_point = 0
+    else:
         redundant_point = 0
 
-    season_stats_user.total_point = total_point
+    season_stats_user.total_point = round(total_point, 5)
     # season_stats_user.turn_pick = turn_pick
     season_stats_user.redundant_point = redundant_point
     return season_stats_user

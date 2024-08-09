@@ -1,9 +1,8 @@
-from django.db.models.signals import post_save, pre_delete, m2m_changed
+from django.db.models.signals import pre_delete
 from django.dispatch import receiver
 
 from app.logs import app_log
-from marketing.order.models import Order, SeasonalStatistic, SeasonalStatisticUser
-from marketing.pick_number.models import EventNumber, UserJoinEvent, calculate_point_query, NumberSelected
+from marketing.pick_number.models import UserJoinEvent, NumberSelected
 
 """
 @receiver(post_save, sender=Order)

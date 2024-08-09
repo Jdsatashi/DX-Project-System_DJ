@@ -13,7 +13,7 @@ from account.models import User, PhoneNumber
 from app.logs import app_log
 from app.settings import pusher_client
 from marketing.order.models import SeasonalStatisticUser
-from marketing.pick_number.models import UserJoinEvent, NumberList, EventNumber, NumberSelected, calculate_point_query, \
+from marketing.pick_number.models import UserJoinEvent, NumberList, EventNumber, NumberSelected, \
     PrizeEvent, AwardNumber, PickNumberLog
 from utils.constants import perm_actions
 
