@@ -63,7 +63,7 @@ class GenericApiPriceList(viewsets.GenericViewSet, mixins.ListModelMixin, mixins
             queryset = perm_queryset(self, user)
         queryset = queryset.filter(date_start__lte=today, date_end__gte=today).exclude(
             status='deactivate'
-        ).order_by('-type', 'created_at')
+        ).order_by('type', 'created_at')
         response = filter_data(self, request, ['id', 'name', 'date_start', 'date_end'], queryset=queryset,
                                **kwargs)
         return Response(response)
