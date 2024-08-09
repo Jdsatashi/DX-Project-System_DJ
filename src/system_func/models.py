@@ -47,7 +47,8 @@ class PointOfSeason(models.Model):
         start_date = current_period.from_date
         end_date = datetime.combine(current_period.to_date, time(23, 59, 59))
 
-        user_orders = Order.objects.filter(client_id=self.user, date_get__range=(start_date, end_date))
+        user_orders = (Order.objects.filter(client_id=self.user, date_get__range=(start_date, end_date))
+                       .exclude(status='deactivate'))
 
         order_details = OrderDetail.objects.filter(order_id__in=user_orders)
 

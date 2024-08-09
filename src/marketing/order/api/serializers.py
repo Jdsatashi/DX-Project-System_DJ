@@ -15,6 +15,7 @@ from marketing.order.models import Order, OrderDetail, SeasonalStatistic, Season
     update_season_stats_users, create_or_get_sale_stats_user
 from marketing.price_list.models import ProductPrice, SpecialOfferProduct
 from marketing.sale_statistic.models import SaleStatistic, SaleTarget
+from system_func.models import PeriodSeason, PointOfSeason
 
 
 class OrderDetailSerializer(BaseRestrictSerializer):
@@ -89,7 +90,7 @@ class OrderSerializer(BaseRestrictSerializer):
                         self.update_sale_statistic(order, user_sale_statistic, order.order_price, is_so, False)
                     else:
                         self.update_sale_statistic(order, user_sale_statistic, order.order_price, is_so, True)
-
+                    update_point(order.client_id)
                     # Create perms
                     restrict = perm_data.get('restrict')
                     if restrict:
@@ -104,7 +105,7 @@ class OrderSerializer(BaseRestrictSerializer):
             raise e
             # raise serializers.ValidationError({'message': 'unexpected error'})
 
-    def update(self, instance, validated_data):
+    def update(self, instance: Order, validated_data):
         # Split insert data
         data, perm_data = self.split_data(validated_data)
         # Get order detail data
@@ -166,7 +167,7 @@ class OrderSerializer(BaseRestrictSerializer):
                 self.update_sale_statistic(instance, user_sale_statistic, instance.order_price, is_so, False)
             else:
                 self.update_sale_statistic(instance, user_sale_statistic, instance.order_price, is_so, True)
-
+            update_point(instance.client_id)
             restrict = perm_data.get('restrict')
             if restrict:
                 self.handle_restrict(perm_data, instance.id, self.Meta.model)
@@ -190,9 +191,9 @@ class OrderSerializer(BaseRestrictSerializer):
                                                False)
                 # Delete related order details
                 OrderDetail.objects.filter(order_id=instance).delete()
-
                 # Delete the order instance
                 instance.delete()
+                update_point(user)
 
         except Exception as e:
             app_log.error(f"Error when deleting order: {e}")
@@ -332,30 +333,30 @@ class OrderSerializer(BaseRestrictSerializer):
             # if not sale_target:
             #     raise serializers.ValidationError({'message': f'không tìm thấy doanh số tháng {order_month}'})
             # if status:
-                # if is_so:
-                #     target = order.new_special_offer.target
-                #     target = target if target != 0 else sale_target.month_target
-                #     app_log.info(f"TESTING TARGET: {target}")
-                #
-                #     used_turnover = sum(
-                #         detail.order_box * target
-                #         for detail in order.order_detail.all()
-                #     )
-                #     if order.new_special_offer.count_turnover:
-                #         user_sale_statistic.total_turnover += total_price
+            # if is_so:
+            #     target = order.new_special_offer.target
+            #     target = target if target != 0 else sale_target.month_target
+            #     app_log.info(f"TESTING TARGET: {target}")
+            #
+            #     used_turnover = sum(
+            #         detail.order_box * target
+            #         for detail in order.order_detail.all()
+            #     )
+            #     if order.new_special_offer.count_turnover:
+            #         user_sale_statistic.total_turnover += total_price
 
-                    # user_sale_statistic.used_turnover += used_turnover
-                    # user_sale_statistic.available_turnover = user_sale_statistic.total_turnover - user_sale_statistic.used_turnover
-                    # user_sale_statistic.save()
-                # else:
-                    # user_sale_statistic.total_turnover += total_price
-                    # user_sale_statistic.available_turnover = user_sale_statistic.total_turnover - user_sale_statistic.used_turnover
-                    # user_sale_statistic.save()
+            # user_sale_statistic.used_turnover += used_turnover
+            # user_sale_statistic.available_turnover = user_sale_statistic.total_turnover - user_sale_statistic.used_turnover
+            # user_sale_statistic.save()
             # else:
-                # print(f"- turnover: {total_price}")
-                # user_sale_statistic.total_turnover = user_sale_statistic.total_turnover - total_price
-                # user_sale_statistic.available_turnover = user_sale_statistic.total_turnover - user_sale_statistic.used_turnover
-                # user_sale_statistic.save()
+            # user_sale_statistic.total_turnover += total_price
+            # user_sale_statistic.available_turnover = user_sale_statistic.total_turnover - user_sale_statistic.used_turnover
+            # user_sale_statistic.save()
+            # else:
+            # print(f"- turnover: {total_price}")
+            # user_sale_statistic.total_turnover = user_sale_statistic.total_turnover - total_price
+            # user_sale_statistic.available_turnover = user_sale_statistic.total_turnover - user_sale_statistic.used_turnover
+            # user_sale_statistic.save()
 
     def update_order_by(self):
         try:
@@ -595,3 +596,10 @@ class SeasonalStatisticSerializer(serializers.ModelSerializer):
         SeasonalStatisticUser.objects.bulk_create(create_stats_users)
         SeasonalStatisticUser.objects.bulk_update(update_stats_users,
                                                   ['turn_per_point', 'turn_pick', 'redundant_point', 'total_point'])
+
+
+def update_point(user):
+    period = PeriodSeason.objects.filter(type='point', period='current').first()
+    point, _ = PointOfSeason.objects.get_or_create(user=user, period=period)
+    point.auto_point()
+    point.save()
