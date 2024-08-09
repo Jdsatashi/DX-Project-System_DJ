@@ -106,10 +106,10 @@ class ValidatePermRest(permissions.BasePermission):
         print(f"{required_permission}")
         user_has_perm = user.is_perm(required_permission)
         if user_has_perm:
-            # if not user.is_allow(required_permission):
-            #     return False
             if user.is_allow(required_permission):
                 return True
+            else:
+                return False
         # Get user groups has permission
         is_valid = user.is_group_allow(required_permission)
         print(f"Test valid: {is_valid}")
@@ -147,10 +147,10 @@ class ValidatePermRest(permissions.BasePermission):
         if perm is not None:
             user_has_perm = user.is_perm(required_permission)
             if user_has_perm:
-                # if not user.is_allow(required_permission):
-                #     return False
                 if user.is_allow(required_permission):
                     return True
+                else:
+                    return False
             # Get user groups has permission
             is_valid = user.is_group_allow(required_permission)
             print(f"Test valid: {is_valid}")
