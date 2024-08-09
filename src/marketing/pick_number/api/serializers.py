@@ -155,7 +155,7 @@ class UserJoinEventNumberSerializer(serializers.ModelSerializer):
             else:
                 return Response({'message': f'Tem số {number_picked} đã hết'}, status=400)
         data = {'number': number_picked, 'action': _type}
-        self.add_action_log(instance.event, data)
+        self.add_action_log(instance.event, data, instance.user)
         start_time_2 = time.time()
         pus_data = {'type': _type, 'number': int(number_picked), 'event_id': instance.event.id}
         try:
@@ -182,15 +182,10 @@ class UserJoinEventNumberSerializer(serializers.ModelSerializer):
 
         return instance
 
-    def add_action_log(self, event, data):
+    def add_action_log(self, event, data, user):
         print(f"Test log data: {data}")
         request = self.context.get('request')
 
-        try:
-            user = request.user
-        except Exception as e:
-            raise ValidationError(e)
-        print(f"Get user: {user}")
         try:
             auth_header = request.headers.get('Authorization')
             if auth_header and auth_header.startswith('Bearer '):
@@ -213,6 +208,7 @@ class UserJoinEventNumberSerializer(serializers.ModelSerializer):
         else:
             pick_log = PickNumberLog.objects.create(user=user, phone=phone, event=event, **data)
         print(f"Pick log: {pick_log}")
+
 
 # serializers.py
 
