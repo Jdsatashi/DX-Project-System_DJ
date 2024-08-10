@@ -109,24 +109,27 @@ class User(AbstractBaseUser, PermissionsMixin):
         self.clean()
         super().save(*args, **kwargs)
 
+    def create_profile(self):
         match self.user_type:
             case 'employee':
                 EmployeeProfile = apps.get_model('employee_profile', 'EmployeeProfile')
                 profile = EmployeeProfile.objects.filter(employee_id=self).first()
                 if not profile:
-                    EmployeeProfile.objects.create(employee_id=self)
+                    profile = EmployeeProfile.objects.create(employee_id=self)
                 group_perm = GroupPerm.objects.filter(name='employee').first()
                 self.group_user.add(group_perm, through_defaults={'allow': True})
+                return profile
             case 'client':
                 ClientProfile = apps.get_model('client_profile', 'ClientProfile')
                 ClientGroup = apps.get_model('client_profile', 'ClientGroup')
                 new_client, _ = ClientGroup.objects.get_or_create(name='Khách hàng chưa xếp loại')
                 profile = ClientProfile.objects.filter(client_id=self).first()
                 if not profile:
-                    ClientProfile.objects.create(client_id=self, client_group_id=new_client,
+                    profile = ClientProfile.objects.create(client_id=self, client_group_id=new_client,
                                                  register_name=f"Khách hàng {self.id}")
                 group_perm = GroupPerm.objects.filter(name='client').first()
                 self.group_user.add(group_perm, through_defaults={'allow': True})
+                return profile
             # case 'farmer':
             case _:
                 ClientProfile = apps.get_model('client_profile', 'ClientProfile')
@@ -134,10 +137,11 @@ class User(AbstractBaseUser, PermissionsMixin):
                 farmer_group = ClientGroup.objects.filter(id=maNhomND).first()
                 profile = ClientProfile.objects.filter(client_id=self).first()
                 if not profile:
-                    ClientProfile.objects.create(client_id=self, client_group_id=farmer_group,
+                    profile = ClientProfile.objects.create(client_id=self, client_group_id=farmer_group,
                                                  register_name=f"Nông dân {self.id}")
                 group_perm = GroupPerm.objects.filter(name='farmer').first()
                 self.group_user.add(group_perm, through_defaults={'allow': True})
+                return profile
 
     def status_user(self, status):
         allow = True

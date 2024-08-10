@@ -4,13 +4,15 @@ from rest_framework import viewsets, mixins, status
 from rest_framework.authentication import BasicAuthentication, SessionAuthentication
 from rest_framework.exceptions import ValidationError
 from rest_framework.response import Response
+from rest_framework.views import APIView
 from rest_framework_simplejwt.authentication import JWTAuthentication
 
 from account.handlers.perms import perm_queryset
 from account.handlers.validate_perm import ValidatePermRest
 from account.models import User
 from marketing.pick_number.api.serializers import UserJoinEventSerializer, EventNumberSerializer, NumberListSerializer, \
-    UserJoinEventNumberSerializer, AwardNumberSerializer, PrizeEventSerializer, PickNumberLogSerializer
+    UserJoinEventNumberSerializer, AwardNumberSerializer, PrizeEventSerializer, PickNumberLogSerializer, \
+    AwardUserSerializer
 from marketing.pick_number.models import UserJoinEvent, EventNumber, NumberList, PrizeEvent, AwardNumber, PickNumberLog
 from utils.model_filter_paginate import filter_data
 
@@ -131,5 +133,25 @@ class ApiPickNumberLog(viewsets.GenericViewSet, mixins.ListModelMixin):
         response = filter_data(self, request, ['event__name', 'event__id', 'user__id',
                                                'user__username', 'user__clientprofile__register_name', 'action'
                                                'phone__phone_number'],
+                               **kwargs)
+        return Response(response, status.HTTP_200_OK)
+
+
+class ApiExportEventNumber(APIView):
+    def get(self, request):
+        event_id = request.query_params.get('event_id', None)
+        user_id = request.query_params.get('user_id', None)
+
+
+class ApiUserAward(viewsets.GenericViewSet, mixins.ListModelMixin):
+    serializer_class = AwardUserSerializer
+    queryset = AwardNumber.objects.all()
+
+    authentication_classes = [JWTAuthentication, BasicAuthentication, SessionAuthentication]
+
+    permission_classes = [partial(ValidatePermRest, model=PickNumberLog)]
+
+    def list(self, request, *args, **kwargs):
+        response = filter_data(self, request, ['number', 'prize__prize_name', 'prize__event__id', 'prize__event__name'],
                                **kwargs)
         return Response(response, status.HTTP_200_OK)

@@ -147,13 +147,13 @@ class UserJoinEventNumberSerializer(serializers.ModelSerializer):
             _type = 'pick'
             number_list = NumberList.objects.filter(number=number_picked, event=instance.event).first()
             if not number_list:
-                return Response({'message': 'Số cung cấp không hợp lệ'}, status=400)
+                raise ValidationError({'message': 'Số cung cấp không hợp lệ'})
             if number_list.repeat_count > 0:
                 NumberSelected.objects.create(user_event=instance, number=number_list)
                 number_list.repeat_count -= 1
                 number_list.save()
             else:
-                return Response({'message': f'Tem số {number_picked} đã hết'}, status=400)
+                raise ValidationError({'message': f'Tem số {number_picked} đã hết'})
         data = {'number': number_picked, 'action': _type}
         self.add_action_log(instance.event, data, instance.user)
         start_time_2 = time.time()
@@ -217,6 +217,69 @@ class AwardNumberSerializer(BaseRestrictSerializer):
         model = AwardNumber
         fields = '__all__'
 
+
+class UserDetailSerializer(serializers.ModelSerializer):
+    register_name = serializers.SerializerMethodField()
+    address = serializers.SerializerMethodField()
+    nvtt = serializers.SerializerMethodField()
+
+    class Meta:
+        model = User
+        fields = ('id', 'register_name', 'address', 'nvtt')
+
+    def get_nvtt(self, obj):
+        nvtt_id = obj.clientprofile.nvtt_id
+        if nvtt_id:
+            nvtt = User.objects.filter(id=nvtt_id).first()
+            if nvtt:
+                return {
+                    "id": nvtt.id,
+                    "name": nvtt.employeeprofile.register_name
+                }
+        return None
+
+    def get_register_name(self, obj: User):
+        if obj.user_type != 'employee':
+            return obj.clientprofile.register_name
+        return None
+
+    def get_address(self, obj: User):
+        if obj.user_type != 'employee':
+            return obj.clientprofile.address
+        return None
+
+
+class PrizeEventReadSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = PrizeEvent
+        fields = ('id', 'prize_name', 'reward_value')
+
+
+class AwardUserSerializer(serializers.ModelSerializer):
+    event = serializers.SerializerMethodField()
+    prize = PrizeEventReadSerializer(read_only=True)
+    award_users = serializers.SerializerMethodField()
+
+    class Meta:
+        model = AwardNumber
+        fields = '__all__'
+
+    def get_award_users(self, obj: AwardNumber):
+        number_award = obj.number
+        # user_selected_number = NumberSelected.objects.filter(
+        #     number__number=number_award, user_event__event=obj.prize.event)
+        user_selected_number = UserJoinEvent.objects.filter(number_selected__number__number=number_award, event=obj.prize.event).select_related('user').values_list('user__id', flat=True)
+
+        users = User.objects.filter(id__in=user_selected_number)
+        print(f"Test user selected: {users}")
+        return UserDetailSerializer(users, many=True).data
+
+    def get_event(self, obj: AwardNumber):
+        event = obj.prize.event
+        return {
+            'id': event.id,
+            'name': event.name
+        }
 
 class PrizeEventSerializer(serializers.ModelSerializer):
     award_number = serializers.ListField(child=serializers.IntegerField(), allow_null=True, write_only=True,
