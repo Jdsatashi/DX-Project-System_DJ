@@ -257,18 +257,43 @@ class PrizeEventReadSerializer(serializers.ModelSerializer):
 
 class AwardUserSerializer(serializers.ModelSerializer):
     event = serializers.SerializerMethodField()
-    prize = PrizeEventReadSerializer(read_only=True)
-    award_users = serializers.SerializerMethodField()
+    reward = PrizeEventReadSerializer(source='prize', read_only=True)
+
+    # award_users = serializers.SerializerMethodField()
 
     class Meta:
         model = AwardNumber
         fields = '__all__'
 
-    def get_award_users(self, obj: AwardNumber):
+    def to_representation(self, instance):
+        ret = super().to_representation(instance)
+        request = self.context.get('request')
+        if (request and request.method == 'GET'
+                and hasattr(request, 'resolver_match')
+                and request.resolver_match.kwargs.get('pk')):
+            number_award = instance.number
+            user_selected_number = (UserJoinEvent.objects.filter(
+                number_selected__number__number=number_award, event=instance.prize.event)
+                                    .select_related('user').values_list('user__id', flat=True))
+
+            users = User.objects.filter(id__in=user_selected_number)
+            ret['award_users'] = UserDetailSerializer(users, many=True).data
+        # else:
+        #     number_award = instance.number
+        #     user_selected_number = (UserJoinEvent.objects.filter(
+        #         number_selected__number__number=number_award, event=instance.prize.event)
+        #                             .select_related('user').values_list('user__id', flat=True))
+        #
+        #     ret['award_users'] = user_selected_number
+        return ret
+
+    def get_award_users2(self, obj: AwardNumber):
         number_award = obj.number
         # user_selected_number = NumberSelected.objects.filter(
         #     number__number=number_award, user_event__event=obj.prize.event)
-        user_selected_number = UserJoinEvent.objects.filter(number_selected__number__number=number_award, event=obj.prize.event).select_related('user').values_list('user__id', flat=True)
+        user_selected_number = UserJoinEvent.objects.filter(number_selected__number__number=number_award,
+                                                            event=obj.prize.event).select_related('user').values_list(
+            'user__id', flat=True)
 
         users = User.objects.filter(id__in=user_selected_number)
         print(f"Test user selected: {users}")
@@ -280,6 +305,7 @@ class AwardUserSerializer(serializers.ModelSerializer):
             'id': event.id,
             'name': event.name
         }
+
 
 class PrizeEventSerializer(serializers.ModelSerializer):
     award_number = serializers.ListField(child=serializers.IntegerField(), allow_null=True, write_only=True,

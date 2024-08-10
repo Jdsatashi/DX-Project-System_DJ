@@ -93,7 +93,7 @@ class ApiPickNumber(viewsets.GenericViewSet, mixins.RetrieveModelMixin, mixins.U
 
 class ApiAwardNumber(viewsets.GenericViewSet, mixins.ListModelMixin, mixins.CreateModelMixin,
                      mixins.RetrieveModelMixin, mixins.UpdateModelMixin, mixins.DestroyModelMixin):
-    serializer_class = AwardNumberSerializer
+    serializer_class = AwardUserSerializer
     queryset = AwardNumber.objects.all()
 
     authentication_classes = [JWTAuthentication, BasicAuthentication, SessionAuthentication]
@@ -152,6 +152,6 @@ class ApiUserAward(viewsets.GenericViewSet, mixins.ListModelMixin):
     permission_classes = [partial(ValidatePermRest, model=PickNumberLog)]
 
     def list(self, request, *args, **kwargs):
-        response = filter_data(self, request, ['number', 'prize__prize_name', 'prize__event__id', 'prize__event__name'],
+        response = filter_data(self, request, ['number'],
                                **kwargs)
         return Response(response, status.HTTP_200_OK)
