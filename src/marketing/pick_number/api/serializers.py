@@ -268,23 +268,24 @@ class AwardUserSerializer(serializers.ModelSerializer):
     def to_representation(self, instance):
         ret = super().to_representation(instance)
         request = self.context.get('request')
+        number_award = instance.number
+        user_selected_number = (UserJoinEvent.objects.filter(
+            number_selected__number__number=number_award, event=instance.prize.event)
+                                .select_related('user').values_list('user__id', flat=True))
+
         if (request and request.method == 'GET'
                 and hasattr(request, 'resolver_match')
                 and request.resolver_match.kwargs.get('pk')):
+
+            users = User.objects.filter(id__in=user_selected_number)
+            ret['award_users'] = UserDetailSerializer(users, many=True).data
+        else:
             number_award = instance.number
             user_selected_number = (UserJoinEvent.objects.filter(
                 number_selected__number__number=number_award, event=instance.prize.event)
                                     .select_related('user').values_list('user__id', flat=True))
 
-            users = User.objects.filter(id__in=user_selected_number)
-            ret['award_users'] = UserDetailSerializer(users, many=True).data
-        # else:
-        #     number_award = instance.number
-        #     user_selected_number = (UserJoinEvent.objects.filter(
-        #         number_selected__number__number=number_award, event=instance.prize.event)
-        #                             .select_related('user').values_list('user__id', flat=True))
-        #
-        #     ret['award_users'] = user_selected_number
+            ret['award_users_number'] = user_selected_number.count()
         return ret
 
     def get_award_users2(self, obj: AwardNumber):
