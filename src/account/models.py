@@ -108,6 +108,7 @@ class User(AbstractBaseUser, PermissionsMixin):
 
         self.clean()
         super().save(*args, **kwargs)
+        self.create_profile()
 
     def create_profile(self):
         match self.user_type:
@@ -126,7 +127,7 @@ class User(AbstractBaseUser, PermissionsMixin):
                 profile = ClientProfile.objects.filter(client_id=self).first()
                 if not profile:
                     profile = ClientProfile.objects.create(client_id=self, client_group_id=new_client,
-                                                 register_name=f"Khách hàng {self.id}")
+                                                           register_name=f"Khách hàng {self.id}")
                 group_perm = GroupPerm.objects.filter(name='client').first()
                 self.group_user.add(group_perm, through_defaults={'allow': True})
                 return profile
@@ -138,7 +139,7 @@ class User(AbstractBaseUser, PermissionsMixin):
                 profile = ClientProfile.objects.filter(client_id=self).first()
                 if not profile:
                     profile = ClientProfile.objects.create(client_id=self, client_group_id=farmer_group,
-                                                 register_name=f"Nông dân {self.id}")
+                                                           register_name=f"Nông dân {self.id}")
                 group_perm = GroupPerm.objects.filter(name='farmer').first()
                 self.group_user.add(group_perm, through_defaults={'allow': True})
                 return profile
