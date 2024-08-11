@@ -14,7 +14,7 @@ from marketing.livestream.models import LiveStreamOfferRegister
 from marketing.order.models import Order, OrderDetail, SeasonalStatistic, SeasonalStatisticUser, \
     update_season_stats_users, create_or_get_sale_stats_user
 from marketing.pick_number.models import UserJoinEvent
-from marketing.price_list.models import ProductPrice, SpecialOfferProduct
+from marketing.price_list.models import ProductPrice, SpecialOfferProduct, SpecialOffer
 from marketing.sale_statistic.models import SaleStatistic, SaleTarget
 from system_func.models import PeriodSeason, PointOfSeason
 
@@ -82,8 +82,9 @@ class OrderSerializer(BaseRestrictSerializer):
 
                     # Deactivate when user used
                     if is_consider:
-                        special_offer = data.get('new_special_offer')
+                        special_offer: SpecialOffer = data.get('new_special_offer')
                         special_offer.status = 'deactivate'
+                        special_offer.used = True
                         special_offer.save()
 
                     app_log.info(f"Testing user sale statistic: {user_sale_statistic}")
@@ -207,7 +208,7 @@ class OrderSerializer(BaseRestrictSerializer):
         # Get user and phone from token
         user = data.get('client_id')
         # Get special offer
-        special_offer = data.get('new_special_offer')
+        special_offer: SpecialOffer = data.get('new_special_offer')
         # Get current SaleStatistic of user
         get_date = data.get('date_get')
         first_day_of_month = get_date.replace(day=1)
@@ -217,7 +218,8 @@ class OrderSerializer(BaseRestrictSerializer):
         # Validate Order if it was special_offer
         if special_offer:
             # Validate permission
-            self.validate_so_perm(special_offer, user)
+            if not special_offer.for_nvtt:
+                self.validate_so_perm(special_offer, user)
             # Get phone of user
             phones = PhoneNumber.objects.filter(user=user)
             # Check if SpecialOffer of livestream
@@ -384,39 +386,12 @@ class OrderSerializer(BaseRestrictSerializer):
         ValidatePermRest(special_offer, user_obj)
 
 
-# class ProductStatisticsSerializer(serializers.Serializer):
-#     product_id = serializers.CharField()
-#     total_quantity = serializers.IntegerField()
-#     total_point = serializers.FloatField()
-#     total_price = serializers.IntegerField()
-
 class ProductStatisticsSerializer(serializers.Serializer):
     product_id = serializers.CharField()
     product_name = serializers.CharField()
     current = serializers.DictField(required=False)
     one_year_ago = serializers.DictField(required=False)
     total_cashback = serializers.IntegerField(required=False)
-
-
-class Order3Serializer(serializers.Serializer):
-    id = serializers.CharField()
-    date_get = serializers.DateField()
-    date_company_get = serializers.DateTimeField()
-    date_delay = serializers.IntegerField()
-    id_offer_consider = serializers.CharField
-    order_point = serializers.FloatField()
-    order_price = serializers.FloatField()
-    note = serializers.CharField()
-    created_at = serializers.DateTimeField
-
-
-class OrderDetail3Serializer(serializers.Serializer):
-    product_id = serializers.CharField()
-    order_quantity = serializers.FloatField()
-    order_box = serializers.FloatField()
-    product_price = serializers.IntegerField()
-    point_get = serializers.FloatField()
-    note = serializers.CharField()
 
 
 class SeasonStatsUserPointSerializer(serializers.ModelSerializer):
@@ -656,4 +631,5 @@ def update_season_stats_user(user: User, date_get):
                 user_join_event.total_point = updated_stats_user.total_point
                 user_join_event.save()
 
-        SeasonalStatisticUser.objects.bulk_update(update_stats_users, ['turn_per_point', 'turn_pick', 'redundant_point', 'total_point'])
+        SeasonalStatisticUser.objects.bulk_update(update_stats_users,
+                                                  ['turn_per_point', 'turn_pick', 'redundant_point', 'total_point'])

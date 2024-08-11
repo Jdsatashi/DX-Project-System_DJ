@@ -20,6 +20,10 @@ class BaseRestrictSerializer(serializers.ModelSerializer):
     restrict_nhom = serializers.ListField(child=serializers.CharField(), required=False, write_only=True)
     allow_users = serializers.ListField(child=serializers.CharField(), required=False, write_only=True)
     restrict_users = serializers.ListField(child=serializers.CharField(), required=False, write_only=True)
+    hide_users = serializers.ListField(child=serializers.CharField(), required=False, write_only=True)
+    hide_groups = serializers.ListField(child=serializers.CharField(), required=False, write_only=True)
+    read_only_users = serializers.ListField(child=serializers.CharField(), required=False, write_only=True)
+    read_only_groups = serializers.ListField(child=serializers.CharField(), required=False, write_only=True)
 
     def create(self, validated_data):
         data, quyen_data = self.split_data(validated_data)
@@ -46,6 +50,10 @@ class BaseRestrictSerializer(serializers.ModelSerializer):
         restrict_nhom = data.pop('restrict_nhom', [])
         allow_users = data.pop('allow_users', [])
         restrict_users = data.pop('restrict_users', [])
+        hide_users = data.pop('hide_users', [])
+        hide_groups = data.pop('hide_groups', [])
+        read_only_users = data.pop('read_only_users', [])
+        read_only_groups = data.pop('read_only_groups', [])
         # Add un-use fields for Model to Create perm
         perm_data = {
             "restrict": restrict,
@@ -54,6 +62,10 @@ class BaseRestrictSerializer(serializers.ModelSerializer):
             "restrict_nhom": restrict_nhom,
             "allow_users": allow_users,
             "restrict_users": restrict_users,
+            "hide_users": hide_users,
+            "hide_groups": hide_groups,
+            "read_only_users": read_only_users,
+            "read_only_groups": read_only_groups,
         }
         return data, perm_data
 
@@ -68,10 +80,13 @@ class BaseRestrictSerializer(serializers.ModelSerializer):
         existed_user_restrict = list_user_has_perm(list_perm, False)
         existed_group_allow = list_group_has_perm(list_perm, True)
         existed_group_restrict = list_group_has_perm(list_perm, False)
+
         # Processing assign perm to user/nhom
-        add_perm({'type': 'users', 'data': data['allow_users'], 'existed': existed_user_allow}, list_perm,
+        add_perm({'type': 'users', 'data': data['allow_users'], 'existed': existed_user_allow,
+                  'hide': data['hide_users'], 'read_only': data['read_only_users']}, list_perm,
                  True)
-        add_perm({'type': 'group', 'data': data['allow_nhom'], 'existed': existed_group_allow}, list_perm,
+        add_perm({'type': 'group', 'data': data['allow_nhom'], 'existed': existed_group_allow,
+                  'hide': data['hide_groups'], 'read_only': data['read_only_groups']}, list_perm,
                  True)
         add_perm({'type': 'users', 'data': data['restrict_users'], 'existed': existed_user_restrict},
                  list_perm, False)
@@ -85,8 +100,9 @@ def add_perm(items: dict, perms: [list, None], allow: bool):
     if items['data']:
         # Get existed user/group permissions
         exited = items.get('existed', [])
+        perm_data = items.pop('data')
         # Upper data id when type == 'users'
-        items_data = [item.upper() for item in items['data']] if items['type'] == 'users' else items['data']
+        items_data = [item.upper() for item in perm_data] if items['type'] == 'users' else perm_data
         # Remove Updating Restrict users/groups
         if exited and len(exited) > 0:
             # Return users/groups that would be removed permissions
@@ -97,8 +113,8 @@ def add_perm(items: dict, perms: [list, None], allow: bool):
                 else:
                     update_group_perm(item_data, perms, items, allow, exited)
         # Looping data update
-        if len(items['data']) > 0:
-            for item_data in items['data']:
+        if len(perm_data) > 0:
+            for item_data in perm_data:
                 if items['type'] == 'users':
                     update_user_perm(item_data, perms, items, allow, exited)
                 else:
@@ -121,9 +137,21 @@ def update_user_perm(item_data, perms, items, allow, exited):
         # Return errors with fields error
         except models.ObjectDoesNotExist:
             field = 'allow' if allow else 'restrict'
-            raise serializers.ValidationError({'message': f'Field error at "{field}_{items["type"]}" - some items not exists'})
+            raise serializers.ValidationError(
+                {'message': f'Field error at "{field}_{items["type"]}" - some items not exists'})
+    hide_users = items.get('hide', None)
+    read_only = items.get('read_only', None)
+    print(f"Read only: {read_only} | Hide: {hide_users}")
     # Looping handle with permissions
     for perm in perms:
+        if user.id in read_only or user.id.lower() in read_only:
+            if perm.split('_')[0] == perm_actions['view']:
+                app_log.info(f"|__ Add READ ONLY permissions for user '{user.id}' - '{perm}'")
+                user.perm_user.add(perm, through_defaults={'allow': allow})
+        if user.id in hide_users or user.id.lower() in hide_users:
+            if perm.split('_')[0] == perm_actions['view']:
+                continue
+
         is_perm = user.is_perm(perm)
         # Remove when permission is existed and User not in Updated list
         if exited is not None and is_perm and user.id in items['existed']:
@@ -146,8 +174,19 @@ def update_group_perm(item_data, perms, items, allow, exited):
     except models.ObjectDoesNotExist:
         field = 'allow' if allow else 'restrict'
         raise serializers.ValidationError({'message': f'Field error at "{field}_{items["type"]}"'})
+    hide_group = items.get('hide', None)
+    read_only = items.get('read_only', None)
+
+    print(f"Read only: {read_only} | Hide: {hide_group}")
     # Looping handle with permissions
     for perm in perms:
+        if group.id in read_only or group.id.lower() in read_only:
+            if perm.split('_')[0] == perm_actions['view']:
+                app_log.info(f"|__ Add READ ONLY permissions for user '{group.id}' - '{perm}'")
+                group.perm.add(perm, through_defaults={'allow': allow})
+        if group.name in hide_group:
+            if perm.split('_')[0] == perm_actions['view']:
+                continue
         group_perm = group.perm.filter(name=perm)
         is_perm = group_perm.exists() and group.perm_group.filter(perm_id=perm, allow=allow).exists()
         # Remove when permission is existed and Group not in Updated list
