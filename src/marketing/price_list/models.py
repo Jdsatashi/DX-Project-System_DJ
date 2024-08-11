@@ -83,6 +83,9 @@ class SpecialOffer(models.Model):
     quantity_can_use = models.IntegerField(null=True)
     box_can_use = models.FloatField(null=True)
 
+    used = models.BooleanField(default=False)
+    for_nvtt = models.BooleanField(default=False)
+
     priority = models.IntegerField(null=True)
     status = models.CharField(null=True, max_length=24)
     note = models.TextField(null=True)
