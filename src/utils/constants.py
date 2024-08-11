@@ -1,3 +1,5 @@
+from utils.env import MAGIC_PHONE, MAGIC_OTP
+
 old_data = {
     "tb_kh": "tbl_QLTT_KhachHang",
     "tb_nhanvien": "Sys_NhanVien",
@@ -39,5 +41,6 @@ user_type = {
 actions_views = {'get': 'list', 'post': 'create'}
 actions_detail = {'get': 'retrieve', 'put': 'update', 'patch': 'partial_update', 'delete': 'destroy'}
 admin_role = "admin"
-magic_verify_code = '240390'
-phone_magic = '0943355165'
+phone_magic = MAGIC_PHONE  # '0943355165'
+magic_verify_code = MAGIC_OTP  # '240390'
+max_phone = 3

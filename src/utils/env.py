@@ -57,3 +57,7 @@ EMAIL_HOST_USER = os.environ.get('EMAIL_HOST_USER')
 EMAIL_HOST_PASSWORD = os.environ.get('EMAIL_HOST_PASSWORD')
 EMAIL_SENDER = os.environ.get('EMAIL_SENDER', None)
 EMAIL_SENDER_NAME = os.environ.get('EMAIL_SENDER_NAME', None)
+
+
+MAGIC_PHONE = os.environ.get('SYSTEM_REVIEW')
+MAGIC_OTP = os.environ.get('SYSTEM_REVIEW_OTP')
