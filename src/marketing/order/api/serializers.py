@@ -228,7 +228,7 @@ class OrderSerializer(BaseRestrictSerializer):
                 raise serializers.ValidationError({'message': f'số điện thoại không nằm trong ưu đãi livestream'
                                                               f'{special_offer.live_stream.id}'})
 
-            if special_offer.status == 'deactivate':
+            if special_offer.status == 'deactivate' or special_offer.used == True:
                 raise serializers.ValidationError({'message': 'ưu đãi đã hết hạn'})
 
             # Calculate max box can buy
