@@ -28,7 +28,8 @@ def table_data(table_name: str, amount='*', options=None):
     db_name = OLD_SQL_DB
     user = OLD_SQL_USER
     password = OLD_SQL_PW
-    drivers = ["SQL Server", "ODBC Driver 18 for SQL Server", "ODBC Driver 17 for SQL Server"]
+    # drivers = ["SQL Server", "ODBC Driver 18 for SQL Server", "ODBC Driver 17 for SQL Server"]
+    drivers = ["ODBC Driver 18 for SQL Server"]
     for i, driver in enumerate(drivers):
         try:
             connection_string = f"DRIVER={{{driver}}};SERVER={server};DATABASE={db_name};UID={user};PWD={password}"
