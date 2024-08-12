@@ -88,12 +88,15 @@ class OrderSerializer(BaseRestrictSerializer):
                         special_offer.save()
 
                     app_log.info(f"Testing user sale statistic: {user_sale_statistic}")
-                    if order.status == 'deactivate':
-                        self.update_sale_statistic(order, user_sale_statistic, order.order_price, is_so, False)
-                    else:
-                        self.update_sale_statistic(order, user_sale_statistic, order.order_price, is_so, True)
+                    # if order.status == 'deactivate':
+                    #     self.update_sale_statistic(order, user_sale_statistic, order.order_price, is_so, False)
+                    # else:
+                    #     self.update_sale_statistic(order, user_sale_statistic, order.order_price, is_so, True)
                     update_point(order.client_id)
                     update_season_stats_user(order.client_id, order.date_get)
+                    order_month = order.date_get.replace(day=1)
+                    user_stats = create_or_get_sale_stats_user(order.client_id, order_month)
+                    print(user_stats)
                     # Create perms
                     restrict = perm_data.get('restrict')
                     if restrict:
@@ -166,12 +169,11 @@ class OrderSerializer(BaseRestrictSerializer):
             instance.order_price = total_price
             instance.save()
             app_log.info(f"Testing user sale statistic: {user_sale_statistic}")
-            if instance.status == 'deactivate':
-                self.update_sale_statistic(instance, user_sale_statistic, instance.order_price, is_so, False)
-            else:
-                self.update_sale_statistic(instance, user_sale_statistic, instance.order_price, is_so, True)
             update_point(instance.client_id)
             update_season_stats_user(instance.client_id, instance.date_get)
+            order_month = instance.date_get.replace(day=1)
+            user_stats = create_or_get_sale_stats_user(instance.client_id, order_month)
+            print(user_stats)
             restrict = perm_data.get('restrict')
             if restrict:
                 self.handle_restrict(perm_data, instance.id, self.Meta.model)
@@ -186,14 +188,13 @@ class OrderSerializer(BaseRestrictSerializer):
                 user = instance.client_id
                 date_get = instance.date_get
                 month = instance.date_get.replace(day=1)
-                user_sale_statistic, _ = SaleStatistic.objects.get_or_create(user=user, month=month)
                 if instance.status == 'deactivate':
                     print(f"Status deactivate")
                     pass
                 else:
                     print(f"Status active")
-                    self.update_sale_statistic(instance, user_sale_statistic, instance.order_price, instance.is_so,
-                                               False)
+                    user_stats = create_or_get_sale_stats_user(user, month)
+                    print(user_stats)
                 # Delete related order details
                 OrderDetail.objects.filter(order_id=instance).delete()
                 # Delete the order instance
@@ -235,8 +236,8 @@ class OrderSerializer(BaseRestrictSerializer):
             if special_offer.type_list == 'consider_offer_user':
                 is_consider = True
                 # When ConsiderOffer, calculate via <SpecialOffer object> 'target' value
-                app_log.info(f"TEST:{user_sale_statistic.available_turnover} | {special_offer.target}")
-                number_box_can_buy = user_sale_statistic.available_turnover // special_offer.target
+                # app_log.info(f"TEST:{user_sale_statistic.available_turnover} | {special_offer.target}")
+                # number_box_can_buy = user_sale_statistic.available_turnover // special_offer.target
                 # Validate if all products in order are belonged to SO consider
                 order_product_ids = {str(detail_data.get('product_id').id) for detail_data in order_details_data}
                 # Get list of product_id from SpecialOfferProduct
@@ -250,11 +251,12 @@ class OrderSerializer(BaseRestrictSerializer):
                 # Normal SO use default target of SaleTarget by month
                 number_box_can_buy = user_sale_statistic.available_turnover // month_target.month_target
 
-            # Validate turnover can buy number of box in Order
-            total_order_box = sum(item['order_box'] for item in order_details_data)
-            if number_box_can_buy < total_order_box:
-                raise serializers.ValidationError(
-                    {'message': 'không đủ doanh số'})
+                # Validate turnover can buy number of box in Order
+                total_order_box = sum(item['order_box'] for item in order_details_data)
+
+                if number_box_can_buy < total_order_box:
+                    raise serializers.ValidationError(
+                        {'message': 'không đủ doanh số'})
 
             # Validate each OrderDetail
             for detail_data in order_details_data:

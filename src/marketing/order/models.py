@@ -272,15 +272,19 @@ def create_or_get_sale_stats_user(user: User, month) -> SaleStatistic | None:
     next_month = month + relativedelta(months=1)
     last_month = month - relativedelta(months=1)
 
-    orders = Order.objects.filter(client_id=user, date_get__range=(month, next_month - timedelta(days=1)))
-    orders_count = (orders
-                    .exclude(Q(Q(is_so=True) & Q(status='deactivate') &
-                               Q(Q(Q(id_so__isnull=False) &
-                                   Q(id_offer_consider__isnull=False)) |
-                                 Q(Q(new_special_offer__isnull=False) &
-                                   Q(new_special_offer__count_turnover=True)))))
+    query_filter = Q(Q(client_id=user) & Q(date_get__range=(month, next_month - timedelta(days=1))))
+    filter_so_count = Q(Q(new_special_offer__isnull=False) &
+                        Q(new_special_offer__count_turnover=True)) | Q(
+        Q(new_special_offer__isnull=False) & Q(new_special_offer__type_list='consider_offer_user'))
+    exclude_so = Q(Q(is_so=True) | Q(status='deactivate') |
+                   Q(id_so__isnull=False) | Q(id_offer_consider__isnull=False)
+                   )
+    orders = Order.objects.filter(query_filter)
+    orders_count = (Order.objects.filter(filter_so_count | query_filter)
+                    .exclude(exclude_so)
                     .order_by('date_get'))
-    orders_so = (orders.filter(Q(Q(is_so=True) & Q(new_special_offer__isnull=False))))
+    print(f"Test: {orders_count}")
+    orders_so = (orders.filter(Q(Q(is_so=True) & Q(new_special_offer__isnull=False))).exclude(new_special_offer__type_list='consider_offer_user'))
     total_used = 0
     sale_target, _ = SaleTarget.objects.get_or_create(month=month)
     for order in orders_so:
