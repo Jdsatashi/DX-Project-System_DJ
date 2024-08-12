@@ -104,7 +104,7 @@ def get_query_parameters(request):
     strict_mode = bool(strict)
     from_date = data.get('from_date') or request.query_params.get('from_date', '')
     to_date = data.get('to_date') or request.query_params.get('to_date', '')
-    date_field = request.GET.get('date_field', 'created_at')
+    date_field = data.get('date_field', 'created_at') or request.query_params.get('to_date', '')
     return query, strict_mode, limit, page, order_by, from_date, to_date, date_field
 
 
