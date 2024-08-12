@@ -292,7 +292,7 @@ MSSQL = {
     'PORT': MSSQL_PORT,
     'USER': MSSQL_USER,
     'PASSWORD': MSSQL_PW,
-    'OPTIONS': {'driver': 'ODBC Driver 17 for SQL Server'}
+    'OPTIONS': {'driver': 'ODBC Driver 18 for SQL Server'}
 }
 
 SQLITE = {
