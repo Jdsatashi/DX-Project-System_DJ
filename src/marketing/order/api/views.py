@@ -8,9 +8,11 @@ import openpyxl
 import pandas as pd
 from django.core.exceptions import FieldError
 from django.core.paginator import Paginator
+from django.db.models import Prefetch
 from django.db.models import Sum, Q, Case, When, FloatField, F
 from django.db.models.functions import Abs, Coalesce
 from django.http import HttpResponse
+from django.http import StreamingHttpResponse
 from django.utils import timezone
 from openpyxl.styles import Font, Alignment, PatternFill
 from openpyxl.utils import get_column_letter
@@ -20,20 +22,20 @@ from rest_framework.decorators import action
 from rest_framework.response import Response
 from rest_framework.views import APIView
 from rest_framework_simplejwt.authentication import JWTAuthentication
+from rest_framework_simplejwt.tokens import AccessToken
 
 from account.handlers.perms import DataFKModel, get_perm_name
 from account.handlers.validate_perm import ValidatePermRest
 from account.models import User
 from app.logs import app_log
 from marketing.order.api.serializers import OrderSerializer, ProductStatisticsSerializer, SeasonalStatisticSerializer, \
-    SeasonStatsUserPointSerializer
+    SeasonStatsUserPointSerializer, SpecialOfferUsageSerializer2
 from marketing.order.models import Order, OrderDetail, SeasonalStatistic, SeasonalStatisticUser
+from marketing.price_list.models import SpecialOffer
 from user_system.client_profile.models import ClientProfile
 from user_system.employee_profile.models import EmployeeProfile
 from utils.constants import maNhomND
 from utils.model_filter_paginate import filter_data, get_query_parameters, build_absolute_uri_with_params
-from django.http import StreamingHttpResponse
-from django.db.models import Prefetch
 
 
 class GenericApiOrder(viewsets.GenericViewSet, mixins.ListModelMixin, mixins.CreateModelMixin,
@@ -1138,7 +1140,8 @@ class ApiSeasonalStatisticUser(viewsets.GenericViewSet, mixins.ListModelMixin, m
     permission_classes = [partial(ValidatePermRest, model=SeasonalStatisticUser)]
 
     def list(self, request, *args, **kwargs):
-        response = filter_data(self, request, ['id', 'user__id', 'user__username', 'season_stats__id', 'season_stats__name'],
+        response = filter_data(self, request,
+                               ['id', 'user__id', 'user__username', 'season_stats__id', 'season_stats__name'],
                                **kwargs)
         return Response(response, status.HTTP_200_OK)
 
@@ -1206,3 +1209,122 @@ class ApiSeasonalStatistic(viewsets.GenericViewSet, mixins.ListModelMixin, mixin
         except Exception as e:
             # return Response({'error': str(e)}, status=status.HTTP_400_BAD_REQUEST)
             raise e
+
+
+class OrderSOCount(APIView):
+    authentication_classes = [JWTAuthentication, BasicAuthentication, SessionAuthentication]
+
+    permission_classes = [partial(ValidatePermRest, model=SeasonalStatistic)]
+
+    def get(self, request):
+        today = datetime.today().date()
+        user_id = request.data.get('user', None)
+        so_id = request.data.get('special_offer', None)
+        from_date = request.data.get('from_date')
+        to_date = request.data.get('to_date')
+        get_date = request.data.get('get_date', f'{today}')
+
+        auth_header = request.headers.get('Authorization')
+        if auth_header and auth_header.startswith('Bearer '):
+            # Get access token from headers
+            access_token = auth_header.split(' ')[1]
+        else:
+            return Response({"error": "access_token chưa được cung cấp"}, status=status.HTTP_400_BAD_REQUEST)
+        try:
+            # Decode access token
+            token = AccessToken(str(access_token))
+            # Get user object from user id in access token
+            user = User.objects.get(id=token['user_id'])
+            if user_id:
+                try:
+                    user = User.objects.get(id=user_id)
+                except User.DoesNotExist:
+                    return Response({'message': f'not found user with id {user_id}'})
+            base_filter = Q(client_id=user) & Q(is_so=True) & Q(new_special_offer__isnull=True)
+
+            from_date = datetime.strptime(from_date, '%Y-%m-%d')
+            to_date = datetime.strptime(to_date, '%Y-%m-%d')
+            get_date = datetime.strptime(get_date, '%Y-%m-%d')
+            if from_date and to_date:
+                base_filter &= Q(date_get__gte=from_date, date_get__lte=to_date)
+            else:
+                base_filter &= Q(date_get=get_date)
+            if so_id:
+                base_filter &= Q(new_special_offer__id=so_id)
+            get_so_order = Order.objects.filter(base_filter).exclude(
+                Q(new_special_offer__type_list='consider_offer_user'))
+            so_ids_used = get_so_order.values_list('new_special_offer__id').distinct()
+            response_data = []
+            for so_id_used in so_ids_used:
+                used_query = get_so_order.filter(new_special_offer__id=so_id_used)
+                order_used = list(order.id for order in used_query)
+                total_box = OrderDetail.objects.filter(order_id__in=order_used).aggregate(
+                    total_box=Sum('order_box'))['total_box']
+                data = {
+                    'time_used': used_query.count(),
+                    'orders_used': order_used,
+                    'total_used_box': total_box
+                }
+                response_data[so_id_used] = data
+            response = {
+                'data': response_data,
+            }
+        except Exception as e:
+            raise e
+
+
+class ApiSOOrderCount(viewsets.GenericViewSet, mixins.ListModelMixin, mixins.RetrieveModelMixin):
+    serializer_class = SpecialOfferUsageSerializer2
+    # queryset = SpecialOffer.objects.all()
+    authentication_classes = [JWTAuthentication, BasicAuthentication, SessionAuthentication]
+
+    permission_classes = [partial(ValidatePermRest, model=SpecialOffer)]
+
+    def get_queryset(self):
+        request = self.request
+        query = SpecialOffer.objects.filter()
+
+        today = datetime.today().date()
+        user_id = self.request.query_params.get('user')
+        so_id = self.request.query_params.get('special_offer')
+        from_date = self.request.query_params.get('from_date')
+        to_date = self.request.query_params.get('to_date')
+        get_date = self.request.query_params.get('get_date', f'{today}')
+    #
+    #     auth_header = request.headers.get('Authorization')
+    #     if auth_header and auth_header.startswith('Bearer '):
+    #         # Get access token from headers
+    #         access_token = auth_header.split(' ')[1]
+    #     else:
+    #         return Response({"message": "access_token chưa được cung cấp"}, status=status.HTTP_400_BAD_REQUEST)
+    #     try:
+    #         # Decode access token
+    #         token = AccessToken(str(access_token))
+    #         # Get user object from user id in access token
+    #         user = User.objects.get(id=token['user_id'])
+    #     except TokenError:
+    #         return Response({"message": "access_token không hợp lệ"})
+        if user_id:
+            try:
+                user = User.objects.get(id=user_id)
+            except User.DoesNotExist:
+                return Response({'message': f'not found user with id {user_id}'})
+
+        base_filter = Q(client_id=user) & Q(is_so=True) & Q(new_special_offer__isnull=True)
+    #
+    #     from_date = datetime.strptime(from_date, '%Y-%m-%d')
+    #     to_date = datetime.strptime(to_date, '%Y-%m-%d')
+    #     get_date = datetime.strptime(get_date, '%Y-%m-%d')
+    #     if from_date and to_date:
+    #         base_filter &= Q(date_get__gte=from_date, date_get__lte=to_date)
+    #     else:
+    #         base_filter &= Q(date_get=get_date)
+    #     if so_id:
+    #         base_filter &= Q(new_special_offer__id=so_id)
+        query = query.filter(orders__client_id_id=user)
+    #     query = query.exclude(type_list='consider_offer_user')
+        return query
+
+    def list(self, request, *args, **kwargs):
+        # Customize the response or additional operations here
+        return super().list(request, *args, **kwargs)

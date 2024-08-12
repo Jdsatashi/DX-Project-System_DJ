@@ -579,6 +579,50 @@ class SeasonalStatisticSerializer(serializers.ModelSerializer):
                                                   ['turn_per_point', 'turn_pick', 'redundant_point', 'total_point'])
 
 
+class SpecialOfferUsageSerializer(serializers.ModelSerializer):
+    time_used = serializers.SerializerMethodField()
+    orders_used = serializers.SerializerMethodField()
+    total_used_box = serializers.SerializerMethodField()
+
+    class Meta:
+        model = SpecialOffer
+        fields = ['id', 'time_used', 'orders_used', 'total_used_box']
+
+    def get_time_used(self, obj):
+        orders = Order.objects.filter(new_special_offer=obj)
+        return orders.count()
+
+    def get_orders_used(self, obj):
+        orders = Order.objects.filter(new_special_offer=obj)
+        return [order.id for order in orders]
+
+    def get_total_used_box(self, obj):
+        order_ids = Order.objects.filter(new_special_offer=obj).values_list('id', flat=True)
+        total_box = OrderDetail.objects.filter(order_id__in=order_ids).aggregate(
+            total_box=Sum('order_box'))['total_box'] or 0
+        return total_box
+
+
+class SpecialOfferUsageSerializer2(serializers.ModelSerializer):
+    class Meta:
+        model = SpecialOffer
+        fields = ['id']
+
+    def to_representation(self, instance):
+        ret = super().to_representation(instance)
+        orders = Order.objects.filter(new_special_offer=instance)
+        ret['get_time_used'] = orders.count()
+        ret['get_orders_used'] = [order.id for order in orders]
+        ret['used_client'] = list(orders.annotate(
+            client_name=F('client_id__clientprofile__register_name')
+        ).values('client_id__id', 'client_name').distinct())
+        order_ids = orders.values_list('id', flat=True)
+        total_box = OrderDetail.objects.filter(order_id__in=order_ids).aggregate(
+            total_box=Sum('order_box'))['total_box'] or 0
+        ret['get_total_used_box'] = total_box
+        return ret
+
+
 def update_point(user):
     period = PeriodSeason.objects.filter(type='point', period='current').first()
     point, _ = PointOfSeason.objects.get_or_create(user=user, period=period)
