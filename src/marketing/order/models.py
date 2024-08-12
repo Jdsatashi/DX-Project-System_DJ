@@ -272,19 +272,23 @@ def create_or_get_sale_stats_user(user: User, month) -> SaleStatistic | None:
     next_month = month + relativedelta(months=1)
     last_month = month - relativedelta(months=1)
 
-    query_filter = Q(Q(client_id=user) & Q(date_get__range=(month, next_month - timedelta(days=1))))
-    filter_so_count = Q(Q(new_special_offer__isnull=False) &
-                        Q(new_special_offer__count_turnover=True)) | Q(
-        Q(new_special_offer__isnull=False) & Q(new_special_offer__type_list='consider_offer_user'))
-    exclude_so = Q(Q(is_so=True) | Q(status='deactivate') |
+    query_filter = Q(client_id=user) & Q(date_get__range=(month, next_month - timedelta(days=1)))
+    filter_so_count = Q(Q(query_filter) & Q(
+        Q(new_special_offer__count_turnover=True) | Q(new_special_offer__type_list='consider_offer_user')
+        | Q(new_special_offer__isnull=True)
+    ))
+    exclude_so = Q(Q(status='deactivate') |
                    Q(id_so__isnull=False) | Q(id_offer_consider__isnull=False)
                    )
     orders = Order.objects.filter(query_filter)
-    orders_count = (Order.objects.filter(filter_so_count | query_filter)
-                    .exclude(exclude_so)
-                    .order_by('date_get'))
-    print(f"Test: {orders_count}")
-    orders_so = (orders.filter(Q(Q(is_so=True) & Q(new_special_offer__isnull=False))).exclude(new_special_offer__type_list='consider_offer_user'))
+    orders_count = Order.objects.filter(filter_so_count)
+    # print(f"Before exclude: {orders_count}")
+    # orders_count = (Order.objects.filter(filter_so_count | query_filter)
+    #                 .exclude(exclude_so).exclude(Q(Q(new_special_offer__isnull=True) & Q(new_special_offer__type_list='manual')))
+    #                 .order_by('date_get'))
+    print(f"Test sale_stats user: {orders_count}")
+    orders_so = (orders.filter(Q(Q(is_so=True) & Q(new_special_offer__isnull=False))).exclude(
+        new_special_offer__type_list='consider_offer_user'))
     total_used = 0
     sale_target, _ = SaleTarget.objects.get_or_create(month=month)
     for order in orders_so:
@@ -292,38 +296,55 @@ def create_or_get_sale_stats_user(user: User, month) -> SaleStatistic | None:
         total_order_box = result.get('total_order_box', 0) or 0
         target = order.new_special_offer.target if order.new_special_offer.target > 0 else sale_target.month_target
         total_used += total_order_box * target
-    if orders_count.exists():
-        total_turnover = OrderDetail.objects.filter(order_id__in=orders).aggregate(total_price=Sum('product_price'))[
-                             'total_price'] or 0
+    sale_statistic = SaleStatistic.objects.filter(user=user, month=month)
 
-        # try:
-        #     last_sale_stats = SaleStatistic.objects.get(user=user, month=last_month)
-        #     last_month_turnover = last_sale_stats.available_turnover
-        # except SaleStatistic.DoesNotExist:
-        #     last_month_turnover = 0
+    total_turnover = OrderDetail.objects.filter(order_id__in=orders_count).aggregate(total_price=Sum('product_price'))[
+                         'total_price'] or 0
+
+    if orders_count.exists() and sale_statistic.exists():
+        print(f"Case 1")
         last_sale_stats = create_or_get_sale_stats_user(user, last_month)
         if last_sale_stats is not None:
             last_month_turnover = last_sale_stats.available_turnover
         else:
             last_month_turnover = 0
+        # try:
+        #     last_sale_stats = SaleStatistic.objects.get(user=user, month=last_month)
+        #     last_month_turnover = last_sale_stats.available_turnover
+        # except SaleStatistic.DoesNotExist:
+        #     last_month_turnover = 0
 
-        sale_statistic = SaleStatistic.objects.filter(user=user, month=month)
-        if not sale_statistic.exists():
-            sale_statistic = SaleStatistic.objects.create(
-                user=user, month=month, total_turnover=total_turnover,
-                available_turnover=(total_turnover - total_used), last_month_turnover=last_month_turnover,
-                used_turnover=total_used
-            )
+        sale_statistic = sale_statistic.first()
+        if sale_statistic.last_month_turnover <= 0:
+            sale_statistic.last_month_turnover = last_month_turnover
+        sale_statistic.total_turnover = total_turnover - sale_statistic.minus_turnover + sale_statistic.bonus_turnover
+        sale_statistic.used_turnover = total_used
+        sale_statistic.available_turnover = sale_statistic.total_turnover - sale_statistic.used_turnover
+        sale_statistic.save()
+        return sale_statistic
+    elif orders_count.exists() and not sale_statistic.exists():
+        last_sale_stats = create_or_get_sale_stats_user(user, last_month)
+        if last_sale_stats is not None:
+            last_month_turnover = last_sale_stats.available_turnover
         else:
-            sale_statistic = sale_statistic.first()
-            if sale_statistic.last_month_turnover <= 0:
-                sale_statistic.last_month_turnover = last_month_turnover
-            sale_statistic.total_turnover = total_turnover - sale_statistic.minus_turnover + sale_statistic.bonus_turnover
-            sale_statistic.used_turnover = total_used
-            sale_statistic.available_turnover = sale_statistic.total_turnover - sale_statistic.used_turnover
-            sale_statistic.save()
+            last_month_turnover = 0
+        print(f"Case 2")
+        sale_statistic = SaleStatistic.objects.create(
+            user=user, month=month, total_turnover=total_turnover,
+            available_turnover=(total_turnover - total_used), last_month_turnover=last_month_turnover,
+            used_turnover=total_used
+        )
+        return sale_statistic
+    elif not orders_count.exists() and sale_statistic.exists():
+        print(f"Case 3")
+        sale_statistic = sale_statistic.first()
+        sale_statistic.total_turnover = 0
+        sale_statistic.used_turnover = 0
+        sale_statistic.available_turnover = 0
+        sale_statistic.save()
         return sale_statistic
     else:
+        print(f"Case 4")
         return None
 
 

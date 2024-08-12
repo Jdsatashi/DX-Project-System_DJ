@@ -1,7 +1,6 @@
 import pandas as pd
 from django.db import transaction
-from django.db.models import Sum, Q, Prefetch
-from django.utils import timezone
+from django.db.models import Sum, F
 from rest_framework import serializers
 from rest_framework.exceptions import ValidationError
 from rest_framework_simplejwt.tokens import AccessToken
@@ -15,7 +14,7 @@ from marketing.order.models import Order, OrderDetail, SeasonalStatistic, Season
     update_season_stats_users, create_or_get_sale_stats_user
 from marketing.pick_number.models import UserJoinEvent
 from marketing.price_list.models import ProductPrice, SpecialOfferProduct, SpecialOffer
-from marketing.sale_statistic.models import SaleStatistic, SaleTarget
+from marketing.sale_statistic.models import SaleTarget
 from system_func.models import PeriodSeason, PointOfSeason
 
 
@@ -81,11 +80,11 @@ class OrderSerializer(BaseRestrictSerializer):
                     order.save()
 
                     # Deactivate when user used
-                    if is_consider:
-                        special_offer: SpecialOffer = data.get('new_special_offer')
-                        special_offer.status = 'deactivate'
-                        special_offer.used = True
-                        special_offer.save()
+                    # if is_consider:
+                    #     special_offer: SpecialOffer = data.get('new_special_offer')
+                    #     special_offer.status = 'deactivate'
+                    #     special_offer.used = True
+                    #     special_offer.save()
 
                     app_log.info(f"Testing user sale statistic: {user_sale_statistic}")
                     # if order.status == 'deactivate':
@@ -188,19 +187,20 @@ class OrderSerializer(BaseRestrictSerializer):
                 user = instance.client_id
                 date_get = instance.date_get
                 month = instance.date_get.replace(day=1)
-                if instance.status == 'deactivate':
-                    print(f"Status deactivate")
-                    pass
-                else:
-                    print(f"Status active")
-                    user_stats = create_or_get_sale_stats_user(user, month)
-                    print(user_stats)
+                # if instance.status == 'deactivate':
+                #     print(f"Status deactivate")
+                #     pass
+                # else:
+                #     print(f"Status active")
+                #     user_stats = create_or_get_sale_stats_user(user, month)
+                #     print(user_stats)
                 # Delete related order details
                 OrderDetail.objects.filter(order_id=instance).delete()
                 # Delete the order instance
                 instance.delete()
                 update_point(user)
                 update_season_stats_user(user, date_get)
+                user_stats = create_or_get_sale_stats_user(user, month)
         except Exception as e:
             app_log.error(f"Error when deleting order: {e}")
             raise serializers.ValidationError({'message': 'unexpected error during deletion'})
