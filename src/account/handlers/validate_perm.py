@@ -53,10 +53,11 @@ class ValidatePermRest(permissions.BasePermission):
     """
     message = {'message': ''}
 
-    def __init__(self, model, user=None):
+    def __init__(self, model, user=None, allow_view=True):
         super().__init__()
         self.model = model
         self.user = user
+        self.allow_view = allow_view
 
     def has_permission(self, request, view):
         start_time = time.time()
@@ -80,11 +81,12 @@ class ValidatePermRest(permissions.BasePermission):
             return True
         action = get_action(view, request.method)
 
-        app_log.info(f"--- Test Permission ---")
+        app_log.info(f"--- Test Has Permission ---")
         perm_name = get_perm_name(self.model)
         # Check all perm
         all_perm = perm_actions['all'] + f"_{perm_name}"
         if user.is_group_has_perm(all_perm) or user.is_perm(all_perm):
+            print(f"user has all perm")
             return True
 
         # Get full required permission (with action and PK), perm_name (without action and PK)
@@ -92,10 +94,12 @@ class ValidatePermRest(permissions.BasePermission):
         # If function not required any permission, return True
         is_perm = perm_exist(required_permission)
         if not is_perm:
+            print(f"Not perm: {required_permission}")
             return True
 
         # if action == "create" and 'pk' not in view.kwargs:
-        if action == perm_actions['view']:
+        if action == perm_actions['view'] and self.allow_view:
+            print(f"actions is view")
             return True
 
         result, messages = self.validate_fk_perm(request, action, user)
@@ -130,7 +134,7 @@ class ValidatePermRest(permissions.BasePermission):
 
         action = get_action(view, request.method)
 
-        app_log.info(f"--- Test Permission ---")
+        app_log.info(f"--- Test Permission Obj ---")
         perm_name = get_perm_name(self.model)
 
         all_perm = perm_actions['all'] + f"_{perm_name}"
