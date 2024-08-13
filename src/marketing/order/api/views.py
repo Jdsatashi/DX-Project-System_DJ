@@ -29,7 +29,7 @@ from account.handlers.validate_perm import ValidatePermRest
 from account.models import User
 from app.logs import app_log
 from marketing.order.api.serializers import OrderSerializer, ProductStatisticsSerializer, SeasonalStatisticSerializer, \
-    SeasonStatsUserPointSerializer, SpecialOfferUsageSerializer2
+    SeasonStatsUserPointSerializer
 from marketing.order.models import Order, OrderDetail, SeasonalStatistic, SeasonalStatisticUser
 from marketing.price_list.models import SpecialOffer
 from user_system.client_profile.models import ClientProfile
@@ -1215,12 +1215,11 @@ class OrderSOCount(APIView):
     authentication_classes = [JWTAuthentication, BasicAuthentication, SessionAuthentication]
 
     permission_classes = [partial(ValidatePermRest, model=SeasonalStatistic)]
-    serializer_class = SpecialOfferUsageSerializer2
 
     def get(self, request):
         today = datetime.today().date()
         user_id = request.query_params.get('user', None)
-        so_id = request.query_params.get('special_offer', None)
+        so_id = request.query_params.get('so_id', None)
         from_date = request.query_params.get('from_date')
         to_date = request.query_params.get('to_date')
         get_date = request.query_params.get('get_date', f'{today}')

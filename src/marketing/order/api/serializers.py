@@ -613,35 +613,6 @@ class SpecialOfferUsageSerializer(serializers.ModelSerializer):
         return total_box
 
 
-class SpecialOfferUsageSerializer2(serializers.ModelSerializer):
-    class Meta:
-        model = SpecialOffer
-        fields = ['id']
-
-    def to_representation(self, instance):
-        ret = super().to_representation(instance)
-
-        request = self.context.get('request')
-        today = datetime.today().date()
-        from_date = request.query_params.get('from_date')
-        to_date = request.query_params.get('to_date')
-        get_date = request.query_params.get('get_date', f'{today}')
-
-        orders = Order.objects.filter(new_special_offer=instance, date_get=get_date)
-
-        ret['get_time_used'] = orders.count()
-        ret['get_orders_used'] = [order.id for order in orders]
-        ret['used_client'] = list(orders.annotate(
-            client_name=F('client_id__clientprofile__register_name')
-        ).values('client_id__id', 'client_name').distinct())
-
-        order_ids = orders.values_list('id', flat=True)
-        total_box = OrderDetail.objects.filter(order_id__in=order_ids).aggregate(
-            total_box=Sum('order_box'))['total_box'] or 0
-        ret['get_total_used_box'] = total_box
-        return ret
-
-
 def update_point(user):
     period = PeriodSeason.objects.filter(type='point', period='current').first()
     point, _ = PointOfSeason.objects.get_or_create(user=user, period=period)
