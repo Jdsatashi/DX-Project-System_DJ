@@ -2,7 +2,7 @@ from django.urls import path
 from rest_framework.routers import DefaultRouter
 
 from marketing.order.api.views import GenericApiOrder, ProductStatisticsView, OrderReportView, \
-    ExportReport, TotalStatisticsView, ApiSeasonalStatistic, ApiSeasonalStatisticUser, ApiSOOrderCount
+    ExportReport, TotalStatisticsView, ApiSeasonalStatistic, ApiSeasonalStatisticUser, OrderSOCount
 from utils.constants import actions_views, actions_detail
 
 app_name = "api_order"
@@ -36,5 +36,5 @@ urlpatterns = [
     path('season-stats/<pk>', stats_season_details, name='api_stats_season_details'),
     path('season-stats/<pk>/export', ApiSeasonalStatistic.as_view({'get': 'export'}), name='api_export_stats_season_details'),
 
-    path('used-so/', ApiSOOrderCount.as_view({'get': 'list'})),
+    path('used-so/', OrderSOCount.as_view())
 ]

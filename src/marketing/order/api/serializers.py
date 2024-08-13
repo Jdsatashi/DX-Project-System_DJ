@@ -1,3 +1,5 @@
+from datetime import datetime
+
 import pandas as pd
 from django.db import transaction
 from django.db.models import Sum, F
@@ -14,7 +16,7 @@ from marketing.order.models import Order, OrderDetail, SeasonalStatistic, Season
     update_season_stats_users, create_or_get_sale_stats_user
 from marketing.pick_number.models import UserJoinEvent
 from marketing.price_list.models import ProductPrice, SpecialOfferProduct, SpecialOffer
-from marketing.sale_statistic.models import SaleTarget
+from marketing.sale_statistic.models import SaleTarget, SaleStatistic
 from system_func.models import PeriodSeason, PointOfSeason
 
 
@@ -214,6 +216,8 @@ class OrderSerializer(BaseRestrictSerializer):
         get_date = data.get('date_get')
         first_day_of_month = get_date.replace(day=1)
         user_sale_statistic = create_or_get_sale_stats_user(user=user, month=first_day_of_month)
+        if user_sale_statistic is None:
+            user_sale_statistic, _ = SaleStatistic.objects.get_or_create(user=user, month=first_day_of_month)
         month_target = SaleTarget.objects.filter(month=first_day_of_month).first()
         is_consider = False
         # Validate Order if it was special_offer
@@ -229,7 +233,13 @@ class OrderSerializer(BaseRestrictSerializer):
                 raise serializers.ValidationError({'message': f'số điện thoại không nằm trong ưu đãi livestream'
                                                               f'{special_offer.live_stream.id}'})
 
-            if special_offer.status == 'deactivate' or special_offer.used == True:
+            # Compare date
+            get_date = datetime.combine(get_date, datetime.min.time())
+            time_start = special_offer.time_start.replace(tzinfo=None)
+            time_end = special_offer.time_end.replace(tzinfo=None)
+            can_use = time_start <= get_date < time_end
+            print(f"Test can user: {can_use}")
+            if special_offer.status == 'deactivate' or special_offer.used is True or not can_use:
                 raise serializers.ValidationError({'message': 'ưu đãi đã hết hạn'})
 
             # Calculate max box can buy
@@ -610,12 +620,21 @@ class SpecialOfferUsageSerializer2(serializers.ModelSerializer):
 
     def to_representation(self, instance):
         ret = super().to_representation(instance)
-        orders = Order.objects.filter(new_special_offer=instance)
+
+        request = self.context.get('request')
+        today = datetime.today().date()
+        from_date = request.query_params.get('from_date')
+        to_date = request.query_params.get('to_date')
+        get_date = request.query_params.get('get_date', f'{today}')
+
+        orders = Order.objects.filter(new_special_offer=instance, date_get=get_date)
+
         ret['get_time_used'] = orders.count()
         ret['get_orders_used'] = [order.id for order in orders]
         ret['used_client'] = list(orders.annotate(
             client_name=F('client_id__clientprofile__register_name')
         ).values('client_id__id', 'client_name').distinct())
+
         order_ids = orders.values_list('id', flat=True)
         total_box = OrderDetail.objects.filter(order_id__in=order_ids).aggregate(
             total_box=Sum('order_box'))['total_box'] or 0

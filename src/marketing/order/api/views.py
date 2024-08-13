@@ -1215,116 +1215,76 @@ class OrderSOCount(APIView):
     authentication_classes = [JWTAuthentication, BasicAuthentication, SessionAuthentication]
 
     permission_classes = [partial(ValidatePermRest, model=SeasonalStatistic)]
+    serializer_class = SpecialOfferUsageSerializer2
 
     def get(self, request):
         today = datetime.today().date()
-        user_id = request.data.get('user', None)
-        so_id = request.data.get('special_offer', None)
-        from_date = request.data.get('from_date')
-        to_date = request.data.get('to_date')
-        get_date = request.data.get('get_date', f'{today}')
+        user_id = request.query_params.get('user', None)
+        so_id = request.query_params.get('special_offer', None)
+        from_date = request.query_params.get('from_date')
+        to_date = request.query_params.get('to_date')
+        get_date = request.query_params.get('get_date', f'{today}')
 
-        auth_header = request.headers.get('Authorization')
-        if auth_header and auth_header.startswith('Bearer '):
-            # Get access token from headers
-            access_token = auth_header.split(' ')[1]
-        else:
-            return Response({"error": "access_token chưa được cung cấp"}, status=status.HTTP_400_BAD_REQUEST)
         try:
-            # Decode access token
-            token = AccessToken(str(access_token))
-            # Get user object from user id in access token
-            user = User.objects.get(id=token['user_id'])
+            user = request.user
             if user_id:
                 try:
                     user = User.objects.get(id=user_id)
                 except User.DoesNotExist:
                     return Response({'message': f'not found user with id {user_id}'})
-            base_filter = Q(client_id=user) & Q(is_so=True) & Q(new_special_offer__isnull=True)
+            print(f"Test user: {user}")
+            base_filter = Q(client_id=user) & Q(new_special_offer__isnull=False)
 
-            from_date = datetime.strptime(from_date, '%Y-%m-%d')
-            to_date = datetime.strptime(to_date, '%Y-%m-%d')
-            get_date = datetime.strptime(get_date, '%Y-%m-%d')
+            if from_date:
+                from_date = datetime.strptime(from_date, '%Y-%m-%d')
+            if to_date:
+                to_date = datetime.strptime(to_date, '%Y-%m-%d')
             if from_date and to_date:
                 base_filter &= Q(date_get__gte=from_date, date_get__lte=to_date)
+            elif get_date == 'all':
+                pass
             else:
+                try:
+                    get_date = datetime.strptime(get_date, '%Y-%m-%d')
+                except ValueError:
+                    return Response({'message': "get_date phải có định dạng là 'YYYY-MM-DD' hoặc 'all'"})
                 base_filter &= Q(date_get=get_date)
             if so_id:
                 base_filter &= Q(new_special_offer__id=so_id)
             get_so_order = Order.objects.filter(base_filter).exclude(
                 Q(new_special_offer__type_list='consider_offer_user'))
-            so_ids_used = get_so_order.values_list('new_special_offer__id').distinct()
-            response_data = []
-            for so_id_used in so_ids_used:
-                used_query = get_so_order.filter(new_special_offer__id=so_id_used)
-                order_used = list(order.id for order in used_query)
-                total_box = OrderDetail.objects.filter(order_id__in=order_used).aggregate(
-                    total_box=Sum('order_box'))['total_box']
-                data = {
-                    'time_used': used_query.count(),
-                    'orders_used': order_used,
-                    'total_used_box': total_box
-                }
-                response_data[so_id_used] = data
+            order_ids_used = get_so_order.values_list('id', flat=True).distinct()
+            so_ids_used = get_so_order.values_list('new_special_offer__id', flat=True).distinct()
+
+            so_objs = SpecialOffer.objects.filter(id__in=list(so_ids_used),
+                                                  orders__id__in=list(order_ids_used)).distinct()
+
+            data = self.serializer(so_objs, get_so_order)
+
             response = {
-                'data': response_data,
+                'user': {
+                    'id': user.id,
+                    'register_name': user.clientprofile.register_name
+                },
+                'data': data,
             }
+
+            return Response(response)
         except Exception as e:
             raise e
 
+    def serializer(self, so_objs, get_so_order):
+        data = []
+        for so in so_objs:
+            orders = get_so_order.filter(new_special_offer=so)
+            order_ids = orders.values_list('id', flat=True)
+            total_box = OrderDetail.objects.filter(order_id__in=order_ids).aggregate(
+                total_box=Sum('order_box'))['total_box'] or 0
 
-class ApiSOOrderCount(viewsets.GenericViewSet, mixins.ListModelMixin, mixins.RetrieveModelMixin):
-    serializer_class = SpecialOfferUsageSerializer2
-    # queryset = SpecialOffer.objects.all()
-    authentication_classes = [JWTAuthentication, BasicAuthentication, SessionAuthentication]
-
-    permission_classes = [partial(ValidatePermRest, model=SpecialOffer)]
-
-    def get_queryset(self):
-        request = self.request
-        query = SpecialOffer.objects.filter()
-
-        today = datetime.today().date()
-        user_id = self.request.query_params.get('user')
-        so_id = self.request.query_params.get('special_offer')
-        from_date = self.request.query_params.get('from_date')
-        to_date = self.request.query_params.get('to_date')
-        get_date = self.request.query_params.get('get_date', f'{today}')
-    #
-    #     auth_header = request.headers.get('Authorization')
-    #     if auth_header and auth_header.startswith('Bearer '):
-    #         # Get access token from headers
-    #         access_token = auth_header.split(' ')[1]
-    #     else:
-    #         return Response({"message": "access_token chưa được cung cấp"}, status=status.HTTP_400_BAD_REQUEST)
-    #     try:
-    #         # Decode access token
-    #         token = AccessToken(str(access_token))
-    #         # Get user object from user id in access token
-    #         user = User.objects.get(id=token['user_id'])
-    #     except TokenError:
-    #         return Response({"message": "access_token không hợp lệ"})
-        if user_id:
-            try:
-                user = User.objects.get(id=user_id)
-            except User.DoesNotExist:
-                return Response({'message': f'not found user with id {user_id}'})
-
-        base_filter = Q(client_id=user) & Q(is_so=True) & Q(new_special_offer__isnull=True)
-    #
-    #     from_date = datetime.strptime(from_date, '%Y-%m-%d')
-    #     to_date = datetime.strptime(to_date, '%Y-%m-%d')
-    #     get_date = datetime.strptime(get_date, '%Y-%m-%d')
-    #     if from_date and to_date:
-    #         base_filter &= Q(date_get__gte=from_date, date_get__lte=to_date)
-    #     else:
-    #         base_filter &= Q(date_get=get_date)
-    #     if so_id:
-    #         base_filter &= Q(new_special_offer__id=so_id)
-        query = query.filter(orders__client_id_id=user)
-    #     query = query.exclude(type_list='consider_offer_user')
-        return query
-
-    def list(self, request, *args, **kwargs):
-        # Customize the response or additional operations here
-        return super().list(request, *args, **kwargs)
+            input_data = {
+                'time_used': orders.count(),
+                'total_used_box': total_box,
+                'orders_used': [orders.values_list('id', flat=True)],
+            }
+            data.append({so.id: input_data})
+        return data
