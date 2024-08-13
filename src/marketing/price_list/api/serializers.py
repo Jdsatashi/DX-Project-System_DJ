@@ -289,16 +289,16 @@ class SpecialOfferSerializer(BaseRestrictSerializer):
                         self.set_default_values(special_offer, product_data)
                         app_log.info(f"Check product_data: {product_data}")
                         SpecialOfferProduct.objects.create(special_offer=special_offer, **product_data)
-                if special_offer.for_nvtt:
-                    users = perm_data.pop('allow_users', None)
-                    if users is None:
-                        raise ValidationError({'message': 'special offer cho nvtt yêu cầu allow_users'})
-                    users = [user.upper() for user in users]
-                    nvtt_ids = User.objects.filter(id__in=users).values_list('clientprofile__nvtt_id', flat=True).distinct()
-                    print(f"Test READ ONLY USER: {list(nvtt_ids)}")
-                    perm_data['read_only_users'] = list(nvtt_ids)
-                    perm_data['hide_users'] = users
-                    perm_data['allow_users'] = users + list(nvtt_ids)
+                # if special_offer.for_nvtt:
+                #     users = perm_data.pop('allow_users', None)
+                #     if users is None:
+                #         raise ValidationError({'message': 'special offer cho nvtt yêu cầu allow_users'})
+                #     users = [user.upper() for user in users]
+                #     nvtt_ids = User.objects.filter(id__in=users).values_list('clientprofile__nvtt_id', flat=True).distinct()
+                #     print(f"Test READ ONLY USER: {list(nvtt_ids)}")
+                #     perm_data['read_only_users'] = list(nvtt_ids)
+                #     perm_data['hide_users'] = users
+                #     perm_data['allow_users'] = users + list(nvtt_ids)
                 # Create perm for data
                 restrict = perm_data.get('restrict')
                 if restrict:
@@ -345,8 +345,8 @@ class SpecialOfferSerializer(BaseRestrictSerializer):
                     for product in instance.special_offers.all():
                         if product.id not in keep_products:
                             product.delete()
-                if instance.for_nvtt:
-                    perm_data['groups'] = ['nvtt']
+                # if instance.for_nvtt:
+                    # perm_data['groups'] = ['nvtt']
                 restrict = perm_data.get('restrict')
                 perm_name = get_perm_name(self.Meta.model)
                 perm_name = perm_name + f"_{instance.id}"
