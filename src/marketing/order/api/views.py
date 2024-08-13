@@ -1214,7 +1214,7 @@ class ApiSeasonalStatistic(viewsets.GenericViewSet, mixins.ListModelMixin, mixin
 class OrderSOCount(APIView):
     authentication_classes = [JWTAuthentication, BasicAuthentication, SessionAuthentication]
 
-    permission_classes = [partial(ValidatePermRest, model=SeasonalStatistic)]
+    # permission_classes = [partial(ValidatePermRest, model=SeasonalStatistic)]
 
     def get(self, request):
         today = datetime.today().date()
