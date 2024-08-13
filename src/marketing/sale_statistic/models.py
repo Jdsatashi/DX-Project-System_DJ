@@ -98,7 +98,7 @@ class SaleStatistic(models.Model):
         old_minus_diff = self.minus_turnover - old_minus
         # Update total_turnover with the difference
         self.total_turnover += bonus_turnover_diff
-
+        self.total_turnover -= old_minus_diff
         self.available_turnover = self.total_turnover - self.used_turnover
 
         sale_target, _ = SaleTarget.objects.get_or_create(month=self.month)
