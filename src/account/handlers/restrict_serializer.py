@@ -102,7 +102,7 @@ def add_perm(items: dict, perms: [list, None], allow: bool):
         exited = items.get('existed', [])
         perm_data = items.pop('data')
         # Upper data id when type == 'users'
-        items_data = [item.upper() for item in perm_data] if items['type'] == 'users' else perm_data
+        items_data = [item.upper() for item in perm_data if item is not None] if items['type'] == 'users' else perm_data
         # Remove Updating Restrict users/groups
         if exited and len(exited) > 0:
             # Return users/groups that would be removed permissions
