@@ -25,7 +25,7 @@ def update_order_from_excel(user_id: str):
 
 
 def get_all_kh():
-    file_path = os.path.join(PROJECT_DIR, 'test', 'updateUserStats.xlsx')
+    file_path = os.path.join(PROJECT_DIR, 'update', 'updateUserStats.xlsx')
     today = datetime.datetime.today().date()
     first_date = today.replace(day=1)
 
