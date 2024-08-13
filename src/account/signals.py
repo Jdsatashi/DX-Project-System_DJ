@@ -81,12 +81,12 @@ def handle_grant_perm(grant_user_obj):
     remove_perm = set(user_current_perms) - set(user_perms) - set(before_manage_perm)
     # Looping to add perms
     for perm in new_perm:
-        print(f"Adding: {perm} for manager {grant_user_obj.manager}")
+        # print(f"Adding: {perm} for manager {grant_user_obj.manager}")
         grant_user_obj.grant_perms.add(perm)
         perm_obj = grant_user_obj.grant_user.userperm_set.get(perm=perm)
         grant_user_obj.manager.perm_user.add(perm, through_defaults={'allow': perm_obj.allow})
     for perm in remove_perm:
-        print(f"Adding: {perm} for manager {grant_user_obj.manager}")
+        # print(f"Adding: {perm} for manager {grant_user_obj.manager}")
         grant_user_obj.grant_perms.remove(perm)
         # Error when use 'perm_user.remove(perm)'
         UserPerm.objects.filter(perm=perm, user=grant_user_obj.manager).delete()
