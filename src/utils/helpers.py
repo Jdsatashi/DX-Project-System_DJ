@@ -129,7 +129,7 @@ def table_data_2(table_name: str, amount='*', options=None):
 
 def get_new_orders(table_name: str, last_order_id: str):
     # Get env values
-    driver = "ODBC Driver 18 for SQL Server"
+    driver = "ODBC Driver 17 for SQL Server"
     try:
         connection_string = f"DRIVER={{{driver}}};SERVER={OLD_SQL_HOST};DATABASE={OLD_SQL_DB};UID={OLD_SQL_USER};PWD={OLD_SQL_PW};TrustServerCertificate=yes"
 
@@ -154,7 +154,7 @@ def get_new_orders(table_name: str, last_order_id: str):
 
 
 def execute_query(query, params=()):
-    driver = "ODBC Driver 18 for SQL Server"
+    driver = "ODBC Driver 17 for SQL Server"
     connection_string = f"DRIVER={{{driver}}};SERVER={OLD_SQL_HOST};DATABASE={OLD_SQL_DB};UID={OLD_SQL_USER};PWD={OLD_SQL_PW};TrustServerCertificate=yes"
 
     try:
