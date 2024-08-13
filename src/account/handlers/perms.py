@@ -101,7 +101,7 @@ def perm_queryset(self, user):
     exclude_id = list(perm_req_id - set(has_perm_id))
 
     queryset = model_class.objects.exclude(id__in=exclude_id)
-
+    print(f"Exclude id: {exclude_id}")
     # Check if the model has a 'status' field and exclude deactivated items
     if hasattr(model_class, 'status'):
         queryset = queryset.exclude(status='deactivate')
