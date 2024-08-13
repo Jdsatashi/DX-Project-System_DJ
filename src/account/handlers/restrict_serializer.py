@@ -180,9 +180,9 @@ def update_group_perm(item_data, perms, items, allow, exited):
     print(f"Read only: {read_only} | Hide: {hide_group}")
     # Looping handle with permissions
     for perm in perms:
-        if group.id in read_only or group.id.lower() in read_only:
+        if group.name in read_only or group.name.lower() in read_only:
             if perm.split('_')[0] == perm_actions['view']:
-                app_log.info(f"|__ Add READ ONLY permissions for user '{group.id}' - '{perm}'")
+                app_log.info(f"|__ Add READ ONLY permissions for user '{group.name}' - '{perm}'")
                 group.perm.add(perm, through_defaults={'allow': allow})
         if group.name in hide_group:
             if perm.split('_')[0] == perm_actions['view']:
