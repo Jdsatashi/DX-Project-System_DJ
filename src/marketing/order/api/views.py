@@ -1140,9 +1140,13 @@ class ApiSeasonalStatisticUser(viewsets.GenericViewSet, mixins.ListModelMixin, m
     permission_classes = [partial(ValidatePermRest, model=SeasonalStatisticUser)]
 
     def list(self, request, *args, **kwargs):
+        queryset = self.get_queryset()
+        stats_id = request.query_params.get('stats_id', None)
+        if stats_id:
+            queryset = queryset.filter(season_stats__id=stats_id)
         response = filter_data(self, request,
                                ['id', 'user__id', 'user__username', 'season_stats__id', 'season_stats__name'],
-                               **kwargs)
+                               queryset=queryset, **kwargs)
         return Response(response, status.HTTP_200_OK)
 
 
@@ -1159,6 +1163,7 @@ class ApiSeasonalStatistic(viewsets.GenericViewSet, mixins.ListModelMixin, mixin
         stats_type = request.query_params.get('type', None)
         if stats_type:
             queryset = queryset.filter(type=stats_type)
+
         response = filter_data(self, request, ['id', 'name', 'start_date', 'end_date'],
                                queryset=queryset, **kwargs)
         return Response(response, status.HTTP_200_OK)
