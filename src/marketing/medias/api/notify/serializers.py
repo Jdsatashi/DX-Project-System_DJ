@@ -7,7 +7,7 @@ from rest_framework import serializers
 
 from account.handlers.restrict_serializer import create_full_perm, list_user_has_perm, \
     list_group_has_perm, add_perm
-from account.models import Perm, User, GroupPerm
+from account.models import Perm, User, GroupPerm, PhoneNumber
 from app.logs import app_log
 from marketing.medias.models import Notification, NotificationUser, NotificationFile
 from marketing.medias.tasks import schedule_notification
@@ -35,6 +35,7 @@ def send_firebase_notification3(title, body, registration_tokens, data):
         data=data,
         tokens=registration_tokens
     )
+    app_log.info(f"Check data: {data}")
     try:
         # response = messaging.send_multicast(message)
         response = messaging.send_each_for_multicast(message)
@@ -121,7 +122,7 @@ class NotificationSerializer(serializers.ModelSerializer):
                     NotificationFile.objects.create(notify=notify, file=file_upload)
 
                 # Get registration tokens for FCM
-                registration_tokens = list(distinct_users.values_list('device_token', flat=True))
+                registration_tokens = list(PhoneNumber.objects.filter(user_id__in=distinct_users).values_list('device_code', flat=True))
                 registration_tokens = [token for token in registration_tokens if token]
 
                 # Send Firebase notification
@@ -198,7 +199,7 @@ class NotificationSerializer(serializers.ModelSerializer):
                         NotificationFile.objects.create(notify=instance, file=file_upload)
 
                 # Get registration tokens for FCM
-                registration_tokens = list(distinct_users.values_list('device_token', flat=True))
+                registration_tokens = list(PhoneNumber.objects.filter(user_id__in=distinct_users).values_list('device_code', flat=True))
                 registration_tokens = [token for token in registration_tokens if token]
 
                 # Send Firebase notification

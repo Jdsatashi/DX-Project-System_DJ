@@ -144,13 +144,15 @@ def update_user_perm(item_data, perms, items, allow, exited):
     print(f"Read only: {read_only} | Hide: {hide_users}")
     # Looping handle with permissions
     for perm in perms:
-        if user.id in read_only or user.id.lower() in read_only:
-            if perm.split('_')[0] == perm_actions['view']:
-                app_log.info(f"|__ Add READ ONLY permissions for user '{user.id}' - '{perm}'")
-                user.perm_user.add(perm, through_defaults={'allow': allow})
-        if user.id in hide_users or user.id.lower() in hide_users:
-            if perm.split('_')[0] == perm_actions['view']:
-                continue
+        if read_only:
+            if user.id in read_only or user.id.lower() in read_only:
+                if perm.split('_')[0] == perm_actions['view']:
+                    app_log.info(f"|__ Add READ ONLY permissions for user '{user.id}' - '{perm}'")
+                    user.perm_user.add(perm, through_defaults={'allow': allow})
+        if hide_users:
+            if user.id in hide_users or user.id.lower() in hide_users:
+                if perm.split('_')[0] == perm_actions['view']:
+                    continue
 
         is_perm = user.is_perm(perm)
         # Remove when permission is existed and User not in Updated list
@@ -176,17 +178,20 @@ def update_group_perm(item_data, perms, items, allow, exited):
         raise serializers.ValidationError({'message': f'Field error at "{field}_{items["type"]}"'})
     hide_group = items.get('hide', None)
     read_only = items.get('read_only', None)
-
+    if group is None:
+        return
     print(f"Read only: {read_only} | Hide: {hide_group}")
     # Looping handle with permissions
     for perm in perms:
-        if group.name in read_only or group.name.lower() in read_only:
-            if perm.split('_')[0] == perm_actions['view']:
-                app_log.info(f"|__ Add READ ONLY permissions for user '{group.name}' - '{perm}'")
-                group.perm.add(perm, through_defaults={'allow': allow})
-        if group.name in hide_group:
-            if perm.split('_')[0] == perm_actions['view']:
-                continue
+        if read_only:
+            if group.name in read_only or group.name.lower() in read_only:
+                if perm.split('_')[0] == perm_actions['view']:
+                    app_log.info(f"|__ Add READ ONLY permissions for user '{group.name}' - '{perm}'")
+                    group.perm.add(perm, through_defaults={'allow': allow})
+        if hide_group:
+            if group.name in hide_group:
+                if perm.split('_')[0] == perm_actions['view']:
+                    continue
         group_perm = group.perm.filter(name=perm)
         is_perm = group_perm.exists() and group.perm_group.filter(perm_id=perm, allow=allow).exists()
         # Remove when permission is existed and Group not in Updated list
