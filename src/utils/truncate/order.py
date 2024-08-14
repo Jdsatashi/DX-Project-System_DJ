@@ -28,7 +28,9 @@ def get_all_kh():
     file_path = os.path.join(PROJECT_DIR, 'update', 'updateUserStats.xlsx')
     today = datetime.datetime.today().date()
     first_date = today.replace(day=1)
+    last_date_last_month = first_date - datetime.timedelta(days=1)
 
+    first_date_last_month = last_date_last_month.replace(day=1)
     # Đọc file Excel
     df = pd.read_excel(file_path, engine='openpyxl')
 
@@ -41,6 +43,11 @@ def get_all_kh():
         update_point(user)
         update_season_stats_user(user, first_date)
         create_or_get_sale_stats_user(user, first_date)
+
+    for user in users:
+        update_point(user)
+        update_season_stats_user(user, first_date_last_month)
+        create_or_get_sale_stats_user(user, first_date_last_month)
 
     # Hiển thị dữ liệu
     print(ma_khach_hang_data)
