@@ -281,7 +281,7 @@ def create_or_get_sale_stats_user(user: User, month) -> SaleStatistic | None:
                    Q(id_so__isnull=False) | Q(id_offer_consider__isnull=False)
                    )
     orders = Order.objects.filter(query_filter)
-    orders_count = Order.objects.filter(filter_so_count)
+    orders_count = Order.objects.filter(filter_so_count).exclude(exclude_so)
     # print(f"Before exclude: {orders_count}")
     # orders_count = (Order.objects.filter(filter_so_count | query_filter)
     #                 .exclude(exclude_so).exclude(Q(Q(new_special_offer__isnull=True) & Q(new_special_offer__type_list='manual')))
@@ -338,7 +338,7 @@ def create_or_get_sale_stats_user(user: User, month) -> SaleStatistic | None:
     elif not orders_count.exists() and sale_statistic.exists():
         print(f"Case 3")
         sale_statistic = sale_statistic.first()
-        sale_statistic.total_turnover = 0
+        sale_statistic.total_turnover = 0 - sale_statistic.minus_turnover + sale_statistic.bonus_turnover
         sale_statistic.used_turnover = 0
         sale_statistic.available_turnover = 0
         sale_statistic.save()
