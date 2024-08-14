@@ -530,6 +530,8 @@ class SeasonalStatisticSerializer(serializers.ModelSerializer):
         # Assign list for create objects
         create_stats_users = list()
         update_stats_users = list()
+        print(f"Test: {user_ids}")
+        exclude_user_ids = list()
         for user_id in user_ids:
             if isinstance(user_id, str):
                 # Validate user exists
@@ -547,6 +549,7 @@ class SeasonalStatisticSerializer(serializers.ModelSerializer):
                 else:
                     upd_stats_user = update_season_stats_users(stats_user.first())
                     update_stats_users.append(upd_stats_user)
+                exclude_user_ids.append(user_id)
             elif isinstance(user_id, dict):
                 # Get user id from dict user data
                 user_data = user_id
@@ -581,10 +584,11 @@ class SeasonalStatisticSerializer(serializers.ModelSerializer):
                     upd_stats_user = update_season_stats_users(stats_user)
                     # Add stats object to update bulk list
                     update_stats_users.append(upd_stats_user)
+                exclude_user_ids.append(my_user_id)
             else:
                 raise ValidationError({'message': 'user_ids not acceptable type'})
         # Remove un-use user
-        SeasonalStatisticUser.objects.filter(season_stats=instance).exclude(user_id__in=user_ids).delete()
+        SeasonalStatisticUser.objects.filter(season_stats=instance).exclude(user_id__in=exclude_user_ids).delete()
         # Create all users stats on create list
         print("Im update here")
         SeasonalStatisticUser.objects.bulk_create(create_stats_users)
