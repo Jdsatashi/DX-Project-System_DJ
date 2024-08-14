@@ -141,6 +141,8 @@ class ApiExportEventNumber(APIView):
     def get(self, request):
         event_id = request.query_params.get('event_id', None)
         user_id = request.query_params.get('user_id', None)
+        if user_id is None:
+            pass
 
 
 class ApiUserAward(viewsets.GenericViewSet, mixins.ListModelMixin):
