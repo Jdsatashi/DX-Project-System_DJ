@@ -1286,9 +1286,10 @@ class OrderSOCount(APIView):
                 total_box=Sum('order_box'))['total_box'] or 0
 
             input_data = {
+                'so_id': so.id,
                 'time_used': orders.count(),
                 'total_used_box': total_box,
                 'orders_used': [orders.values_list('id', flat=True)],
             }
-            data.append({so.id: input_data})
+            data.append(input_data)
         return data
