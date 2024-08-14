@@ -235,10 +235,13 @@ class OrderSerializer(BaseRestrictSerializer):
 
             # Compare date
             get_date = datetime.combine(get_date, datetime.min.time())
-            time_start = special_offer.time_start.replace(tzinfo=None)
-            time_end = special_offer.time_end.replace(tzinfo=None)
+            # time_start = special_offer.time_start.replace(tzinfo=None)
+            # time_end = special_offer.time_end.replace(tzinfo=None)
+            time_start = datetime.combine(special_offer.time_start.date(), datetime.min.time())
+            time_end = datetime.combine(special_offer.time_end.date(), datetime.min.time())
             can_use = time_start <= get_date < time_end
             print(f"Test can user: {can_use}")
+            print(f"Test: {time_start} <= {get_date} < {time_end}")
             if special_offer.status == 'deactivate' or special_offer.used is True or not can_use:
                 raise serializers.ValidationError({'message': 'ưu đãi đã hết hạn'})
 
