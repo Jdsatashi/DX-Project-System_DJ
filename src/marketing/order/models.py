@@ -323,12 +323,12 @@ def create_or_get_sale_stats_user(user: User, month) -> SaleStatistic | None:
         sale_statistic.save()
         return sale_statistic
     elif orders_count.exists() and not sale_statistic.exists():
+        print(f"Case 2")
         last_sale_stats = create_or_get_sale_stats_user(user, last_month)
         if last_sale_stats is not None:
             last_month_turnover = last_sale_stats.available_turnover
         else:
             last_month_turnover = 0
-        print(f"Case 2")
         sale_statistic = SaleStatistic.objects.create(
             user=user, month=month, total_turnover=total_turnover,
             available_turnover=(total_turnover - total_used), last_month_turnover=last_month_turnover,
