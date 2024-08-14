@@ -286,15 +286,22 @@ def create_or_get_sale_stats_user(user: User, month) -> SaleStatistic | None:
     # orders_count = (Order.objects.filter(filter_so_count | query_filter)
     #                 .exclude(exclude_so).exclude(Q(Q(new_special_offer__isnull=True) & Q(new_special_offer__type_list='manual')))
     #                 .order_by('date_get'))
+
     print(f"Test sale_stats user: {orders_count}")
-    orders_so = (orders.filter(Q(Q(is_so=True) & Q(new_special_offer__isnull=False))).exclude(
+    orders_so = (Order.objects.filter(query_filter & Q(Q(is_so=True))).exclude(
         new_special_offer__type_list='consider_offer_user'))
+
+    print(f"Test orders_so user: {orders_so}")
+
     total_used = 0
     sale_target, _ = SaleTarget.objects.get_or_create(month=month)
     for order in orders_so:
         result = OrderDetail.objects.filter(order_id=order).aggregate(total_order_box=Sum('order_box'))
         total_order_box = result.get('total_order_box', 0) or 0
-        target = order.new_special_offer.target if order.new_special_offer.target > 0 else sale_target.month_target
+        if order.new_special_offer:
+            target = order.new_special_offer.target if order.new_special_offer.target > 0 else sale_target.month_target
+        else:
+            target = sale_target.month_target
         total_used += total_order_box * target
     sale_statistic = SaleStatistic.objects.filter(user=user, month=month)
 

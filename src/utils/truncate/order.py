@@ -41,13 +41,13 @@ def get_all_kh():
 
     for user in users:
         update_point(user)
-        update_season_stats_user(user, first_date)
-        create_or_get_sale_stats_user(user, first_date)
+        update_season_stats_user(user, first_date_last_month)
+        create_or_get_sale_stats_user(user, first_date_last_month)
 
     for user in users:
         update_point(user)
-        update_season_stats_user(user, first_date_last_month)
-        create_or_get_sale_stats_user(user, first_date_last_month)
+        update_season_stats_user(user, first_date)
+        create_or_get_sale_stats_user(user, first_date)
 
     # Hiển thị dữ liệu
     print(ma_khach_hang_data)
