@@ -194,7 +194,7 @@ LOGGING = {
 }
 
 SIMPLE_JWT = {
-    "ACCESS_TOKEN_LIFETIME": timedelta(hours=int(TOKEN_LT)),
+    "ACCESS_TOKEN_LIFETIME": timedelta(seconds=int(TOKEN_LT)),
     "REFRESH_TOKEN_LIFETIME": timedelta(days=int(REF_TOKEN_LT)),
     "ROTATE_REFRESH_TOKENS": False,
     "BLACKLIST_AFTER_ROTATION": False,
