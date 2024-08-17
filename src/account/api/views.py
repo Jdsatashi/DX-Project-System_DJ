@@ -899,6 +899,8 @@ def otp_deactivate(request, *args, **kwargs):
     data_str = json.dumps(data)
 
     redis_db.setex(key, expire_time, data_str)
+    message = f"[DONG XANH] Ma xac thuc cua ban la {otp_code}, tai app Thuoc BVTV Dong Xanh co hieu luc trong 3 phut. Vi ly do bao mat tuyet doi khong cung cap cho bat ky ai."
+    send_sms(phone_obj.phone_number, message)
 
     return Response(data)
 
