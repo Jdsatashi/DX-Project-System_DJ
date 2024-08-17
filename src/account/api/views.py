@@ -1,4 +1,5 @@
 import datetime
+import json
 import time
 
 import pytz
@@ -27,6 +28,7 @@ from account.handlers.validate_perm import check_perm
 from account.models import User, Verify, PhoneNumber, RefreshToken, TokenMapping, GroupPerm, Perm, GrantAccess
 from app.api_routes.handlers import get_token_for_user
 from app.logs import app_log
+from app.redis_db import redis_db, verify_deactivate_key
 from app.settings import pusher_client
 from marketing.price_list.models import PriceList
 from system_func.models import PeriodSeason, PointOfSeason
@@ -202,10 +204,12 @@ def otp_verify(request, pk):
                 verify.is_verify = True
                 verify.verify_time = local_time()
                 # Activate user
-                verify.user.status = user_status[0]
-                verify.user.is_active = True
-                verify.user.save()
-                verify.save()
+                if verify.user.status == user_status[0]:
+                    return Response({'message': 'tài khoản đã bị dừng hoạt động'})
+                # verify.user.status = user_status[0]
+                # verify.user.is_active = True
+                # verify.user.save()
+                # verify.save()
                 # Generate new token
                 token = get_token_for_user(verify.user)
                 set_user_perm(verify.user, True)
@@ -274,9 +278,19 @@ def phone_login_2(request):
             return Response(response_data)
         # Get user from phone object
         user = phone.user
-        app_log.info(f"Test token: {refresh_token}")
+
+        if user.status == user_status[1]:
+            return Response({'message': 'tài khoản bị dừng hoạt động'})
+
         with transaction.atomic():
             if refresh_token:
+                ref_token = RefreshToken.objects.filter(refresh_token=refresh_token).first()
+                if ref_token is None:
+                    return Response({'message': 'Token đã hết hạn'},
+                                    status=status.HTTP_401_UNAUTHORIZED)
+                if ref_token.status == 'deactivate':
+                    return Response({'message': 'Phiên đăng nhập đã hết hạn'},
+                                    status=status.HTTP_401_UNAUTHORIZED)
                 # Get new token
                 try:
                     new_token = create_access_token_from_refresh(refresh_token, phone)
@@ -487,7 +501,7 @@ def create_verify_user(phone_number):
         # Generate default id for user client Farmer
         _id = generate_id(maNhomND)
         # Create new user
-        user = User.objects.create(id=_id, user_type=type_kh, status=user_status[1], is_active=False)
+        user = User.objects.create(id=_id, user_type=type_kh, status=user_status[0], is_active=True)
         # Create new phone number
         phone = PhoneNumber.objects.create(phone_number=phone_number, user=user)
         # Create Verify with data
@@ -856,3 +870,66 @@ class ApiGrantAccessSerializer(viewsets.GenericViewSet, mixins.ListModelMixin, m
 class ImportUser(APIView):
     def get(self, request, *args, **kwargs):
         excel_file = self.request.FILES.get('excel_file', None)
+
+
+@api_view(['POST'])
+def otp_deactivate(request, *args, **kwargs):
+    phone_deactivate = request.data.get('phone_number', None)
+    if phone_deactivate is None:
+        return Response({'message': 'phone_number is required'})
+    phone_obj: PhoneNumber = PhoneNumber.objects.filter(phone_number=phone_deactivate).first()
+    if phone_obj is None:
+        return Response({'message': 'phone_number not exists in system'})
+
+    user_id = phone_obj.user.id
+
+    key = verify_deactivate_key(user_id)
+
+    expire_minutes = 3
+    expire_time = datetime.timedelta(minutes=expire_minutes)
+
+    otp_code = generate_digits_code()
+    data = {
+        'otp_code': otp_code,
+        'user_id': user_id,
+        'phone_number': phone_obj.phone_number,
+        'expire': f"{expire_minutes} minutes"
+    }
+
+    data_str = json.dumps(data)
+
+    redis_db.setex(key, expire_time, data_str)
+
+    return Response(data)
+
+
+@api_view(['POST'])
+def verify_deactivate(request, *args, **kwargs):
+    phone_deactivate = request.data.get('phone_number', None)
+    otp_code = request.data.get('otp_code', None)
+
+    if phone_deactivate is None:
+        return Response({'message': 'phone_number is required for verify'})
+    phone_obj: PhoneNumber = PhoneNumber.objects.filter(phone_number=phone_deactivate).first()
+    if phone_obj is None:
+        return Response({'message': 'phone_number not exists in system'})
+
+    if otp_code is None:
+        return Response({'message': 'otp_code is required for verify'})
+
+    user_id = phone_obj.user.id
+
+    key = verify_deactivate_key(user_id)
+
+    if redis_db.exists(key):
+        data_str = redis_db.get(key)
+        data = json.loads(data_str)
+        print(f"Test data: {data}")
+        if otp_code == data.get('otp_code', ''):
+            user = phone_obj.user
+            user.status = 'deactivate'
+            user.save()
+
+            return Response({'message': f'successfully deactivate user {user.id} - {phone_deactivate}'}, status=200)
+    else:
+        return Response({'message': 'No OTP data found for this phone number'}, status=404)

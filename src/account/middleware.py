@@ -4,7 +4,7 @@ from rest_framework_simplejwt.token_blacklist.models import BlacklistedToken, Ou
 from rest_framework_simplejwt.exceptions import InvalidToken, TokenError
 from django.http import JsonResponse
 from datetime import datetime
-
+from utils.constants import status as user_status
 from account.models import TokenMapping
 
 
@@ -44,7 +44,8 @@ class CheckBlacklistMiddleware:
             try:
                 access_token = AccessToken(str(token))
                 access_token_jti = access_token['jti']
-
+                if user.status == user_status[1]:
+                    return JsonResponse({'detail': 'User is inactive'}, status=401)
                 if not is_access_token_valid(access_token_jti):
                     return JsonResponse({'detail': 'Access token\'s related refresh token has been blacklisted',
                                          'code': 'token_not_valid'}, status=401)
