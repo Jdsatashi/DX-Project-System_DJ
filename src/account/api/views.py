@@ -204,7 +204,7 @@ def otp_verify(request, pk):
                 verify.is_verify = True
                 verify.verify_time = local_time()
                 # Activate user
-                if verify.user.status == user_status[0]:
+                if verify.user.status == user_status[1]:
                     return Response({'message': 'tài khoản đã bị dừng hoạt động'})
                 # verify.user.status = user_status[0]
                 # verify.user.is_active = True
