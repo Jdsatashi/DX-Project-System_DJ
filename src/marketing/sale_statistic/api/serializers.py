@@ -23,7 +23,7 @@ class SaleMonthTargetSerializer(serializers.ModelSerializer):
 class UserSaleStatisticSerializer(serializers.ModelSerializer):
     fix_turnover = serializers.IntegerField(write_only=True, allow_null=True, required=False)
     is_bonus = serializers.BooleanField(write_only=True, default=True)
-    note = serializers.CharField(allow_null=True, required=False)
+    note = serializers.CharField(write_only=True, allow_null=True, required=False)
 
     class Meta:
         model = UserSaleStatistic
