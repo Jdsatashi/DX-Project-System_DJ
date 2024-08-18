@@ -50,7 +50,7 @@ class UserSaleStatisticSerializer(serializers.ModelSerializer):
             else:
                 fix_turnover = -abs(fix_turnover)
 
-            instance.turnover = fix_turnover
+            instance.turnover += fix_turnover
             UsedTurnover.objects.create(user_sale_stats=instance, purpose='admin_fix', turnover=fix_turnover, note=note)
 
             instance.save()
