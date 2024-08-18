@@ -24,6 +24,7 @@ class UserSaleStatisticSerializer(serializers.ModelSerializer):
     fix_turnover = serializers.IntegerField(write_only=True, allow_null=True, required=False)
     is_bonus = serializers.BooleanField(write_only=True, default=True)
     note = serializers.CharField(write_only=True, allow_null=True, required=False)
+    import_file = serializers.FileField(required=False, write_only=True, allow_null=True)
 
     class Meta:
         model = UserSaleStatistic

@@ -28,6 +28,7 @@ urlpatterns = [
 
     path('main-stats/', ApiMainSaleStatistic.as_view({'get': 'list'})),
     path('main-stats/<pk>', ApiMainSaleStatistic.as_view({'get': 'retrieve', 'put': 'update'})),
+    path('main-stats/import/', ApiMainSaleStatistic.as_view({'post': 'import_file'})),
 
     path('used-stats/', ApiUserUsedStatistic.as_view({'get': 'list'}))
 ]

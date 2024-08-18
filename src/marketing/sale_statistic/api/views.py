@@ -1,5 +1,6 @@
 from functools import partial
 
+import pandas as pd
 from django.utils import timezone
 from rest_framework import viewsets, mixins, status
 from rest_framework.authentication import BasicAuthentication, SessionAuthentication
@@ -91,6 +92,32 @@ class ApiMainSaleStatistic(viewsets.GenericViewSet, mixins.ListModelMixin, mixin
         response = filter_data(self, request, ['user__id', 'user__username'],
                                **kwargs)
         return Response(response, status=status.HTTP_200_OK)
+
+    def import_file(self, request, *args, **kwargs):
+        file = request.data.get('import_file', None)
+        if file is None:
+            return Response({'message': 'import_file is required'})
+        try:
+            df = pd.read_excel(file, engine='openpyxl')
+
+            if 'maKH' not in df.columns or 'thay_doi_doanh_so' not in df.columns:
+                return Response({'message': 'File phải chứa các cột "maKH" và "thay_doi_doanh_so"'})
+
+            data = df[['maKH', 'thay_doi_doanh_so']]
+            update_turnover = list()
+            for index, row in data.iterrows():
+                user_id = row['maKH']
+                fix_turnover = row['thay_doi_doanh_so']
+                user_stats = UserSaleStatistic.objects.filter(user=user_id).first()
+                if user_stats is None:
+                    user_stats = UserSaleStatistic.objects.create(user=user_id)
+                user_stats.turnover += fix_turnover
+                update_turnover.append(user_stats)
+            UserSaleStatistic.objects.bulk_update(update_turnover, ['turnover'])
+            return Response({'message': 'Import file successfully'})
+
+        except Exception as e:
+            raise e
 
 
 class ApiUserUsedStatistic(viewsets.GenericViewSet, mixins.ListModelMixin):
