@@ -110,7 +110,8 @@ class ApiMainSaleStatistic(viewsets.GenericViewSet, mixins.ListModelMixin, mixin
                 fix_turnover = row['thay_doi_doanh_so']
                 user_stats = UserSaleStatistic.objects.filter(user=user_id).first()
                 if user_stats is None:
-                    user_stats = UserSaleStatistic.objects.create(user=user_id)
+                    user = User.objects.get(id=user_id)
+                    user_stats = UserSaleStatistic.objects.create(user=user)
                 user_stats.turnover += fix_turnover
                 update_turnover.append(user_stats)
             UserSaleStatistic.objects.bulk_update(update_turnover, ['turnover'])
