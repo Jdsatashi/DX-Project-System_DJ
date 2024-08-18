@@ -16,7 +16,7 @@ from marketing.order.models import Order, OrderDetail, SeasonalStatistic, Season
     update_season_stats_users, create_or_get_sale_stats_user
 from marketing.pick_number.models import UserJoinEvent
 from marketing.price_list.models import ProductPrice, SpecialOfferProduct, SpecialOffer
-from marketing.sale_statistic.models import SaleTarget, SaleStatistic
+from marketing.sale_statistic.models import SaleTarget, SaleStatistic, UserSaleStatistic
 from system_func.models import PeriodSeason, PointOfSeason
 
 
@@ -89,15 +89,13 @@ class OrderSerializer(BaseRestrictSerializer):
                     #     special_offer.save()
 
                     app_log.info(f"Testing user sale statistic: {user_sale_statistic}")
-                    # if order.status == 'deactivate':
-                    #     self.update_sale_statistic(order, user_sale_statistic, order.order_price, is_so, False)
-                    # else:
-                    #     self.update_sale_statistic(order, user_sale_statistic, order.order_price, is_so, True)
+
                     update_point(order.client_id)
                     update_season_stats_user(order.client_id, order.date_get)
                     order_month = order.date_get.replace(day=1)
                     user_stats = create_or_get_sale_stats_user(order.client_id, order_month)
                     print(user_stats)
+                    update_user_turnover(order.client_id, order, order.is_so)
                     # Create perms
                     restrict = perm_data.get('restrict')
                     if restrict:
@@ -174,6 +172,7 @@ class OrderSerializer(BaseRestrictSerializer):
             update_season_stats_user(instance.client_id, instance.date_get)
             order_month = instance.date_get.replace(day=1)
             user_stats = create_or_get_sale_stats_user(instance.client_id, order_month)
+            update_user_turnover(instance.client_id, instance, instance.is_so)
             print(user_stats)
             restrict = perm_data.get('restrict')
             if restrict:
@@ -219,6 +218,11 @@ class OrderSerializer(BaseRestrictSerializer):
         if user_sale_statistic is None:
             user_sale_statistic, _ = SaleStatistic.objects.get_or_create(user=user, month=first_day_of_month)
         month_target = SaleTarget.objects.filter(month=first_day_of_month).first()
+
+        user_sale_stats = UserSaleStatistic.objects.filter(user=user).first()
+        if not user_sale_stats:
+            user_sale_stats = UserSaleStatistic.objects.create(user=user)
+
         is_consider = False
         # Validate Order if it was special_offer
         if special_offer:
@@ -245,6 +249,8 @@ class OrderSerializer(BaseRestrictSerializer):
             if special_offer.status == 'deactivate' or special_offer.used is True or not can_use:
                 raise serializers.ValidationError({'message': 'ưu đãi đã hết hạn'})
 
+            buy_target = special_offer.target if special_offer.target and special_offer.target >= 0 else month_target.month_target
+
             # Calculate max box can buy
             if special_offer.type_list == 'consider_offer_user':
                 is_consider = True
@@ -262,12 +268,18 @@ class OrderSerializer(BaseRestrictSerializer):
                         {'message': 'sản phẩm trong toa không khớp với sản phẩm trong xét duyệt ưu đãi'})
             else:
                 # Normal SO use default target of SaleTarget by month
-                number_box_can_buy = user_sale_statistic.available_turnover // month_target.month_target
+                number_box_can_buy = user_sale_statistic.available_turnover // buy_target
 
                 # Validate turnover can buy number of box in Order
                 total_order_box = sum(item['order_box'] for item in order_details_data)
 
-                if number_box_can_buy < total_order_box:
+                number_box_can_buy2 = user_sale_stats.turnover // buy_target
+
+                # if number_box_can_buy < total_order_box:
+                #     raise serializers.ValidationError(
+                #         {'message': 'không đủ doanh số'})
+
+                if number_box_can_buy2 < total_order_box:
                     raise serializers.ValidationError(
                         {'message': 'không đủ doanh số'})
 
@@ -342,42 +354,6 @@ class OrderSerializer(BaseRestrictSerializer):
             detail = OrderDetail(order_id=order, product_id=product_id, **detail_data)
             details.append(detail)
         return details
-
-    @staticmethod
-    def update_sale_statistic(order, user_sale_statistic, total_price, is_so, status):
-        print(f"Check user statistic: {user_sale_statistic}")
-        if user_sale_statistic:
-            # Calculate used turnover based on SaleTarget for the month of order.created_at
-            order_month = order.date_get.replace(day=1)
-            sale_target = SaleTarget.objects.filter(month=order_month).first()
-            sale_stats = create_or_get_sale_stats_user(user_sale_statistic.user, order_month)
-            # if not sale_target:
-            #     raise serializers.ValidationError({'message': f'không tìm thấy doanh số tháng {order_month}'})
-            # if status:
-            # if is_so:
-            #     target = order.new_special_offer.target
-            #     target = target if target != 0 else sale_target.month_target
-            #     app_log.info(f"TESTING TARGET: {target}")
-            #
-            #     used_turnover = sum(
-            #         detail.order_box * target
-            #         for detail in order.order_detail.all()
-            #     )
-            #     if order.new_special_offer.count_turnover:
-            #         user_sale_statistic.total_turnover += total_price
-
-            # user_sale_statistic.used_turnover += used_turnover
-            # user_sale_statistic.available_turnover = user_sale_statistic.total_turnover - user_sale_statistic.used_turnover
-            # user_sale_statistic.save()
-            # else:
-            # user_sale_statistic.total_turnover += total_price
-            # user_sale_statistic.available_turnover = user_sale_statistic.total_turnover - user_sale_statistic.used_turnover
-            # user_sale_statistic.save()
-            # else:
-            # print(f"- turnover: {total_price}")
-            # user_sale_statistic.total_turnover = user_sale_statistic.total_turnover - total_price
-            # user_sale_statistic.available_turnover = user_sale_statistic.total_turnover - user_sale_statistic.used_turnover
-            # user_sale_statistic.save()
 
     def update_order_by(self):
         try:
@@ -676,3 +652,35 @@ def update_season_stats_user(user: User, date_get):
 
         SeasonalStatisticUser.objects.bulk_update(update_stats_users,
                                                   ['turn_per_point', 'turn_pick', 'redundant_point', 'total_point'])
+
+
+def update_user_turnover(user: User, order: Order, is_so: bool):
+    user_sale_stats = UserSaleStatistic.objects.filter(user=user).first()
+    if not user_sale_stats:
+        user_sale_stats = UserSaleStatistic.objects.create(user=user)
+
+    totals = order.order_detail.filter().aggregate(
+        total_box=Sum('order_box'),
+        total_price=Sum('product_price')
+    )
+    total_box = totals['total_box'] if totals['total_box'] is not None else 0
+    total_price = totals['total_price'] if totals['total_price'] is not None else 0
+
+    if is_so:
+        first_date = order.date_get.replace(day=1)
+        sale_target, _ = SaleTarget.objects.get_or_create(month=first_date)
+        so_target = order.new_special_offer.target
+        target = so_target if so_target >= 0 else sale_target.month_target
+        fix_price = target * total_box
+        if not order.status == 'deactivate':
+            user_sale_stats.turnover -= fix_price
+        else:
+            user_sale_stats.turnover += fix_price
+
+        user_sale_stats.save()
+    else:
+        if not order.status == 'deactivate':
+            user_sale_stats.turnover += total_price
+        else:
+            user_sale_stats.turnover -= total_price
+        user_sale_stats.save()

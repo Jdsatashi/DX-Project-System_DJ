@@ -2,7 +2,7 @@ from django.urls import path
 from rest_framework.routers import DefaultRouter
 
 from marketing.sale_statistic.api.views import ApiSaleStatistic, ApiSaleMonthTarget, CurrentMonthSaleStatisticView, \
-    UserMonthSaleStatisticView
+    UserMonthSaleStatisticView, ApiMainSaleStatistic, ApiUserUsedStatistic
 from utils.constants import actions_detail
 
 app_name = 'api_sale_statistic'
@@ -25,4 +25,9 @@ urlpatterns = [
     path('user/<str:user_id>', UserMonthSaleStatisticView.as_view({'get': 'list'}), name='api_sale_statistic_user'),
     path('month-target/', view_sale_month_target, name='api_sale_month_target'),
     path('month-target/<pk>', detail_sale_month_target, name='api_sale_month_target'),
+
+    path('main-stats/', ApiMainSaleStatistic.as_view({'get': 'list'})),
+    path('main-stats/<pk>', ApiMainSaleStatistic.as_view({'get': 'retrieve', 'put': 'update'})),
+
+    path('used-stats/', ApiUserUsedStatistic.as_view({'get': 'list'}))
 ]

@@ -106,3 +106,20 @@ class SaleStatistic(models.Model):
 
     def __str__(self):
         return f"{self.id}: {self.user.username} - {self.month.strftime('%Y-%m')}"
+
+
+class UserSaleStatistic(models.Model):
+    user = models.OneToOneField(User, null=True, on_delete=models.SET_NULL)
+    turnover = models.BigIntegerField(default=0)
+
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+
+class UsedTurnover(models.Model):
+    user_sale_stats = models.ForeignKey(UserSaleStatistic, on_delete=models.CASCADE)
+    purpose = models.CharField(max_length=128, null=False, choices=(('special_offer', 'mua ưu đãi'), ('reset_month', 'đặt lại hàng tháng'), ('reset_season', 'đặt lại the vụ'), ('admin_fix', 'admin tuỳ chỉnh')))
+    turnover = models.BigIntegerField(default=0)
+    note = models.TextField(null=True)
+
+    created_at = models.DateField(auto_now_add=True)

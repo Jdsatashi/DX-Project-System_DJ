@@ -9,8 +9,9 @@ from rest_framework_simplejwt.authentication import JWTAuthentication
 from account.handlers.validate_perm import ValidatePermRest
 from account.models import User
 from app.logs import app_log
-from marketing.sale_statistic.api.serializers import SaleStatisticSerializer, SaleMonthTargetSerializer
-from marketing.sale_statistic.models import SaleStatistic, SaleTarget
+from marketing.sale_statistic.api.serializers import SaleStatisticSerializer, SaleMonthTargetSerializer, \
+    UserSaleStatisticSerializer, UserUsedStatsSerializer
+from marketing.sale_statistic.models import SaleStatistic, SaleTarget, UserSaleStatistic, UsedTurnover
 from utils.helpers import local_time
 from utils.model_filter_paginate import filter_data
 
@@ -75,5 +76,31 @@ class ApiSaleMonthTarget(viewsets.GenericViewSet, mixins.ListModelMixin,
         sale_target, _ = SaleTarget.objects.get_or_create(month=today)
         app_log.info(f"{sale_target}")
         response = filter_data(self, request, ['month'],
+                               **kwargs)
+        return Response(response, status=status.HTTP_200_OK)
+
+
+class ApiMainSaleStatistic(viewsets.GenericViewSet, mixins.ListModelMixin, mixins.RetrieveModelMixin, mixins.UpdateModelMixin):
+    serializer_class = UserSaleStatisticSerializer
+    queryset = UserSaleStatistic.objects.all()
+    authentication_classes = [JWTAuthentication, BasicAuthentication, SessionAuthentication]
+    permission_classes = [partial(ValidatePermRest, model=UserSaleStatistic)]
+
+    def list(self, request, *args, **kwargs):
+
+        response = filter_data(self, request, ['user__id', 'user__username'],
+                               **kwargs)
+        return Response(response, status=status.HTTP_200_OK)
+
+
+class ApiUserUsedStatistic(viewsets.GenericViewSet, mixins.ListModelMixin):
+    serializer_class = UserUsedStatsSerializer
+    queryset = UsedTurnover.objects.all()
+    authentication_classes = [JWTAuthentication, BasicAuthentication, SessionAuthentication]
+    permission_classes = [partial(ValidatePermRest, model=UsedTurnover)]
+
+    def list(self, request, *args, **kwargs):
+
+        response = filter_data(self, request, ['user_sale_stats__user__id', 'user_sale_stats__user__username'],
                                **kwargs)
         return Response(response, status=status.HTTP_200_OK)
