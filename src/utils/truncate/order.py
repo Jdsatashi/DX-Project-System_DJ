@@ -7,6 +7,7 @@ from account.models import User
 from app.settings import PROJECT_DIR
 from marketing.order.api.serializers import update_point, update_season_stats_user
 from marketing.order.models import create_or_get_sale_stats_user
+from marketing.sale_statistic.models import UserSaleStatistic
 
 
 def remove_user_orders(user_id: str):
@@ -39,15 +40,19 @@ def get_all_kh():
 
     users = User.objects.filter(id__in=ma_khach_hang_data)
 
-    for user in users:
-        update_point(user)
-        update_season_stats_user(user, first_date_last_month)
-        create_or_get_sale_stats_user(user, first_date_last_month)
+    # for user in users:
+    #     update_point(user)
+    #     update_season_stats_user(user, first_date_last_month)
+    #     create_or_get_sale_stats_user(user, first_date_last_month)
+    #
+    # for user in users:
+    #     update_point(user)
+    #     update_season_stats_user(user, first_date)
+    #     create_or_get_sale_stats_user(user, first_date)
 
     for user in users:
-        update_point(user)
-        update_season_stats_user(user, first_date)
-        create_or_get_sale_stats_user(user, first_date)
+        user_stats, _ = UserSaleStatistic.objects.get_or_create(user=user)
+        print(f"Create user stats: {user_stats}")
 
     # Hiển thị dữ liệu
-    print(ma_khach_hang_data)
+    # print(ma_khach_hang_data)
