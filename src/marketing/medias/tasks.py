@@ -92,13 +92,13 @@ def send_firebase_notification(title, body, registration_tokens, data):
 
 
 @shared_task
-def send_scheduled_notification(notification_id):
+def send_scheduled_notification(notification_id, registration_tokens):
     notification = Notification.objects.get(id=notification_id)
 
     # Lấy thông tin người dùng và gửi thông báo
-    registration_tokens = list(
-        PhoneNumber.objects.filter(user_id__in=notification.users).values_list('device_code', flat=True))
-    registration_tokens = [token for token in registration_tokens if token]
+    # registration_tokens = list(
+    #    PhoneNumber.objects.filter(user_id__in=notification.users).values_list('device_code', flat=True))
+    # registration_tokens = [token for token in registration_tokens if token]
 
     my_data = {
         "notification_id": str(notification.id),
