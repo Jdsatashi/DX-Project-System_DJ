@@ -2,15 +2,15 @@ from datetime import datetime
 
 from django.contrib.contenttypes.models import ContentType
 from django.db import transaction
+from django.utils import timezone
 from django.utils.timezone import make_aware, now
 from rest_framework import serializers
-
+from marketing.medias.tasks import send_scheduled_notification
 from account.handlers.restrict_serializer import create_full_perm, list_user_has_perm, \
     list_group_has_perm, add_perm
 from account.models import Perm, User, GroupPerm, PhoneNumber
 from app.logs import app_log
 from marketing.medias.models import Notification, NotificationUser, NotificationFile
-from marketing.medias.tasks import schedule_notification
 from system.file_upload.models import FileUpload
 from utils.constants import perm_actions, admin_role
 from utils.env import APP_SERVER
@@ -130,7 +130,16 @@ class NotificationSerializer(serializers.ModelSerializer):
                     "notification_id": str(notify.id),
                     "click_action": "click_action"
                 }
-                send_firebase_notification3(notify.title, notify.short_description, registration_tokens, my_data)
+
+                time_now = timezone.now()
+                alert_datetime = datetime.combine(notify.alert_date, notify.alert_time)
+                alert_datetime = timezone.make_aware(alert_datetime, timezone.get_current_timezone())
+
+                delay = (alert_datetime - time_now).total_seconds()
+
+                send_scheduled_notification.apply_async((notify.id,), countdown=delay)
+
+                # send_firebase_notification3(notify.title, notify.short_description, registration_tokens, my_data)
                 # schedule_notification(notify)
                 return notify
         except Exception as e:
