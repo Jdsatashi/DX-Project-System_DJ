@@ -18,9 +18,9 @@ class PeriodSeason(models.Model):
     created_at = models.DateTimeField(auto_now_add=True)
 
     @staticmethod
-    def get_period_by_date(cls):
+    def get_period_by_date(_type: str):
         today = datetime.now().date()
-        current_period = cls.objects.filter(from_date__lte=today, to_date__gte=today).first()
+        current_period = PeriodSeason.objects.filter(from_date__lte=today, to_date__gte=today, type=_type).first()
         return current_period
 
     def save(self, *args, **kwargs):
