@@ -13,7 +13,6 @@ urlpatterns = [
     path('content-type/', ApiContentType.as_view(), name="api-content_type"),
     path('accounts/', include('account.api.routes', 'api_account')),
     path('token/', include('app.api_routes.urls', 'api_token')),
-    path('draft/', include('draft.api.routes'), name='api_draft'),
     path('client/', include('user_system.client_profile.api.routes', 'client_profile')),
     path('employees/', include('user_system.employee_profile.api.routes', 'api_employee_profile')),
     path('file-upload/', include('system.file_upload.api.routes', 'api_file_upload')),

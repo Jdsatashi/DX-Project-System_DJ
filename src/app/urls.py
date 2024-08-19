@@ -17,7 +17,6 @@ def home(request):
 urlpatterns = [
     path('', home, name='home'),
     path('system/admin/', admin.site.urls),
-    path('draft/', include('draft.urls', 'draft')),
     path('accounts/', include('account.urls', 'account')),
     path('api/schema/', schema_view, name='api-schema'),
     path('api/redoc/', SpectacularRedocView.as_view(url_name='api-schema'), name='redoc'),

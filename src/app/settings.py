@@ -64,7 +64,6 @@ SMS_SERVICE = {
 
 MY_APPS = [
     # My app
-    'draft',
     'account',
     # User system structure
     # 'user_system.client_group',
