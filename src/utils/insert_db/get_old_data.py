@@ -923,6 +923,7 @@ def add_new_order():
     with transaction.atomic():
         data = get_new_order_from_current()
         get_new_orderdetail_from_current(data)
+# from utils.insert_db.get_old_data import
 
 
 if __name__ == '__main__':
