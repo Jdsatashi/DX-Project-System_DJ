@@ -27,7 +27,8 @@ maNhomND = 'DMNKH000005'
 tenNhomND = 'Khách hàng Nông dân'
 # Action of Quyen
 perm_actions = {
-    'full': ['all', 'view', 'create', 'update', 'destroy'],
+    'fall': ['all', 'view', 'create', 'update', 'destroy'],
+    'full': ['view', 'create', 'update', 'destroy'],
     'self': ['view', 'create', 'update'],
     'all': 'all',
     'view': 'view',

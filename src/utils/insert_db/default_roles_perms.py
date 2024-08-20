@@ -19,7 +19,7 @@ def create_initial_permission():
         app_log.info(f"Perm: {i} - {content_type.model}")
         if i > 6:
             perm_name = f'{content_type.app_label}_{content_type.model}'
-            tasks = perm_actions['full']
+            tasks = perm_actions['fall']
             for task in tasks:
                 perm_name_ = f'{task}_{perm_name}'
                 try:
