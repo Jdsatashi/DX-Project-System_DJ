@@ -48,3 +48,4 @@ magic_verify_code = MAGIC_OTP  # '240390'
 max_phone = 3
 
 so_type = SimpleNamespace(manual='manual', consider_user='consider_offer_user', template='template')
+so_type_list = list(so_type.__dict__.values())

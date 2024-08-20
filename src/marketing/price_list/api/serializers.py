@@ -10,6 +10,7 @@ from app.logs import app_log
 from marketing.price_list.models import PriceList, ProductPrice, SpecialOfferProduct, SpecialOffer
 from marketing.product.models import Product
 from user_system.employee_profile.models import EmployeeProfile
+from utils.constants import so_type_list
 
 
 class ProductPriceSerializer(serializers.ModelSerializer):
@@ -273,12 +274,12 @@ class SpecialOfferSerializer(BaseRestrictSerializer):
     def create(self, validated_data):
         # Split insert data
         data, perm_data = self.split_data(validated_data)
-        app_log.info(f"Test SpecialOfferSerializer ---------------")
 
         products_data = data.pop('special_offers', None)
-        print(f"Test products: {products_data}")
         try:
             with transaction.atomic():
+                if data.get('type_list') not in so_type_list:
+                    raise ValidationError({'message': f'type_list phải thuộc danh sách {so_type_list}'})
                 # Create new SpecialOffer
                 special_offer = SpecialOffer.objects.create(**data)
                 if products_data:
@@ -306,8 +307,8 @@ class SpecialOfferSerializer(BaseRestrictSerializer):
                 return special_offer
         except Exception as e:
             app_log.error(f"Error when create special offer: {e}")
-            # raise serializers.ValidationError({'message': 'unexpected error'})
-            raise e
+            raise serializers.ValidationError({'message': 'unexpected error when create special offer'})
+            # raise e
 
     def update(self, instance, validated_data):
         # Split insert data
@@ -356,8 +357,8 @@ class SpecialOfferSerializer(BaseRestrictSerializer):
 
         except Exception as e:
             app_log.error(f"Error when update special offer: {e}")
-            # raise serializers.ValidationError({'message': 'unexpected error'})
-            raise e
+            raise serializers.ValidationError({'message': f'unexpected error when update special offer {instance.id}'})
+            # raise e
 
 
     @staticmethod
