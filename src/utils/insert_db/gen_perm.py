@@ -17,6 +17,7 @@ def user_perm():
         tasks = perm_actions['full']
         if user.perm_user.filter(name__icontains='all').exists():
             for perm in user.perm_user.filter(name__icontains='all'):
+                print(f"removing: {perm}")
                 user.perm_user.remove(perm)
         for task in tasks:
             perm_name_ = f'{task}_{perm_name}'
