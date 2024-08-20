@@ -15,7 +15,8 @@ def user_perm():
         content_type = ContentType.objects.get_for_model(user)
         perm_name = f'{content_type.app_label}_{content_type.model}_{user.id}'
         tasks = perm_actions['full']
-        all_perm = user.perm_user.filter(name=f'all_{perm_name}').first()
+        all_perm = Perm.objects.filter(name=f'all_{perm_name}').first()
+        # all_perm = user.perm_user.filter(name=f'all_{perm_name}').first()
         if all_perm:
             print(f"_REMOVE {all_perm}")
             user.perm_user.remove(all_perm)
