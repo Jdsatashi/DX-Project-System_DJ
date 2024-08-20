@@ -188,6 +188,8 @@ class OrderSerializer(BaseRestrictSerializer):
                 user = instance.client_id
                 date_get = instance.date_get
                 month = instance.date_get.replace(day=1)
+                order = instance
+                order.status = 'deactivate'
                 # if instance.status == 'deactivate':
                 #     print(f"Status deactivate")
                 #     pass
@@ -202,6 +204,7 @@ class OrderSerializer(BaseRestrictSerializer):
                 update_point(user)
                 update_season_stats_user(user, date_get)
                 user_stats = create_or_get_sale_stats_user(user, month)
+                update_user_turnover(user, order, order.is_so)
         except Exception as e:
             app_log.error(f"Error when deleting order: {e}")
             raise serializers.ValidationError({'message': 'unexpected error during deletion'})
