@@ -86,7 +86,7 @@ class ValidatePermRest(permissions.BasePermission):
         # Check all perm
         all_perm = perm_actions['all'] + f"_{perm_name}"
         if user.is_group_has_perm(all_perm) or user.is_perm(all_perm):
-            print(f"user has all perm")
+            print(f"user has all perm: {all_perm}")
             return True
 
         # Get full required permission (with action and PK), perm_name (without action and PK)
@@ -102,25 +102,28 @@ class ValidatePermRest(permissions.BasePermission):
             print(f"actions is view")
             return True
 
+        # Validate foreign key perm
         result, messages = self.validate_fk_perm(request, action, user)
         for message in messages:
             self.message['errors'] = {message['field']: message['value']}
 
         # Set valid if user is allowed
-        print(f"{required_permission}")
         user_has_perm = user.is_perm(required_permission)
+
+        is_valid = user.is_group_allow(required_permission)
+        app_log.info(f"Check permission time: {time.time() - start_time}")
+        # Create message errors
+        if not result:
+            message = f"bạn không đủ quyền để thực hiện {action} {perm_name}"
+            self.message['message'] = message
+        # Validate priority user perm
         if user_has_perm:
-            if user.is_allow(required_permission):
+            if user.is_allow(required_permission) and result:
+                print(f"User user.is_allow")
                 return True
             else:
                 return False
-        # Get user groups has permission
-        is_valid = user.is_group_allow(required_permission)
-        print(f"Test valid: {is_valid}")
-        app_log.info(f"Check permission time: {time.time() - start_time}")
-        if not result or not is_valid:
-            message = f"bạn không đủ quyền để thực hiện {action} {perm_name}"
-            self.message['message'] = message
+
         # If user or nhom user has perm, return True
         return result and is_valid
 

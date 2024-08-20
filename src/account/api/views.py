@@ -676,6 +676,8 @@ class ApiGetManageUser(APIView):
             except User.DoesNotExist:
                 return Response({'message': f'user {manage_user} không tồn tại'}, status=status.HTTP_400_BAD_REQUEST)
             print(f"Check grant user: {grant_user_obj}")
+            if manage_user_obj.id == grant_user_obj.id:
+                return Response({'message': f'không thể uỷ quyền cho user sở hữu'}, status=status.HTTP_400_BAD_REQUEST)
 
             # Validate perm
             manager_perm = get_full_permname(User, perm_actions['update'], manage_user_obj.id)
