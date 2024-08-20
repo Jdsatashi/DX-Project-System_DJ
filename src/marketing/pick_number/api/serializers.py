@@ -145,6 +145,8 @@ class UserJoinEventNumberSerializer(serializers.ModelSerializer):
         else:
             # Pick the number
             _type = 'pick'
+            if instance.turn_pick <= instance.turn_selected:
+                raise ValidationError({'message': 'không đủ tem'})
             number_list = NumberList.objects.filter(number=number_picked, event=instance.event).first()
             if not number_list:
                 raise ValidationError({'message': 'Số cung cấp không hợp lệ'})
@@ -165,7 +167,7 @@ class UserJoinEventNumberSerializer(serializers.ModelSerializer):
             app_log.info(f"Event: {pus_event}")
             list_user = instance.event.user_join_event.filter().exclude(user=instance.user)
             app_log.info(f"{list_user}")
-            for user in instance.event.user_join_event.filter().exclude(user=instance.user):
+            for user in list_user:
                 chanel = f'user_{user.user.id}'
                 app_log.info(f"Chanel: {chanel}")
                 pusher_client.trigger(chanel, pus_event, pus_data)

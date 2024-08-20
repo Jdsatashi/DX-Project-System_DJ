@@ -1,6 +1,7 @@
 from functools import partial
 from io import BytesIO
 
+from django.db.models import QuerySet
 from rest_framework import viewsets, mixins, status
 from rest_framework.authentication import BasicAuthentication, SessionAuthentication
 from rest_framework.exceptions import ValidationError
@@ -211,6 +212,99 @@ class ApiExportEventNumber(APIView):
                 print_data = export_data + ['-']
                 self._write_to_sheet(ws, row_num, print_data, data_font, center_alignment, thin_border)
                 row_num += 1
+
+        output = BytesIO()
+        wb.save(output)
+        output.seek(0)
+
+        # Tạo HttpResponse để trả về file Excel
+        response = HttpResponse(
+            output,
+            content_type='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'
+        )
+        response['Content-Disposition'] = f'attachment; filename=tien_do_boc_so_{event_id}.xlsx'
+
+        return response
+
+    def _write_to_sheet(self, worksheet, row_num, data, font, alignment, border):
+        """Helper function to write a row of data to the worksheet with formatting."""
+        for col_num, value in enumerate(data, 1):
+            cell = worksheet.cell(row=row_num, column=col_num)
+            cell.value = value
+            cell.font = font
+            if col_num == 2:  # Căn giữa cột "Số đã chọn"
+                cell.alignment = alignment
+            cell.border = border
+
+
+class ApiExportEventNumberUser(APIView):
+    def get(self, request, *args, **kwargs):
+        event_id = self.kwargs.get('pk')
+        event = EventNumber.objects.filter(id=event_id).select_related('table_point').first()
+        if event is None:
+            return Response({'message': 'event id is required'}, status=400)
+
+        # Tạo workbook và worksheet
+        wb = Workbook()
+        ws = wb.active
+        ws.title = "Báo cáo sự kiện"
+
+        # Định nghĩa font và border
+        title_font = Font(size=12, bold=True, underline="single")
+        header_font = Font(size=14, bold=True)
+        data_font = Font(size=12)
+        center_alignment = Alignment(horizontal="center", vertical="center")
+        thin_border = Border(left=Side(style='thin'), right=Side(style='thin'),
+                             top=Side(style='thin'), bottom=Side(style='thin'))
+
+        # Tạo tiêu đề cho báo cáo
+        ws.merge_cells('A1:F1')
+        title_cell = ws['A1']
+        title_cell.value = f"Báo cáo sự kiện {event.name}"
+        title_cell.font = title_font
+        # title_cell.alignment = center_alignment
+
+        ws.append([])  # Thêm dòng trống
+
+        # Tạo header
+        headers = ["Mã KH", "Tên KH", "Tổng tem đạt", "Tem chưa chọn", "Số đã chọn"]
+        ws.append(headers)
+
+        # Định dạng header
+        for col_num, header in enumerate(headers, 1):
+            cell = ws.cell(row=3, column=col_num)
+            cell.font = header_font
+            cell.alignment = center_alignment
+            cell.border = thin_border
+
+        ws.column_dimensions['A'].width = 12.73  # Đặt độ rộng cột "Mã KH"
+        ws.column_dimensions['B'].width = 20
+        ws.column_dimensions['C'].width = 12.73
+        ws.column_dimensions['D'].width = 12.73
+        ws.column_dimensions['E'].width = 32
+
+        # Lấy danh sách user_join_event với prefetch_related cho NumberSelected
+        users_join_event = UserJoinEvent.objects.filter(event=event).select_related('user').prefetch_related(
+            'number_selected__number')
+
+        row_num = 4  # Bắt đầu từ hàng thứ 4 do tiêu đề và header đã chiếm 3 hàng
+        for user_join_event in users_join_event:
+            user = user_join_event.user
+            selected_numbers: QuerySet = user_join_event.number_selected.all().order_by('created_at')
+            turn_pick = user_join_event.turn_pick or 0
+            turn_not_pick = turn_pick - selected_numbers.count()
+
+            try:
+                register_name = user.clientprofile.register_name
+            except AttributeError:
+                register_name = ''
+
+            picked_numbers = selected_numbers.values_list('number__number', flat=True).distinct()
+            split_numbers = ",".join(map(str, list(picked_numbers)))
+            export_data = [user.id, register_name, turn_pick, turn_not_pick, split_numbers]
+            print(f"Test: {export_data}")
+            self._write_to_sheet(ws, row_num, export_data, data_font, center_alignment, thin_border)
+            row_num += 1
 
         output = BytesIO()
         wb.save(output)
