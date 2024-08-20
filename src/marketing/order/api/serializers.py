@@ -670,7 +670,6 @@ def update_user_turnover(user: User, order: Order, is_so: bool):
     )
     total_box = totals['total_box'] if totals['total_box'] is not None else 0
     total_price = totals['total_price'] if totals['total_price'] is not None else 0
-    print(f"Check order status: {is_so} | {order.new_special_offer.type_list}")
 
     if is_so and order.new_special_offer.type_list != so_type.consider_user:
         first_date = order.date_get.replace(day=1)
