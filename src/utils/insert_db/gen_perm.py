@@ -15,8 +15,11 @@ def user_perm():
         content_type = ContentType.objects.get_for_model(user)
         perm_name = f'{content_type.app_label}_{content_type.model}_{user.id}'
         tasks = perm_actions['full']
-        if user.perm_user.filter(name=f'all_{perm_name}').first():
-            user.perm_user.remove(user.perm_user.filter(name=f'all_{perm_name}').first())
+        all_perm = user.perm_user.filter(name=f'all_{perm_name}').first()
+        if all_perm:
+            print(f"_REMOVE {all_perm}")
+            user.perm_user.remove(all_perm)
+            all_perm.delete()
         for task in tasks:
             perm_name_ = f'{task}_{perm_name}'
             print(f"__Adding permission: {perm_name_}")
