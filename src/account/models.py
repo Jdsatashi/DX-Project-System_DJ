@@ -411,19 +411,55 @@ class GrantAccess(models.Model):
         user_perms = get_all_user_perms_sql(self.grant_user.id)
 
         adding_perm = list(set(user_perms) - set(before_manage_perm))
-
+        # print(f"Check adding perm: {adding_perm}")
         for perm in adding_perm:
             app_log.info(f"TEST PERMNAME: {perm}")
+            allow = True
             perm_obj = self.grant_user.userperm_set.filter(perm=perm).first()
             if perm_obj:
-                self.grant_perms.add(perm)
-                self.manager.perm_user.add(perm, through_defaults={'allow': perm_obj.allow})
+                allow = perm_obj.allow
+            groupperm_obj = get_highest_level_group_for_permission(self.grant_user, perm)
+            if groupperm_obj:
+                allow = groupperm_obj.allow
+            self.grant_perms.add(perm)
+            self.manager.perm_user.add(perm, through_defaults={'allow': allow})
 
     def remove_grant_perm(self):
         grant_perm = self.grant_perms.all()
         for perm in grant_perm:
             self.manager.perm_user.remove(perm)
         self.grant_perms.clear()
+
+
+def get_user_group_permissions(user):
+    user_groups = user.group_user.all()
+
+    group_perms = {}
+
+    for group in user_groups:
+        perms = Perm.objects.filter(perm_group__group=group, perm_group__allow=True)
+
+        group_perms[group.name] = perms
+
+    return group_perms
+
+
+def get_highest_level_group_for_permission(user, permission) -> GroupPermPerms:
+    user_groups = user.group_user.all()
+
+    group_perms_perms = []
+
+    for group in user_groups:
+        group_perm_perm = GroupPermPerms.objects.filter(group=group, perm=permission).first()
+        if group_perm_perm:
+            group_perms_perms.append(group_perm_perm)
+
+    if not group_perms_perms:
+        return None
+
+    highest_level_group_perm_perm = max(group_perms_perms, key=lambda gpp: gpp.group.level)
+
+    return highest_level_group_perm_perm
 
 
 """

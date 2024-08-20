@@ -717,17 +717,17 @@ class ApiGetManageUser(APIView):
                 grant_access.allow = is_allow
                 grant_access.save()
 
-            if is_access is not None:
-                # Validate for manager
-                if not is_manager_perm:
-                    return Response({'message': f'{user.id} không có quyền cho '
-                                                f'{manage_user_obj.id}'}, status=status.HTTP_403_FORBIDDEN)
-                if is_allow:
-                    grant_access.active = is_access
-                    grant_access.save()
-                else:
-                    grant_access.active = is_allow
-                    grant_access.save()
+            # if is_access is not None:
+            #     # Validate for manager
+            #     if not is_manager_perm:
+            #         return Response({'message': f'{user.id} không có quyền cho '
+            #                                     f'{manage_user_obj.id}'}, status=status.HTTP_403_FORBIDDEN)
+            #     if is_allow:
+            #         grant_access.active = is_access
+            #         grant_access.save()
+            #     else:
+            #         grant_access.active = is_allow
+            #         grant_access.save()
 
             user_data = format_user_data(users_list, manage_user_obj)
 
