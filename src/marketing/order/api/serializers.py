@@ -18,6 +18,7 @@ from marketing.pick_number.models import UserJoinEvent
 from marketing.price_list.models import ProductPrice, SpecialOfferProduct, SpecialOffer
 from marketing.sale_statistic.models import SaleTarget, SaleStatistic, UserSaleStatistic
 from system_func.models import PeriodSeason, PointOfSeason
+from utils.constants import so_type
 
 
 class OrderDetailSerializer(BaseRestrictSerializer):
@@ -198,16 +199,17 @@ class OrderSerializer(BaseRestrictSerializer):
                 #     user_stats = create_or_get_sale_stats_user(user, month)
                 #     print(user_stats)
                 # Delete related order details
-                OrderDetail.objects.filter(order_id=instance).delete()
                 # Delete the order instance
+                update_user_turnover(user, order, order.is_so)
+                OrderDetail.objects.filter(order_id=instance).delete()
                 instance.delete()
                 update_point(user)
                 update_season_stats_user(user, date_get)
                 user_stats = create_or_get_sale_stats_user(user, month)
-                update_user_turnover(user, order, order.is_so)
         except Exception as e:
             app_log.error(f"Error when deleting order: {e}")
-            raise serializers.ValidationError({'message': 'unexpected error during deletion'})
+            # raise serializers.ValidationError({'message': 'unexpected error during deletion'})
+            raise e
 
     def validate_special_offer(self, data, order_details_data):
         # Get user and phone from token
@@ -255,7 +257,7 @@ class OrderSerializer(BaseRestrictSerializer):
             buy_target = special_offer.target if special_offer.target and special_offer.target >= 0 else month_target.month_target
 
             # Calculate max box can buy
-            if special_offer.type_list == 'consider_offer_user':
+            if special_offer.type_list == so_type.consider_user:
                 is_consider = True
                 # When ConsiderOffer, calculate via <SpecialOffer object> 'target' value
                 # app_log.info(f"TEST:{user_sale_statistic.available_turnover} | {special_offer.target}")
@@ -299,7 +301,7 @@ class OrderSerializer(BaseRestrictSerializer):
                 # Check if order_box is less than max_order_box
                 special_offer_product = SpecialOfferProduct.objects.get(special_offer=special_offer,
                                                                         product_id=product_id)
-                if special_offer.type_list == 'consider_offer_user':
+                if special_offer.type_list == so_type.consider_user:
                     if special_offer_product.max_order_box and order_box != special_offer_product.max_order_box:
                         raise serializers.ValidationError({
                             'message': f'số thùng đặt {order_box} không khớp với {special_offer_product.max_order_box} thùng xem xét cho {product_id}'})
@@ -668,22 +670,26 @@ def update_user_turnover(user: User, order: Order, is_so: bool):
     )
     total_box = totals['total_box'] if totals['total_box'] is not None else 0
     total_price = totals['total_price'] if totals['total_price'] is not None else 0
+    print(f"Check order status: {is_so} | {order.new_special_offer.type_list}")
 
-    if is_so:
+    if is_so and order.new_special_offer.type_list != so_type.consider_user:
         first_date = order.date_get.replace(day=1)
         sale_target, _ = SaleTarget.objects.get_or_create(month=first_date)
         so_target = order.new_special_offer.target
         target = so_target if so_target >= 0 else sale_target.month_target
         fix_price = target * total_box
-        if not order.status == 'deactivate':
-            user_sale_stats.turnover -= fix_price
-        else:
+        if order.status == 'deactivate':
             user_sale_stats.turnover += fix_price
-
-        user_sale_stats.save()
-    else:
-        if not order.status == 'deactivate':
-            user_sale_stats.turnover += total_price
         else:
+            user_sale_stats.turnover -= fix_price
+    else:
+        if order.status == 'deactivate':
             user_sale_stats.turnover -= total_price
-        user_sale_stats.save()
+            print(f"Total price: {total_price}")
+            print(f"Update deactivate: {user_sale_stats.turnover}")
+        else:
+            user_sale_stats.turnover += total_price
+            print(f"Update active: {user_sale_stats.turnover}")
+            print(f"Total price: {total_price}")
+
+    user_sale_stats.save()

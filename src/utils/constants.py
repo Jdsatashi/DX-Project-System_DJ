@@ -1,3 +1,5 @@
+from types import SimpleNamespace
+
 from utils.env import MAGIC_PHONE, MAGIC_OTP
 
 old_data = {
@@ -44,3 +46,5 @@ admin_role = "admin"
 phone_magic = MAGIC_PHONE  # '0943355165'
 magic_verify_code = MAGIC_OTP  # '240390'
 max_phone = 3
+
+so_type = SimpleNamespace(manual='manual', consider_user='consider_offer_user', template='template')

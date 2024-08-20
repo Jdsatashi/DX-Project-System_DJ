@@ -21,6 +21,7 @@ from marketing.price_list.api.serializers import PriceListSerializer, SpecialOff
     SpecialOfferProductSerializer
 from marketing.price_list.models import PriceList, SpecialOffer, ProductPrice, SpecialOfferProduct
 from marketing.product.models import Product
+from utils.constants import so_type
 from utils.model_filter_paginate import filter_data
 
 
@@ -100,7 +101,7 @@ class ApiSpecialOffer(viewsets.GenericViewSet, mixins.ListModelMixin, mixins.Cre
 
 class ApiSpecialOfferConsider(viewsets.GenericViewSet, mixins.ListModelMixin):
     serializer_class = SpecialOfferSerializer
-    queryset = SpecialOffer.objects.filter(type_list='consider_offer_user')
+    queryset = SpecialOffer.objects.filter(type_list=so_type.consider_user)
     authentication_classes = [JWTAuthentication, BasicAuthentication, SessionAuthentication]
 
     # permission_classes = [partial(ValidatePermRest, model=PriceList)]

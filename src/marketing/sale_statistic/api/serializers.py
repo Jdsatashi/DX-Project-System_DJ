@@ -5,6 +5,7 @@ from rest_framework import serializers
 from account.handlers.restrict_serializer import BaseRestrictSerializer
 from marketing.order.models import OrderDetail
 from marketing.sale_statistic.models import SaleStatistic, SaleTarget, UserSaleStatistic, UsedTurnover
+from utils.constants import so_type
 
 
 class SaleStatisticSerializer(BaseRestrictSerializer):
@@ -35,9 +36,7 @@ class UserSaleStatisticSerializer(serializers.ModelSerializer):
         representation = super().to_representation(instance)
         user = instance.user
 
-        
-
-        user_so = user.order_set.filter(is_so=True).exclude(new_special_offer__type_list='consider_offer_user')
+        user_so = user.order_set.filter(is_so=True).exclude(new_special_offer__type_list=so_type.consider_user)
         used_box = OrderDetail.objects.filter(order_id__in=user_so).aggregate(total_box=Sum('order_box'))
         representation['used_box'] = used_box['total_box']
         return representation

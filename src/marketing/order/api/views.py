@@ -34,7 +34,7 @@ from marketing.order.models import Order, OrderDetail, SeasonalStatistic, Season
 from marketing.price_list.models import SpecialOffer
 from user_system.client_profile.models import ClientProfile
 from user_system.employee_profile.models import EmployeeProfile
-from utils.constants import maNhomND
+from utils.constants import maNhomND, so_type
 from utils.model_filter_paginate import filter_data, get_query_parameters, build_absolute_uri_with_params
 
 
@@ -1256,7 +1256,7 @@ class OrderSOCount(APIView):
             if so_id:
                 base_filter &= Q(new_special_offer__id=so_id)
             get_so_order = Order.objects.filter(base_filter).exclude(
-                Q(new_special_offer__type_list='consider_offer_user'))
+                Q(new_special_offer__type_list=so_type.consider_user))
             order_ids_used = get_so_order.values_list('id', flat=True).distinct()
             so_ids_used = get_so_order.values_list('new_special_offer__id', flat=True).distinct()
 
