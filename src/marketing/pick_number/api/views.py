@@ -1,13 +1,16 @@
+import tempfile
 from functools import partial
 from io import BytesIO
 
 from django.db.models import QuerySet
+from django.template.loader import render_to_string
 from rest_framework import viewsets, mixins, status
 from rest_framework.authentication import BasicAuthentication, SessionAuthentication
 from rest_framework.exceptions import ValidationError
 from rest_framework.response import Response
 from rest_framework.views import APIView
 from rest_framework_simplejwt.authentication import JWTAuthentication
+from weasyprint import HTML
 
 from account.handlers.perms import perm_queryset
 from account.handlers.validate_perm import ValidatePermRest
@@ -342,3 +345,100 @@ class ApiUserAward(viewsets.GenericViewSet, mixins.ListModelMixin):
         response = filter_data(self, request, ['number'],
                                **kwargs)
         return Response(response, status.HTTP_200_OK)
+
+
+class ApiUserNumberPdf2(APIView):
+    def get(self, request, pk):
+        try:
+            # Lấy thông tin người dùng và sự kiện dựa trên primary key
+            user_event = UserJoinEvent.objects.select_related('user__clientprofile', 'event').get(pk=pk)
+            event = user_event.event
+
+            # Lấy danh sách các số đã chọn
+            numbers_selected = NumberSelected.objects.filter(user_event=user_event).values_list('number__number',
+                                                                                                flat=True)
+            point_redundant = user_event.total_point - (user_event.turn_pick * user_event.turn_per_point)
+            if point_redundant < 0:
+                point_redundant = 0
+            turn_not_pick = user_event.turn_pick - user_event.turn_selected
+            print(f"Test turn not pick: {turn_not_pick}")
+            # Tạo context để render template
+            context = {
+                'data': {
+                    'event_name': event.name,
+                    'username': user_event.user.clientprofile.register_name,
+                    'usercode': user_event.user.id,
+                    'turn_roll': user_event.turn_pick,
+                    'turn_chosen': user_event.turn_selected,
+                    'turn_not_pick': turn_not_pick,
+                    'total_point': user_event.total_point,
+                    'user_point': point_redundant,  # Giả sử 'total_point' là 'user_point'
+                    'number_rolled_str': ', '.join(map(str, numbers_selected)),
+                },
+                'number_rolled': numbers_selected,
+            }
+
+            # Render template HTML thành chuỗi
+            html_string = render_to_string('pdfs/user_numbers.html', context)
+
+            # Tạo một tệp PDF tạm thời
+            with tempfile.NamedTemporaryFile(delete=True) as output:
+                HTML(string=html_string).write_pdf(output.name)
+                # Đọc PDF
+                output.seek(0)
+                pdf = output.read()
+
+            # Thiết lập HttpResponse
+            response = HttpResponse(pdf, content_type='application/pdf')
+            response['Content-Disposition'] = f'attachment; filename="{user_event.user.username}_number.pdf"'
+            return response
+        except UserJoinEvent.DoesNotExist:
+            return Response({'error': 'UserJoinEvent not found'}, status=status.HTTP_404_NOT_FOUND)
+
+
+class ApiUserNumberPdf(APIView):
+    def get(self, request, pk):
+        try:
+            # Lấy thông tin người dùng và sự kiện dựa trên primary key
+            user_event = UserJoinEvent.objects.select_related('user__clientprofile', 'event').get(pk=pk)
+            event = user_event.event
+
+            # Lấy danh sách các số đã chọn
+            numbers_selected = NumberSelected.objects.filter(user_event=user_event).values_list('number__number',
+                                                                                                flat=True)
+
+            point_redundant = user_event.total_point - (user_event.turn_pick * user_event.turn_per_point)
+            if point_redundant < 0:
+                point_redundant = 0
+            turn_not_pick = user_event.turn_pick - user_event.turn_selected
+            print(f"Test turn not pick: {turn_not_pick}")
+            # Tạo context để render template
+            context = {
+                'data': {
+                    'event_name': event.name,
+                    'username': user_event.user.clientprofile.register_name,
+                    'usercode': user_event.user.id,
+                    'turn_roll': user_event.turn_pick,
+                    'turn_chosen': user_event.turn_selected,
+                    'turn_not_pick': turn_not_pick,
+                    'total_point': user_event.total_point,
+                    'user_point': point_redundant,  # Giả sử 'total_point' là 'user_point'
+                    'number_rolled_str': ', '.join(map(str, numbers_selected)),
+                },
+                'number_rolled': numbers_selected,
+            }
+
+            # Render template HTML thành chuỗi
+            html_string = render_to_string('pdfs/user_numbers.html', context)
+
+            # Sử dụng BytesIO để tạo PDF
+            pdf_file = BytesIO()
+            HTML(string=html_string).write_pdf(pdf_file)
+            pdf_file.seek(0)  # Quay về đầu file để chuẩn bị gửi dữ liệu
+
+            # Thiết lập HttpResponse
+            response = HttpResponse(pdf_file.getvalue(), content_type='application/pdf')
+            response['Content-Disposition'] = f'attachment; filename="{user_event.user.username}_number.pdf"'
+            return response
+        except UserJoinEvent.DoesNotExist:
+            return Response({'error': 'UserJoinEvent not found'}, status=status.HTTP_404_NOT_FOUND)
