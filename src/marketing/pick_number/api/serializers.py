@@ -58,7 +58,7 @@ class UserJoinEventSerializer(BaseRestrictSerializer):
     def to_representation(self, instance):
         """Convert `number_selected` field from IDs to actual numbers."""
         representation = super().to_representation(instance)
-        numbers = instance.number_selected.values_list('number__number', flat=True)
+        numbers = instance.number_selected.order_by('number__number').values_list('number__number', flat=True)
         representation['number_selected'] = list(numbers)
         return representation
 
@@ -125,7 +125,7 @@ class UserJoinEventNumberSerializer(serializers.ModelSerializer):
     def to_representation(self, instance):
         """Convert `number_selected` field from IDs to actual numbers."""
         representation = super().to_representation(instance)
-        numbers = instance.number_selected.values_list('number__number', flat=True)
+        numbers = instance.number_selected.order_by('number__number').values_list('number__number', flat=True)
         representation['number_selected'] = list(numbers)
         return representation
 

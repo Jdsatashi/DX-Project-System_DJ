@@ -356,8 +356,8 @@ class ApiUserNumberPdf2(APIView):
             event = user_event.event
 
             # Lấy danh sách các số đã chọn
-            numbers_selected = NumberSelected.objects.filter(user_event=user_event).values_list('number__number',
-                                                                                                flat=True)
+            numbers_selected = NumberSelected.objects.filter(user_event=user_event).order_by(
+                'number__number').values_list('number__number', flat=True)
             if user_event.turn_pick is None:
                 user_event.turn_pick = 0
             if user_event.turn_per_point is None:
@@ -409,8 +409,8 @@ class ApiUserNumberPdf(APIView):
             event = user_event.event
 
             # Lấy danh sách các số đã chọn
-            numbers_selected = NumberSelected.objects.filter(user_event=user_event).values_list('number__number',
-                                                                                                flat=True)
+            numbers_selected = NumberSelected.objects.filter(user_event=user_event).order_by(
+                'number__number').values_list('number__number', flat=True)
             if user_event.turn_pick is None:
                 user_event.turn_pick = 0
             if user_event.turn_per_point is None:
