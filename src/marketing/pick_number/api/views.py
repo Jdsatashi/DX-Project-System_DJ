@@ -194,7 +194,8 @@ class ApiExportEventNumber(APIView):
         ws.column_dimensions['B'].width = 12.73
 
         # Lấy danh sách user_join_event với prefetch_related cho NumberSelected
-        users_join_event = UserJoinEvent.objects.filter(event=event).select_related('user').prefetch_related('number_selected__number')
+        users_join_event = UserJoinEvent.objects.filter(event=event).select_related('user').prefetch_related(
+            'number_selected__number')
 
         row_num = 4  # Bắt đầu từ hàng thứ 4 do tiêu đề và header đã chiếm 3 hàng
         for user_join_event in users_join_event:
@@ -357,6 +358,10 @@ class ApiUserNumberPdf2(APIView):
             # Lấy danh sách các số đã chọn
             numbers_selected = NumberSelected.objects.filter(user_event=user_event).values_list('number__number',
                                                                                                 flat=True)
+            if user_event.turn_pick is None:
+                user_event.turn_pick = 0
+            if user_event.turn_per_point is None:
+                user_event.turn_per_point = 0
             point_redundant = user_event.total_point - (user_event.turn_pick * user_event.turn_per_point)
             if point_redundant < 0:
                 point_redundant = 0
@@ -406,6 +411,10 @@ class ApiUserNumberPdf(APIView):
             # Lấy danh sách các số đã chọn
             numbers_selected = NumberSelected.objects.filter(user_event=user_event).values_list('number__number',
                                                                                                 flat=True)
+            if user_event.turn_pick is None:
+                user_event.turn_pick = 0
+            if user_event.turn_per_point is None:
+                user_event.turn_per_point = 0
 
             point_redundant = user_event.total_point - (user_event.turn_pick * user_event.turn_per_point)
             if point_redundant < 0:
