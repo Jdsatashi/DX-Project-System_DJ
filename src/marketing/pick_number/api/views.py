@@ -423,6 +423,7 @@ class ApiUserNumberPdf(APIView):
             print(f"Test turn not pick: {turn_not_pick}")
             # Tạo context để render template
             context = {
+                'request': request,
                 'data': {
                     'event_name': event.name,
                     'username': user_event.user.clientprofile.register_name,
