@@ -805,7 +805,7 @@ class OrderSOCount(APIView):
         return data
 
 
-def handle_order(request) -> QuerySet:
+def handle_order(request) -> QuerySet[Order]:
     query, strict_mode, limit, page, order_by, from_date, to_date, date_field = get_query_parameters(request)
     nvtt_query = request.query_params.get('nvtt', '')
     npp_query = request.query_params.get('npp', '')
@@ -888,7 +888,7 @@ def handle_order(request) -> QuerySet:
     return orders
 
 
-def generate_order_excel(orders):
+def generate_order_excel(orders: QuerySet[Order]):
     workbook = openpyxl.Workbook()
     sheet = workbook.active
 
