@@ -379,7 +379,7 @@ class OrderSerializer(BaseRestrictSerializer):
 
     def validate_so_perm(self, special_offer, user):
         user_obj = User.objects.get(id=user)
-        ValidatePermRest(special_offer, user_obj)
+        # ValidatePermRest(special_offer, user_obj)
 
 
 class ProductStatisticsSerializer(serializers.Serializer):
