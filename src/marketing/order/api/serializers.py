@@ -671,24 +671,27 @@ def update_user_turnover(user: User, order: Order, is_so: bool):
     total_box = totals['total_box'] if totals['total_box'] is not None else 0
     total_price = totals['total_price'] if totals['total_price'] is not None else 0
 
-    if is_so and order.new_special_offer.type_list != so_type.consider_user:
+    if is_so:
+        # order.new_special_offer.type_list != so_type.consider_user:
         first_date = order.date_get.replace(day=1)
         sale_target, _ = SaleTarget.objects.get_or_create(month=first_date)
         so_target = order.new_special_offer.target
         target = so_target if so_target >= 0 else sale_target.month_target
         fix_price = target * total_box
-        if order.status == 'deactivate':
-            user_sale_stats.turnover += fix_price
+        if order.new_special_offer.count_turnover is False:
+            if order.status == 'deactivate':
+                user_sale_stats.turnover += fix_price
+            else:
+                user_sale_stats.turnover -= fix_price
         else:
-            user_sale_stats.turnover -= fix_price
+            if order.status == 'deactivate':
+                user_sale_stats.turnover += fix_price - total_price
+            else:
+                user_sale_stats.turnover += total_price - fix_price
     else:
         if order.status == 'deactivate':
             user_sale_stats.turnover -= total_price
-            print(f"Total price: {total_price}")
-            print(f"Update deactivate: {user_sale_stats.turnover}")
         else:
             user_sale_stats.turnover += total_price
-            print(f"Update active: {user_sale_stats.turnover}")
-            print(f"Total price: {total_price}")
 
     user_sale_stats.save()

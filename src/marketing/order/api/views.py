@@ -765,8 +765,9 @@ class OrderSOCount(APIView):
                 base_filter &= Q(date_get=get_date)
             if so_id:
                 base_filter &= Q(new_special_offer__id=so_id)
-            get_so_order = Order.objects.filter(base_filter).exclude(
-                Q(new_special_offer__type_list=so_type.consider_user))
+            get_so_order = (Order.objects.filter(base_filter)
+                            # .exclude(Q(new_special_offer__type_list=so_type.consider_user))
+                            )
             order_ids_used = get_so_order.values_list('id', flat=True).distinct()
             so_ids_used = get_so_order.values_list('new_special_offer__id', flat=True).distinct()
 

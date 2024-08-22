@@ -191,22 +191,19 @@ def create_or_get_sale_stats_user(user: User, month, breaking=False) -> SaleStat
         filter_month = old_month
     query_filter = Q(client_id=user) & Q(date_get__range=(filter_month, next_month - timedelta(days=1)))
     filter_so_count = Q(Q(query_filter) & Q(
-        Q(new_special_offer__count_turnover=True) | Q(new_special_offer__type_list=so_type.consider_user)
+        Q(new_special_offer__count_turnover=True)
+        # | Q(new_special_offer__type_list=so_type.consider_user)
         | Q(new_special_offer__isnull=True)
     ))
     exclude_so = Q(Q(status='deactivate') |
                    Q(id_so__isnull=False) | Q(id_offer_consider__isnull=False)
                    )
-    orders = Order.objects.filter(query_filter)
     orders_count = Order.objects.filter(filter_so_count).exclude(exclude_so)
-    # print(f"Before exclude: {orders_count}")
-    # orders_count = (Order.objects.filter(filter_so_count | query_filter)
-    #                 .exclude(exclude_so).exclude(Q(Q(new_special_offer__isnull=True) & Q(new_special_offer__type_list='manual')))
-    #                 .order_by('date_get'))
 
     # print(f"Test sale_stats user: {orders_count}")
-    orders_so = (Order.objects.filter(query_filter & Q(Q(is_so=True))).exclude(
-        new_special_offer__type_list=so_type.consider_user))
+    orders_so = (Order.objects.filter(query_filter & Q(Q(is_so=True)))
+                 # .exclude(new_special_offer__type_list=so_type.consider_user)
+                 )
 
     # print(f"Test orders_so user: {orders_so}")
 

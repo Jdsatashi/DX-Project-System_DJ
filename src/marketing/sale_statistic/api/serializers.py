@@ -36,7 +36,9 @@ class UserSaleStatisticSerializer(serializers.ModelSerializer):
         representation = super().to_representation(instance)
         user = instance.user
 
-        user_so = user.order_set.filter(is_so=True).exclude(new_special_offer__type_list=so_type.consider_user)
+        user_so = (user.order_set.filter(is_so=True)
+                   # .exclude(new_special_offer__type_list=so_type.consider_user)
+                   )
         used_box = OrderDetail.objects.filter(order_id__in=user_so).aggregate(total_box=Sum('order_box'))
         representation['used_box'] = used_box['total_box']
         return representation

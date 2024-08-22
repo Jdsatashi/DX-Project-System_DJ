@@ -7,11 +7,8 @@ from django.db.models import Q, Sum
 
 from account.models import User
 from app.settings import PROJECT_DIR
-from marketing.order.api.serializers import update_point, update_season_stats_user
-from marketing.order.models import create_or_get_sale_stats_user, Order, OrderDetail
+from marketing.order.models import Order, OrderDetail
 from marketing.sale_statistic.models import UserSaleStatistic, SaleTarget, UsedTurnover
-from system_func.models import PeriodSeason
-from utils.constants import so_type
 
 
 def remove_user_orders(user_id: str):
@@ -63,7 +60,8 @@ def get_all_kh():
         query_filter = Q(client_id=user) & Q(date_get__range=(first_date, last_date))
 
         filter_so_count = Q(Q(query_filter) & Q(
-            Q(new_special_offer__count_turnover=True) | Q(new_special_offer__type_list=so_type.consider_user)
+            Q(new_special_offer__count_turnover=True)
+            # | Q(new_special_offer__type_list=so_type.consider_user)
             | Q(new_special_offer__isnull=True)
         ))
 
@@ -72,8 +70,9 @@ def get_all_kh():
 
         orders_count = Order.objects.filter(filter_so_count).exclude(exclude_so)
 
-        orders_so = (Order.objects.filter(query_filter & Q(Q(is_so=True))).exclude(
-            new_special_offer__type_list=so_type.consider_user))
+        orders_so = (Order.objects.filter(query_filter & Q(Q(is_so=True)))
+                     # .exclude(new_special_offer__type_list=so_type.consider_user)
+                     )
 
         total_used = 0
         sale_target, _ = SaleTarget.objects.get_or_create(month=first_date)
