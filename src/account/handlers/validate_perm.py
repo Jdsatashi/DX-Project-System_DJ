@@ -70,7 +70,6 @@ class ValidatePermRest(permissions.BasePermission):
             return True
         # Authenticate defaults user
         user = request.user
-        print(f"-- Checking request user")
         if not user.is_authenticated:
             # print(f"Check user: {user}")
             self.message['message'] = 'Bạn chưa đăng nhập.'
@@ -98,7 +97,7 @@ class ValidatePermRest(permissions.BasePermission):
         if not is_perm:
             print(f"Not perm: {required_permission}")
             return True
-
+        print(f"Require perm: {required_permission}")
         # if action == "create" and 'pk' not in view.kwargs:
         if action == perm_actions['view'] and self.allow_view:
             print(f"actions is view")
