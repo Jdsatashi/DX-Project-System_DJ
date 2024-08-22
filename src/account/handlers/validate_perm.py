@@ -119,6 +119,8 @@ class ValidatePermRest(permissions.BasePermission):
             message = f"bạn không đủ quyền để thực hiện {action} {perm_name}"
             self.message['message'] = message
         # Validate priority user perm
+        print(f"User is allow: {user.is_allow(required_permission)}")
+        print(f"Check user {user} has perm: {user_has_perm}")
         if user_has_perm:
             if user.is_allow(required_permission) and result:
                 print(f"User user.is_allow")
@@ -126,7 +128,7 @@ class ValidatePermRest(permissions.BasePermission):
             else:
                 print(f"User not has perm")
                 return False
-        print(f"__ Check result and valid: {result} | {is_valid}")
+        print(f"__ Check {user} result and valid: {result} | {is_valid}")
         # If user or nhom user has perm, return True
         return result and is_valid
 
