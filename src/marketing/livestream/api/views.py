@@ -24,8 +24,8 @@ class ApiLiveStream(viewsets.GenericViewSet, mixins.ListModelMixin, mixins.Creat
     serializer_class = LiveStreamSerializer
     queryset = LiveStream.objects.all()
 
-    authentication_classes = [JWTAuthentication, BasicAuthentication]
-    permission_classes = [partial(ValidatePermRest, model=LiveStream)]
+    # authentication_classes = [JWTAuthentication, BasicAuthentication]
+    # permission_classes = [partial(ValidatePermRest, model=LiveStream)]
 
     def get_queryset(self):
         user = self.request.user
@@ -41,9 +41,9 @@ class ApiLiveStreamComment(viewsets.GenericViewSet, mixins.ListModelMixin, mixin
     serializer_class = LiveStreamCommentSerializer
     queryset = LiveStreamComment.objects.all()
 
-    authentication_classes = [JWTAuthentication, BasicAuthentication]
+    # authentication_classes = [JWTAuthentication, BasicAuthentication]
 
-    permission_classes = [partial(ValidatePermRest, model=LiveStreamComment)]
+    # permission_classes = [partial(ValidatePermRest, model=LiveStreamComment)]
 
     def list(self, request, *args, **kwargs):
         response = filter_data(self, request, ['live_stream__title', 'viewers__id', 'comments'],
@@ -101,7 +101,7 @@ class ApiLiveStatistic(viewsets.GenericViewSet, mixins.ListModelMixin, mixins.Cr
     serializer_class = LiveStatistic
     queryset = LiveStreamStatistic.objects.all()
 
-    authentication_classes = [JWTAuthentication, BasicAuthentication]
+    # authentication_classes = [JWTAuthentication, BasicAuthentication]
 
     # permission_classes = [partial(ValidatePermRest, model=LiveStreamStatistic)]
 
@@ -116,7 +116,7 @@ class ApiLiveTracking(viewsets.GenericViewSet, mixins.ListModelMixin, mixins.Cre
     serializer_class = LiveTracking
     queryset = LiveStreamTracking.objects.all()
 
-    authentication_classes = [JWTAuthentication, BasicAuthentication]
+    # authentication_classes = [JWTAuthentication, BasicAuthentication]
 
     # permission_classes = [partial(ValidatePermRest, model=LiveStreamTracking)]
 
@@ -149,7 +149,7 @@ class ApiPeekView(viewsets.GenericViewSet, mixins.ListModelMixin, mixins.CreateM
     serializer_class = PeekViewSerializer
     queryset = LiveStreamPeekView.objects.all()
 
-    authentication_classes = [JWTAuthentication, BasicAuthentication]
+    # authentication_classes = [JWTAuthentication, BasicAuthentication]
 
     # permission_classes = [partial(ValidatePermRest, model=LiveStreamComment)]
 
@@ -187,7 +187,7 @@ class ApiLiveOfferRegister(viewsets.GenericViewSet, mixins.ListModelMixin, mixin
     serializer_class = LiveOfferRegisterSerializer
     queryset = LiveStreamOfferRegister.objects.all()
 
-    authentication_classes = [JWTAuthentication, BasicAuthentication]
+    # authentication_classes = [JWTAuthentication, BasicAuthentication]
 
     # permission_classes = [partial(ValidatePermRest, model=LiveStreamComment)]
 
