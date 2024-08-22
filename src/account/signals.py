@@ -64,11 +64,13 @@ def update_grant_access(user):
         handle_grant_perm(access_users.first())
 
 
-def handle_grant_perm(grant_user_obj):
+def handle_grant_perm(grant_user_obj: GrantAccess):
     # Get current grant_user perms
     user_current_perms = get_all_user_perms_sql(grant_user_obj.grant_user.id)
     # Get newest grant_user perms
-    user_perms = grant_user_obj.grant_user.perm_user.all()
+    #user_perms = grant_user_obj.grant_user.perm_user.all()
+    user_perms = grant_user_obj.grant_user.get_all_user_perms()
+    # user_group_perms = grant_user_obj.grant_user.usergroupperm_set.all()
     # Get grant perms of manager
     rent_perm = grant_user_obj.grant_perms.all()
     # Get current manager perms

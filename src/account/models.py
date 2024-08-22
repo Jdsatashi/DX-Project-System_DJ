@@ -192,6 +192,19 @@ class User(AbstractBaseUser, PermissionsMixin):
                 .values_list('name', flat=True))
         return user_perms.union(group_perms)
 
+    def get_all_user_perms(self):
+        user_perms = Perm.objects.filter(userperm__user=self, userperm__allow=True)
+
+        user_groups = self.group_user.all()
+
+        # Lấy các perm từ các group đó
+        group_perms = Perm.objects.filter(perm_group__group__in=user_groups, perm_group__allow=True)
+
+        # Kết hợp và lọc distinct
+        all_perms = (user_perms | group_perms).distinct()
+
+        return all_perms
+
 
 class PhoneNumber(models.Model):
     phone_number = models.CharField(max_length=24, primary_key=True)
