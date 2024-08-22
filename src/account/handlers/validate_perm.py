@@ -70,8 +70,9 @@ class ValidatePermRest(permissions.BasePermission):
             return True
         # Authenticate defaults user
         user = request.user
+        print(f"-- Checking request user")
         if not user.is_authenticated:
-            print(f"Check user: {user}")
+            # print(f"Check user: {user}")
             self.message['message'] = 'Bạn chưa đăng nhập.'
             return False
         user = user if self.user is None else self.user
@@ -123,8 +124,9 @@ class ValidatePermRest(permissions.BasePermission):
                 print(f"User user.is_allow")
                 return True
             else:
+                print(f"User not has perm")
                 return False
-
+        print(f"__ Check result and valid: {result} | {is_valid}")
         # If user or nhom user has perm, return True
         return result and is_valid
 
@@ -175,7 +177,7 @@ class ValidatePermRest(permissions.BasePermission):
     def validate_fk_perm(self, request, action, user):
         """ Check relation of model with ForeignKey and its perms"""
         start_time = time.time()
-        print(f"Check user: {user.id}")
+        print(f"Check FK user: {user.id}")
         # Get list of ForeignKey fields
         fk_model = DataFKModel(self.model)
         list_fk = fk_model.get_fk_fields_models()
@@ -184,7 +186,7 @@ class ValidatePermRest(permissions.BasePermission):
         messages = []
         # Loop on list FK
         for fk_fields in list_fk:
-            print(f"TEST FK Field: {fk_fields}")
+            # print(f"TEST FK Field: {fk_fields}")
             # print(f"TEST FK Requires Permission: {required_permission}")
             # Create key - value with fields is key and value is dict
             field_name = fk_fields['field']
@@ -230,7 +232,7 @@ class ValidatePermRest(permissions.BasePermission):
 
         result = all(result['is_perm'] for result in perm_pk.values())
 
-        app_log.info(f"Perm result: {result}")
+        app_log.info(f"Perm PK result: {result}")
         app_log.info(f"Time validate FK: {time.time() - start_time}")
         return result, messages
 
