@@ -1,20 +1,14 @@
 import time
 from functools import wraps
 
-from django.http import JsonResponse
 from django.shortcuts import render
 from rest_framework import permissions
-from rest_framework_simplejwt.authentication import JWTAuthentication
-from rest_framework_simplejwt.exceptions import InvalidToken, TokenError
-from rest_framework_simplejwt.tokens import AccessToken
 
 from account.handlers.perms import get_perm_name, get_action, get_required_permission, DataFKModel
-from account.middleware import is_access_token_valid
 from account.models import UserPerm
 from app.logs import app_log
 from utils.constants import perm_actions
 from utils.perms.check import perm_exist
-from utils.constants import status as user_status
 
 
 def perm(model, method):
@@ -67,7 +61,6 @@ class ValidatePermRest(permissions.BasePermission):
 
     def has_permission(self, request, view):
         start_time = time.time()
-        check_token_backlist(request)
         # Pop errors in message
         msg_err = self.message.get('errors')
         if msg_err:
@@ -258,26 +251,3 @@ def check_perm(user, permission: str, perm_name: str):
     # Get user groups has permission
     is_valid = user.is_group_allow(permission)
     return is_valid
-
-
-def check_token_backlist(request):
-    user = None
-    token = None
-    try:
-        auth_result = JWTAuthentication().authenticate(request)
-        if auth_result is not None:
-            user, token = auth_result
-    except InvalidToken:
-        return JsonResponse({'detail': 'Invalid token', 'code': 'token_not_valid'}, status=401)
-
-    if user and token:
-        try:
-            access_token = AccessToken(token)
-            access_token_jti = access_token['jti']
-            if user.status == user_status[1]:
-                return JsonResponse({'detail': 'User is inactive'}, status=401)
-            if not is_access_token_valid(access_token_jti):
-                return JsonResponse({'detail': 'Access token\'s related refresh token has been blacklisted',
-                                     'code': 'token_not_valid'}, status=401)
-        except TokenError as e:
-            return JsonResponse({'detail': f'Token error: {e}', 'code': 'token_not_valid'}, status=401)
