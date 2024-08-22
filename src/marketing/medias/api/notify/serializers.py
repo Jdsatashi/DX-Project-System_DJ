@@ -1,4 +1,5 @@
 from datetime import datetime
+from types import SimpleNamespace
 
 from django.contrib.contenttypes.models import ContentType
 from django.db import transaction
@@ -137,11 +138,13 @@ class NotificationSerializer(serializers.ModelSerializer):
 
                 delay = (alert_datetime - time_now).total_seconds()
 
+                send_notify = SimpleNamespace(id=notify.id, title=notify.title, short_description=notify.short_description)
+
                 if delay < 10:
                     # Gửi thông báo ngay lập tức
-                    send_scheduled_notification.apply_async((notify, registration_tokens), countdown=10)
+                    send_scheduled_notification.apply_async((send_notify, registration_tokens), countdown=10)
                 else:
-                    send_scheduled_notification.apply_async((notify, registration_tokens), countdown=delay)
+                    send_scheduled_notification.apply_async((send_notify, registration_tokens), countdown=delay)
 
                 # send_firebase_notification3(notify.title, notify.short_description, registration_tokens, my_data)
                 # schedule_notification(notify)

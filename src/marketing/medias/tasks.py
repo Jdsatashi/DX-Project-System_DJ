@@ -36,12 +36,12 @@ def send_firebase_notification(title, body, registration_tokens, data):
 
 
 @shared_task
-def send_scheduled_notification(notification_id, registration_tokens):
-    notification = Notification.objects.get(id=notification_id)
+def send_scheduled_notification(notify, registration_tokens):
+    # notification = Notification.objects.get(id=notify)
 
     my_data = {
-        "notification_id": str(notification.id),
+        "notification_id": str(notify.id),
         "click_action": "click_action"
     }
 
-    send_firebase_notification(notification.title, notification.short_description, registration_tokens, my_data)
+    send_firebase_notification(notify.title, notify.short_description, registration_tokens, my_data)
