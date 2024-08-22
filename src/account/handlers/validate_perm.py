@@ -70,9 +70,9 @@ class ValidatePermRest(permissions.BasePermission):
             return True
         # Authenticate defaults user
         user = request.user
-        if not user.is_authenticated:
-            self.message['message'] = 'Bạn chưa đăng nhập.'
-            return False
+        # if not user.is_authenticated:
+        #     self.message['message'] = 'Bạn chưa đăng nhập.'
+        #     return False
         user = user if self.user is None else self.user
 
         object_pk = view.kwargs.get('pk', None)
