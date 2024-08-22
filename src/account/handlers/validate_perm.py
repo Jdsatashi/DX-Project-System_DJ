@@ -184,7 +184,7 @@ class ValidatePermRest(permissions.BasePermission):
         messages = []
         # Loop on list FK
         for fk_fields in list_fk:
-            # print(f"TEST FK Field: {fk_fields}")
+            print(f"TEST FK Field: {fk_fields}")
             # print(f"TEST FK Requires Permission: {required_permission}")
             # Create key - value with fields is key and value is dict
             field_name = fk_fields['field']
