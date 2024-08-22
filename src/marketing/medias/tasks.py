@@ -40,8 +40,8 @@ def send_scheduled_notification(notify, registration_tokens):
     # notification = Notification.objects.get(id=notify)
 
     my_data = {
-        "notification_id": str(notify.id),
+        "notification_id": str(notify['id']),
         "click_action": "click_action"
     }
 
-    send_firebase_notification(notify.title, notify.short_description, registration_tokens, my_data)
+    send_firebase_notification(notify['title'], notify['short_description'], registration_tokens, my_data)

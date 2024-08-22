@@ -138,7 +138,11 @@ class NotificationSerializer(serializers.ModelSerializer):
 
                 delay = (alert_datetime - time_now).total_seconds()
 
-                send_notify = SimpleNamespace(id=notify.id, title=notify.title, short_description=notify.short_description)
+                send_notify = {
+                    'id': notify.id,
+                    'title': notify.title,
+                    'short_description': notify.short_description,
+                }
 
                 if delay < 10:
                     # Gửi thông báo ngay lập tức
