@@ -71,6 +71,7 @@ class ValidatePermRest(permissions.BasePermission):
         # Authenticate defaults user
         user = request.user
         if not user.is_authenticated:
+            print(f"Check user: {user}")
             self.message['message'] = 'Bạn chưa đăng nhập.'
             return False
         user = user if self.user is None else self.user
