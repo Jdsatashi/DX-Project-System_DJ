@@ -53,7 +53,7 @@ class GenericApiProductCategory(viewsets.GenericViewSet, mixins.ListModelMixin, 
                                 mixins.RetrieveModelMixin, mixins.UpdateModelMixin, mixins.DestroyModelMixin):
     serializer_class = ProductCateSerializer
     queryset = ProductCategory.objects.all()
-    authentication_classes = [JWTAuthentication, BasicAuthentication]
+    # authentication_classes = [JWTAuthentication, BasicAuthentication]
     # permission_classes = [partial(ValidatePermRest, model=ProductCategory)]
 
     def list(self, request, *args, **kwargs):
@@ -65,7 +65,7 @@ class GenericApiCategoryDetail(viewsets.GenericViewSet, mixins.ListModelMixin, m
                                mixins.RetrieveModelMixin, mixins.UpdateModelMixin, mixins.DestroyModelMixin):
     serializer_class = CategoryDetailSerializer
     queryset = CategoryDetail.objects.all()
-    authentication_classes = [JWTAuthentication, BasicAuthentication]
+    # authentication_classes = [JWTAuthentication, BasicAuthentication]
     # permission_classes = [partial(ValidatePermRest, model=ProductCategory)]
 
     def list(self, request, *args, **kwargs):
