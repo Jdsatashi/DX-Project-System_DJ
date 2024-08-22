@@ -480,10 +480,10 @@ def refresh_access():
     grant_accesses_now = list(grant_accesses)
     for grant_access in grant_accesses:
         grant_access.allow = False
-        grant_accesses.save()
+        grant_access.save()
     for grant_access in grant_accesses_now:
         grant_access.allow = True
-        grant_accesses.save()
+        grant_access.save()
 
 
 """
