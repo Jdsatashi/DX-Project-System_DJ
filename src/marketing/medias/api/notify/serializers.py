@@ -5,7 +5,7 @@ from django.db import transaction
 from django.utils import timezone
 from django.utils.timezone import make_aware, now
 from rest_framework import serializers
-from marketing.medias.tasks import send_scheduled_notification
+from marketing.medias.tasks import send_scheduled_notification, send_firebase_notification
 from account.handlers.restrict_serializer import create_full_perm, list_user_has_perm, \
     list_group_has_perm, add_perm
 from account.models import Perm, User, GroupPerm, PhoneNumber
@@ -137,7 +137,11 @@ class NotificationSerializer(serializers.ModelSerializer):
 
                 delay = (alert_datetime - time_now).total_seconds()
 
-                send_scheduled_notification.apply_async((notify.id, registration_tokens), countdown=delay)
+                if delay < 10:
+                    # Gửi thông báo ngay lập tức
+                    send_scheduled_notification.apply_async((notify.id, registration_tokens), countdown=10)
+                else:
+                    send_scheduled_notification.apply_async((notify.id, registration_tokens), countdown=delay)
 
                 # send_firebase_notification3(notify.title, notify.short_description, registration_tokens, my_data)
                 # schedule_notification(notify)
