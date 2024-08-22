@@ -443,6 +443,15 @@ class GrantAccess(models.Model):
             self.manager.perm_user.remove(perm)
         self.grant_perms.clear()
 
+    def refresh_access(self):
+        grant_accesses = GrantAccess.objects.filter(allow=True)
+        grant_accesses_now = list(grant_accesses)
+        for grant_access in grant_accesses:
+            grant_access.allow = False
+            grant_accesses.save()
+        for grant_access in grant_accesses_now:
+            grant_access.allow = True
+            grant_accesses.save()
 
 def get_user_group_permissions(user):
     user_groups = user.group_user.all()
