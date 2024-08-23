@@ -23,5 +23,5 @@ urlpatterns = [
     path('user-get-mail/', user_get_mail_view),
     path('user-get-mail/<pk>', user_get_mail_detail),
 
-    path('test-mail/', ApiSendMail.as_view())
+    path('report-mail/', ApiSendMail.as_view())
 ]
