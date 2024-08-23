@@ -6,6 +6,7 @@ from datetime import timedelta
 from pathlib import Path
 from logging.handlers import TimedRotatingFileHandler
 
+from celery.schedules import crontab
 from pusher import Pusher
 
 from utils.env import *
@@ -18,6 +19,15 @@ CELERY_ACCEPT_CONTENT = ['json']
 CELERY_TASK_SERIALIZER = 'json'
 CELERY_RESULT_SERIALIZER = 'json'
 CELERY_TIMEZONE = 'UTC'
+
+
+CELERY_BEAT_SCHEDULE = {
+    'send-daily-email-task': {
+        'task': 'app.celery.send_daily_email_task',
+        'schedule': crontab(hour="22", minute="15"),
+        'args': (),
+    },
+}
 
 # Email service
 EMAIL_BACKEND = 'django.core.mail.backends.smtp.EmailBackend'

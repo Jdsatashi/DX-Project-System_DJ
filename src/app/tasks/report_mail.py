@@ -9,9 +9,7 @@ from utils.constants import mail_type
 from utils.helpers import local_time
 
 
-def send_daily_email(date_get: datetime):
-    date_get = date_get.date()
-
+def send_daily_email(date_get):
     email_detail = EmailDetail.objects.filter(email_type=mail_type.report_order).first()
 
     user_get_mails = UserGetMail.objects.filter(email_detail=email_detail)
