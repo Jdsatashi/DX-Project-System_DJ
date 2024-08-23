@@ -37,8 +37,8 @@ def import_files_from_directory(directory_path, file_type):
                         app_log.info(f"Found product cate: {product_cate}")
 
                         file_instance = FileUpload.objects.create(file=django_file)
-
-                        ProductCateFile.objects.create(file=file_instance, product_cate=product_cate)
+                        docs_type = filename_list[0].lower() if filename_list[0] in ['gdk', 'cbhq'] else None
+                        ProductCateFile.objects.create(file=file_instance, product_cate=product_cate, docs_type=docs_type)
                         break
                     else:
                         app_log.info(f"Product cate not found")
