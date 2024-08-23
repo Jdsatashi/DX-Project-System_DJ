@@ -106,7 +106,6 @@ class RegistrationCertFile(models.Model):
     file = models.ForeignKey(FileUpload, on_delete=models.CASCADE)
     register_cert = models.ForeignKey(RegistrationCert, null=True, on_delete=models.SET_NULL)
     priority = models.IntegerField(default=1)
-    docs_type = models.CharField(null=True, choices=(('gdk', 'GDK'), ('cbhq', 'CBHQ')))
     note = models.CharField(max_length=255, null=True, blank=True)
     created_by = models.CharField(max_length=255, null=True, blank=True)
     created_at = models.DateTimeField(auto_now_add=True)
