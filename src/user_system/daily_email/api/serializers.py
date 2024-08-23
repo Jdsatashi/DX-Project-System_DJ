@@ -14,6 +14,7 @@ class UserGetMailSerializer(serializers.ModelSerializer):
     class Meta:
         model = UserGetMail
         fields = '__all__'
+        read_only_fields = ('last_sent', 'created_at')
 
 
 class SendReportMailSerializer(serializers.Serializer):
