@@ -69,6 +69,7 @@ MY_APPS = [
     # 'user_system.client_group',
     'user_system.client_profile',
     'user_system.employee_profile',
+    'user_system.daily_email',
     # NVTT functions
     'marketing.company',
     'marketing.product',

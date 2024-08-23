@@ -50,3 +50,6 @@ max_phone = 3
 
 so_type = SimpleNamespace(manual='manual', consider_user='consider_offer_user', template='template')
 so_type_list = list(so_type.__dict__.values())
+
+# Email type
+mail_type = SimpleNamespace(report_order='report_order')

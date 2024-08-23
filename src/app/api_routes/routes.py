@@ -17,6 +17,7 @@ urlpatterns = [
     path('employees/', include('user_system.employee_profile.api.routes', 'api_employee_profile')),
     path('file-upload/', include('system.file_upload.api.routes', 'api_file_upload')),
     path('status/', include('system.status_group.api.routes', 'api_status')),
+    path('send-mail/', include('user_system.daily_email.api.routes', 'api_daily_email')),
 
     path('products/', include('marketing.product.api.routes', 'api_products')),
     path('company/', include('marketing.company.api.routes', 'api_company')),
@@ -27,5 +28,6 @@ urlpatterns = [
     path('event-number/', include('marketing.pick_number.api.routes', 'api_pick_number')),
     path('media/', include('marketing.medias.api.notify.routes', 'api_media')),
     path('media/banner/', include('marketing.medias.api.banner.routes', 'api_banner')),
-    path('system-config/', include('system_func.api.routes')),
+    path('system-config/', include('system_func.api.routes', 'api_system_func')),
+
 ]
