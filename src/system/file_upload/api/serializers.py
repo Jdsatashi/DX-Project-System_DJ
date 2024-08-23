@@ -42,7 +42,7 @@ class FileCateShortView(serializers.ModelSerializer):
 
     class Meta:
         model = ProductCateFile
-        fields = ['priority', 'file_data']
+        fields = ['priority', 'docs_type', 'file_data']
 
 
 class FileProductCateSerializer(serializers.ModelSerializer):
@@ -80,7 +80,7 @@ class FileProductCateViewSerializer(serializers.ModelSerializer):
 
     class Meta:
         model = ProductCateFile
-        fields = ['id', 'priority', 'document', 'image']
+        fields = ['id', 'priority', 'docs_type', 'document', 'image']
 
     def get_document(self, obj):
         if obj.file and obj.file.type == 'document':

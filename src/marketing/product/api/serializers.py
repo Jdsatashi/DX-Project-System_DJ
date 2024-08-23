@@ -5,8 +5,8 @@ from app.logs import app_log
 from marketing.company.models import Company
 from marketing.product.models import ProductCategory, RegistrationUnit, Producer, RegistrationCert, ProductType, \
     Product, CategoryDetail, UseObject, UseFor
-from system.file_upload.api.serializers import FileProductCateViewSerializer, \
-    FileCateShortView
+from system.file_upload.api.serializers import FileProductCateViewSerializer
+
 from utils.helpers import normalize_vietnamese as norm_vn
 
 
@@ -213,31 +213,10 @@ class ProductSerializer(BaseRestrictSerializer):
         fields = '__all__'
 
 
-class ShortViewCategory(serializers.ModelSerializer):
-    files = FileCateShortView(source='product_cate_files', many=True)
-
-    class Meta:
-        model = ProductCategory
-        fields = ['id', 'files']
-
-
 class ProductIdSerializer(serializers.ModelSerializer):
     class Meta:
         model = Product
         fields = ['id', 'category']
-
-
-class ProductCateViewSerializer(serializers.ModelSerializer):
-    class Meta:
-        model = ProductCategory
-        fields = ['id']
-
-    def to_representation(self, instance):
-        representation = super().to_representation(instance)
-        request = self.context.get('request')
-        files = instance.product_cate_files.all()
-        files_fields_details(request, files, representation)
-        return representation
 
 
 # Support functions
@@ -249,11 +228,11 @@ def files_fields_details(request, files, representation):
     images = []
     for file_data in file_serializer.data:
         if file_data['document'] is not None:
-            file_data['document'].update({'priority': file_data['priority']})
+            file_data['document'].update({'priority': file_data['priority'], 'docs_type': file_data['docs_type']})
 
             documents.append(file_data['document'])
         if file_data['image'] is not None:
-            file_data['image'].update({'priority': file_data['priority']})
+            file_data['image'].update({'priority': file_data['priority'], 'docs_type': file_data['docs_type']})
             images.append(file_data['image'])
     representation['files'] = {
         'documents': documents,
