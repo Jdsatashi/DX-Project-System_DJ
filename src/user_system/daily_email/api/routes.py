@@ -17,8 +17,8 @@ user_get_mail_detail = ApiUserGetMail.as_view(actions_detail)
 
 
 urlpatterns = [
-    path('mail-content/', email_detail_view),
-    path('mail-content/<pk>', email_detail_detail),
+    path('mail-detail/', email_detail_view),
+    path('mail-detail/<pk>', email_detail_detail),
 
     path('user-get-mail/', user_get_mail_view),
     path('user-get-mail/<pk>', user_get_mail_detail),
