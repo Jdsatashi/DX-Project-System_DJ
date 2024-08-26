@@ -1,12 +1,16 @@
+import random
 import tempfile
 from functools import partial
 from io import BytesIO
 
-from django.db.models import QuerySet
+from django.db import transaction
+from django.db.models import QuerySet, F
+from django.http import HttpResponse
 from django.template.loader import render_to_string
+from openpyxl import Workbook
+from openpyxl.styles import Font, Alignment, Border, Side
 from rest_framework import viewsets, mixins, status
 from rest_framework.authentication import BasicAuthentication, SessionAuthentication
-from rest_framework.exceptions import ValidationError
 from rest_framework.response import Response
 from rest_framework.views import APIView
 from rest_framework_simplejwt.authentication import JWTAuthentication
@@ -16,16 +20,11 @@ from account.handlers.perms import perm_queryset
 from account.handlers.validate_perm import ValidatePermRest
 from account.models import User
 from marketing.pick_number.api.serializers import UserJoinEventSerializer, EventNumberSerializer, NumberListSerializer, \
-    UserJoinEventNumberSerializer, AwardNumberSerializer, PrizeEventSerializer, PickNumberLogSerializer, \
+    UserJoinEventNumberSerializer, PrizeEventSerializer, PickNumberLogSerializer, \
     AwardUserSerializer
 from marketing.pick_number.models import UserJoinEvent, EventNumber, NumberList, PrizeEvent, AwardNumber, PickNumberLog, \
     NumberSelected
 from utils.model_filter_paginate import filter_data
-
-from openpyxl import Workbook
-from openpyxl.utils import get_column_letter
-from django.http import HttpResponse
-from openpyxl.styles import Font, Alignment, Border, Side
 
 
 class ApiEventNumber(viewsets.GenericViewSet, mixins.ListModelMixin, mixins.CreateModelMixin,
@@ -452,3 +451,120 @@ class ApiUserNumberPdf(APIView):
             return response
         except UserJoinEvent.DoesNotExist:
             return Response({'error': 'UserJoinEvent not found'}, status=status.HTTP_404_NOT_FOUND)
+
+
+class RandomNumber(APIView):
+    def post(self, request, pk):
+        try:
+            user_event: UserJoinEvent = UserJoinEvent.objects.get(pk=pk)
+            event: EventNumber = user_event.event
+            try:
+                random_times = request.data.get('random_times', 1)
+                random_times = int(random_times)
+            except TypeError:
+                return Response({'message': 'random_times phải là một số integer'}, 400)
+            rand_nums, rand_nums_obj = get_random_numbers(user_event, random_times)
+            handle_selecting(user_event, rand_nums_obj)
+            selected_numbers: QuerySet[NumberSelected] = user_event.number_selected.filter().values_list(
+                'number__number', flat=True)
+            response = {
+                'user': user_event.user.id,
+                'event': event.id,
+                'user_event': user_event.id,
+                'random_number': rand_nums,
+                'selected_number': list(selected_numbers)
+            }
+
+            return Response(response, 200)
+        except Exception as e:
+            raise e
+
+
+class ApiAutoPick(APIView):
+    def post(self, request, pk):
+        try:
+            event: EventNumber = EventNumber.objects.filter(pk=pk).first()
+            add_more_number = request.data.get('add_more_number', False)
+            if not event:
+                return Response({'message': f'not found {pk}'}, 404)
+            users_event = event.user_join_event.annotate(
+                turns_left=F('turn_pick') - F('turn_selected')
+            ).filter(turns_left__gt=0)
+            for user_event in users_event:
+                random_times = user_event.turn_pick - user_event.turn_selected
+                rand_nums, rand_nums_obj = get_random_numbers(user_event, random_times)
+                first_loop = True
+                while add_more_number and len(rand_nums) < random_times and len(rand_nums_obj) < random_times:
+                    if first_loop:
+                        event.range_number += round((random_times - len(rand_nums_obj)) * 0.9)
+                    else:
+                        event.range_number += 1
+                    event.save()
+                    rand_nums, rand_nums_obj = get_random_numbers(user_event, random_times)
+                    if len(rand_nums) >= random_times and len(rand_nums_obj) >= random_times:
+                        break
+                handle_selecting(user_event, rand_nums_obj)
+
+            return Response({'message': 'success'})
+        except Exception as e:
+            raise e
+
+
+def handle_selecting(user_event, rand_nums_obj):
+    try:
+        with transaction.atomic():
+            numbers_selected = list()
+            for rand_num_obj in rand_nums_obj:
+
+                while rand_num_obj.repeat_count <= 0:
+                    rand_nums, rand_num_obj = get_random_numbers(user_event, 1)
+                    if rand_num_obj.repeat_count > 0:
+                        break
+                new_added = NumberSelected(user_event=user_event, number=rand_num_obj)
+                numbers_selected.append(new_added)
+                rand_num_obj.repeat_count -= 1
+                rand_num_obj.save()
+            NumberSelected.objects.bulk_create(numbers_selected)
+            selected_numbers = user_event.number_selected.filter().values_list(
+                'number__number', flat=True).count()
+            print(f"Test: {user_event}")
+            # user_event = user_event.first()
+            user_event.turn_selected = selected_numbers
+            user_event.save()
+    except Exception as e:
+        raise e
+
+
+def get_random_numbers(user_event: UserJoinEvent, random_times: int = 1):
+    event = user_event.event
+    selected_number = NumberSelected.objects.filter(user_event=user_event).values_list('number__number', flat=True)
+    available_number = event.number_list.filter(repeat_count__gt=0).exclude(number__in=selected_number).values_list(
+        'number', flat=True).distinct()
+    available_number = list(set(available_number))
+    if len(available_number) == 0:
+        return [], []
+    if random_times > len(available_number):
+        random_times = len(available_number)
+    random_elements = random.sample(available_number, random_times)
+
+    valid_numbers = []
+    for num in random_elements:
+        if event.number_list.filter(number=num, repeat_count__gt=0).exists():
+            valid_numbers.append(num)
+
+    while len(valid_numbers) < random_times:
+        remaining_count = random_times - len(valid_numbers)
+        available_number = event.number_list.filter(repeat_count__gt=0).exclude(number__int=selected_number).exclude(
+            number__in=valid_numbers).values_list(
+            'number', flat=True).distinct()
+        available_number = list(set(available_number))
+        if not available_number:
+            break
+        if remaining_count > len(available_number):
+            remaining_count = len(available_number)
+        number_list = random.sample(available_number, remaining_count)
+        for num in number_list:
+            if event.number_list.filter(number=num, repeat_count__gt=0).exists():
+                valid_numbers.append(num)
+    number_objs = event.number_list.filter(number__in=valid_numbers)
+    return valid_numbers, number_objs

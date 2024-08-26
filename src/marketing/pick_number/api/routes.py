@@ -3,7 +3,7 @@ from rest_framework.routers import DefaultRouter
 
 from marketing.pick_number.api.views import ApiEventNumber, ApiUserJoinEvent, ApiNumberList, ApiPickNumber, \
     ApiAwardNumber, ApiPrizeEvent, ApiPickNumberLog, ApiUserAward, ApiExportEventNumber, ApiExportEventNumberUser, \
-    ApiUserNumberPdf, ApiUserNumberPdf2
+    ApiUserNumberPdf, ApiUserNumberPdf2, RandomNumber, ApiAutoPick
 from utils.constants import actions_views, actions_detail
 
 app_name = "api_pick_number"
@@ -35,10 +35,13 @@ urlpatterns = [
     path('', event_number_views, name='api_event_number_view'),
     path('<pk>', event_number_details, name='api_event_number_detail'),
 
+    path('random-all-event/<pk>/', ApiAutoPick.as_view()),
+
     path('user-info/', event_user_views, name='api_event_user_view'),
     path('user-info/<pk>', event_user_details, name='api_event_user_detail'),
 
     path('user-info/pick/<pk>', pick_number, name='api_event_user_pick'),
+    path('user-info/random-pick/<pk>', RandomNumber.as_view()),
 
     path('number-list/', event_number_list_views, name='api_event_number_views'),
     path('number-list/<pk>', event_number_list_details, name='api_event_number_details'),

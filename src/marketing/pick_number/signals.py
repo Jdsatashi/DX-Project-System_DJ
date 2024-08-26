@@ -1,4 +1,4 @@
-from django.db.models.signals import pre_delete
+from django.db.models.signals import pre_delete, post_save
 from django.dispatch import receiver
 
 from app.logs import app_log
@@ -29,8 +29,6 @@ def update_user_join_event(sender, instance, created, **kwargs):
 """
 
 
-
-
 # @receiver(post_save, sender=EventNumber)
 # def update_user_eventnumber(sender, instance: EventNumber, created, **kwargs):
 #     print(f"Signal update eventnumber working")
@@ -45,6 +43,7 @@ def update_user_join_event(sender, instance, created, **kwargs):
 #         user=stats_user.user, event=instance, total_point=total_point, turn_pick=turn_pick, turn_per_point=turn_per_point)
 #     print(user_event)
 
+
 @receiver(pre_delete, sender=UserJoinEvent)
 def update_repeat_count(sender, instance, **kwargs):
     app_log.info(f"Auto update repeat_count")
@@ -56,3 +55,12 @@ def update_repeat_count(sender, instance, **kwargs):
         number_list.repeat_count += 1
         number_list.save()
     number_selected.delete()
+
+
+@receiver(post_save, sender=NumberSelected)
+def update_selected_number(sender, instance: NumberSelected, **kwargs):
+    app_log.info(f"Auto update update_selected_number")
+    user_join_event = instance.user_event
+    selected_numbers = user_join_event.number_selected.all().count()
+    user_join_event.turn_selected = selected_numbers
+    user_join_event.save()
