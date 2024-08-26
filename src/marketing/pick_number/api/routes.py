@@ -35,7 +35,7 @@ urlpatterns = [
     path('', event_number_views, name='api_event_number_view'),
     path('<pk>', event_number_details, name='api_event_number_detail'),
 
-    path('random-all-event/<pk>/', ApiAutoPick.as_view()),
+    path('random-all-event/<pk>', ApiAutoPick.as_view()),
 
     path('user-info/', event_user_views, name='api_event_user_view'),
     path('user-info/<pk>', event_user_details, name='api_event_user_detail'),
