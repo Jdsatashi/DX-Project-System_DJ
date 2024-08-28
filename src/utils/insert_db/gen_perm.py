@@ -1,9 +1,12 @@
+import math
+
 from django.contrib.contenttypes.models import ContentType
 from django.db.models import Q
 from pyodbc import IntegrityError
 
 from account.models import User, Perm
 from marketing.order.models import Order
+from system_func.models import PeriodSeason
 from utils.constants import perm_actions, admin_role
 from utils.insert_db.default_roles_perms import set_user_perm
 
@@ -66,14 +69,20 @@ def add_permissions(user_instance, managed_users):
 
 
 def update_nvtt():
-    orders = Order.objects.filter(nvtt_id__isnull=True)
+    current_season = PeriodSeason.get_period_by_date('point')
+    date_ = current_season.from_date
+    orders = Order.objects.filter(Q(date_get__gte=date_) & Q(nvtt_id__isnull=True))
 
     total_items = orders.count()
+    print(f"Total items: {total_items}")
     quantity_loop = 2000
-    time_loop = total_items // quantity_loop
+    time_loop = math.ceil(total_items / quantity_loop)
+
     for i in range(time_loop):
         start_items = i * quantity_loop
         end_items = start_items + quantity_loop
+        if i == time_loop:
+            end_items = total_items % i
         print(f"-- i: {i} | start {start_items} to {end_items}")
         orders_data = orders[start_items:end_items]
         update_orders(orders_data)
