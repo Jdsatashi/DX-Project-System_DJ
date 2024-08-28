@@ -215,7 +215,7 @@ class OrderSerializer(BaseRestrictSerializer):
         # Get user and phone from token
         user = data.get('client_id')
         # Get special offer
-        special_offer: SpecialOffer = data.get('new_special_offer')
+        special_offer: SpecialOffer = data.get('new_special_offer', None)
         # Get current SaleStatistic of user
         get_date = data.get('date_get')
         first_day_of_month = get_date.replace(day=1)
@@ -608,31 +608,6 @@ def update_point(user):
     point.save()
 
 
-def update_season_stats_user2(user: User, date_get):
-    season_stats_user = SeasonalStatisticUser.objects.filter(
-        user=user, season_stats__type='point',
-        season_stats__start_date__lte=date_get,
-        season_stats__end_date__gte=date_get
-    )
-    if season_stats_user.exists():
-        update_stats_users = list()
-        number_events = season_stats_user.values_list('season_stats__event_number__id', flat=True).distinct()
-        user_join_events = UserJoinEvent.objects.filter(user=user, event__id__in=number_events)
-        print(f"Check user join event: {user_join_events}")
-        for stats_user in season_stats_user:
-            upd_stats_user = update_season_stats_users(stats_user)
-            update_stats_users.append(upd_stats_user)
-
-        SeasonalStatisticUser.objects.bulk_update(update_stats_users,
-                                                  ['turn_per_point', 'turn_pick', 'redundant_point', 'total_point'])
-        for user_join_event in user_join_events:
-            stats_user = season_stats_user.filter(season_stats__event_number__user_join_event=user_join_event).first()
-            user_join_event.turn_per_point = stats_user.turn_per_point
-            user_join_event.turn_pick = stats_user.turn_pick
-            user_join_event.total_point = stats_user.total_point
-            user_join_event.save()
-
-
 def update_season_stats_user(user: User, date_get):
     season_stats_users = SeasonalStatisticUser.objects.filter(
         user=user,
@@ -660,6 +635,8 @@ def update_season_stats_user(user: User, date_get):
 
 
 def update_user_turnover(user: User, order: Order, is_so: bool):
+    if order.nvtt_id == '' or order.nvtt_id is None:
+        return
     user_sale_stats = UserSaleStatistic.objects.filter(user=user).first()
     if not user_sale_stats:
         user_sale_stats = UserSaleStatistic.objects.create(user=user)

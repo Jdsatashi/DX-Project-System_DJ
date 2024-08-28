@@ -1,13 +1,16 @@
 import json
+import os
 import time
 from datetime import datetime, timedelta
 from functools import partial
 from io import BytesIO
 
+import numpy as np
 import openpyxl
 import pandas as pd
 from django.core.exceptions import FieldError
 from django.core.paginator import Paginator
+from django.db import transaction
 from django.db.models import Prefetch, QuerySet
 from django.db.models import Sum, Q, Case, When, FloatField, F
 from django.db.models.functions import Abs, Coalesce
@@ -29,12 +32,15 @@ from account.handlers.validate_perm import ValidatePermRest
 from account.models import User
 from app.logs import app_log
 from marketing.order.api.serializers import OrderSerializer, ProductStatisticsSerializer, SeasonalStatisticSerializer, \
-    SeasonStatsUserPointSerializer
+    SeasonStatsUserPointSerializer, update_point, update_season_stats_user, update_user_turnover
 from marketing.order.models import Order, OrderDetail, SeasonalStatistic, SeasonalStatisticUser
-from marketing.price_list.models import SpecialOffer
+from marketing.price_list.models import SpecialOffer, PriceList, ProductPrice
+from marketing.product.models import Product
+from marketing.sale_statistic.models import UserSaleStatistic
+from system_func.models import PeriodSeason, PointOfSeason
 from user_system.client_profile.models import ClientProfile
 from user_system.employee_profile.models import EmployeeProfile
-from utils.constants import maNhomND, so_type
+from utils.constants import maNhomND, so_type, data_status
 from utils.model_filter_paginate import filter_data, get_query_parameters, build_absolute_uri_with_params
 
 
@@ -916,7 +922,7 @@ def generate_order_excel(orders: QuerySet[Order]):
         'Mã toa',
         'Loại bảng kê', 'Mã khách hàng', 'Tên Khách hàng', 'Khách hàng cấp 1', 'NVTT',
         'Ngày nhận toa', 'Người tạo toa', 'Ngày nhận hàng', 'Ngày gửi trễ', 'Ghi chú',
-        'Mã sản phẩm', 'Tên sản phẩm', 'Số lượng', 'Số thùng', 'Thành tiền'
+        'Mã sản phẩm', 'Tên sản phẩm', 'Số lượng', 'Số thùng', 'Đơn giá', 'Thành tiền'
     ]
 
     column_widths = {
@@ -955,6 +961,7 @@ def generate_order_excel(orders: QuerySet[Order]):
             nvtt_ids.add(o.nvtt_id)
         elif o.client_id_id in client_profiles and client_profiles[o.client_id_id].nvtt_id:
             nvtt_ids.add(client_profiles[o.client_id_id].nvtt_id)
+
     employee_profiles = {ep.employee_id_id: ep for ep in EmployeeProfile.objects.filter(employee_id__in=nvtt_ids)}
 
     for i, order in enumerate(orders):
@@ -980,6 +987,7 @@ def generate_order_excel(orders: QuerySet[Order]):
                 note_dict = json.loads(order.note)
             except (json.JSONDecodeError, TypeError):
                 pass
+
         noting = note_dict.get('notes', '')
         data_list = [
             order.id,
@@ -988,20 +996,26 @@ def generate_order_excel(orders: QuerySet[Order]):
             client_data.register_name if client_data else '',  # Tên Khách hàng
             client_lv1_name,  # Khách hàng cấp 1
             nvtt_name,  # NVTT
-            order.date_get.strftime("%d/%m/%Y") if order.date_get else '',
-            order.created_by,
             date_send,
+            order.created_by,
+            order.date_get.strftime("%d/%m/%Y") if order.date_get else '',
             order.date_delay if order.date_delay else 0,
             noting,
         ]
         for detail in order.order_detail.all():
             if not detail.product_id:
                 continue
+            total_price = detail.product_price or 0
+            try:
+                price = total_price / detail.order_box
+            except ZeroDivisionError:
+                price = 0
             details_data = [
                 detail.product_id.id,
                 detail.product_id.name,
                 detail.order_quantity,
                 detail.order_box,
+                price,
                 detail.product_price,
             ]
             export_data = data_list + details_data
@@ -1012,3 +1026,186 @@ def generate_order_excel(orders: QuerySet[Order]):
     workbook.save(output)
     output.seek(0)
     return output
+
+
+class ApiImportOrder(APIView):
+    def post(self, request):
+        file = request.FILES.get('file_import', None)
+        if not file:
+            return Response({'message': f'file_import is required'})
+        file_extension = os.path.splitext(file.name)[1].lower()
+
+        if file_extension not in ['.xls', '.xlsx']:
+            return Response({'message': 'File must be .xls or .xlsx'}, status=status.HTTP_400_BAD_REQUEST)
+
+        try:
+            data = get_excel_to_dict(file)
+
+            success, error = create_order(data)
+            return Response({
+                'message': 'ok',
+                'success': success,
+                'errors': error
+            }, status=status.HTTP_200_OK)
+        except Exception as e:
+            # return Response({'error': str(e)}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+            raise e
+
+
+def create_order(data):
+    error_data = list()
+    update_list = list()
+    with transaction.atomic():
+        for order in data:
+            # Split detail data
+            details_data = order.pop('order_detail')
+            # Get client id
+            user_id = order.get('client_id')
+            # Trying query get user by client id
+            client = User.objects.filter(id=user_id).first()
+            # When client not exist
+            if not client:
+                # Print data to errors
+                data_error = {
+                    'group_order': order.get('group_order'),
+                    'client_id': order.get('client_id'),
+                    'order_detail': details_data
+                }
+                error_data.append(data_error)
+                # Skip this loop
+                continue
+            nvtt = User.objects.filter(clientprofile__register_name__icontains=order['nvtt'])
+            nvtt_id = ''
+            if nvtt.exists():
+                nvtt_id = nvtt.first().id
+            # Create Order data
+            order_data = Order(
+                client_id=client,
+                date_get=order['date_get'],
+                date_company_get=order['date_company_get'],
+                date_delay=order['date_delay'],
+                nvtt_id=nvtt_id,
+                created_by=order['created_by'],
+                status=data_status.active
+            )
+            # Jsonify note
+            note = json.dumps({'note': order['note']})
+            order_data.note = note
+            # Call save() to create Order
+            order_data.save()
+
+            main_pl = PriceList.get_main_pl()
+            detail_order = list()
+
+            # Loop to details_data
+            for detail in details_data:
+                # Trying get product object
+                product = Product.objects.filter(id=detail['product_id']).first()
+                point = 0
+                # If product not found
+                if not product:
+                    # Create new products
+                    product = Product.objects.create(id=detail['product_id'], name=detail['product_name'])
+                else:
+                    product_price = ProductPrice.objects.filter(price_list=main_pl, product=product)
+                    if product_price.exists():
+                        product_price = product_price.first()
+                        point = product_price.point
+
+                note = {
+                    'id': product.id,
+                    'price': detail['price'],
+                    'point': 0,
+                    'to_money': ''
+                }
+                note = json.dumps(note)
+                points = point * detail['box']
+                order_detail = OrderDetail(
+                    order_id=order_data,
+                    product_id=product,
+                    order_quantity=detail['quantity'],
+                    order_box=detail['box'],
+
+                    note=note,
+                    product_price=detail['price'],
+                    point_get=points,
+                )
+
+            #     total_point += points
+            #     total_price += detail['price']
+                detail_order.append(order_detail)
+            # if has_nvtt and all(product_prices):
+                # handle_after_order(client, total_point, total_price)
+            update_list.append(order_data.id)
+            OrderDetail.objects.bulk_create(detail_order)
+            update_point(client)
+            update_season_stats_user(client, order_data.date_get)
+            update_user_turnover(client, order_data, False)
+    return update_list, error_data
+
+
+def handle_after_order(user: User, point: float, price: int):
+    # Handle update price
+    user_sale_stats = UserSaleStatistic.objects.filter(user=user).first()
+    if not user_sale_stats:
+        user_sale_stats = UserSaleStatistic.objects.create(user=user)
+    user_sale_stats.turnover += price
+    # Update point
+    period = PeriodSeason.objects.filter(type='point', period='current').first()
+    point_obj, _ = PointOfSeason.objects.get_or_create(user=user, period=period)
+
+
+def get_excel_to_dict(file):
+    # Đọc dữ liệu từ file Excel
+    df = pd.read_excel(file, engine='openpyxl')
+
+    # Định nghĩa mapping giữa tên cột Excel và key trong dict
+    column_mapping = {
+        'Mã toa': 'group_order',
+        'Loại bảng kê': 'type_list',
+        'Mã khách hàng': 'client_id',
+        'Tên Khách hàng': 'client_name',
+        'Khách hàng cấp 1': 'client_lv1',
+        'NVTT': 'nvtt',
+        'Ngày nhận toa': 'date_company_get',
+        'Người tạo toa': 'created_by',
+        'Ngày nhận hàng': 'date_get',
+        'Ngày gửi trễ': 'date_delay',
+        'Ghi chú': 'note',
+        'Mã sản phẩm': 'product_id',
+        'Tên sản phẩm': 'product_name',
+        'Số lượng': 'quantity',
+        'Số thùng': 'box',
+        'Đơn giá': 'price',
+        'Thành tiền': 'total_price'
+    }
+
+    # Đổi tên các cột theo mapping
+    df = df.rename(columns=column_mapping)
+
+    # Xử lý các giá trị NaN, +inf, -inf
+    df.replace({np.inf: None, -np.inf: None, np.nan: None}, inplace=True)
+
+    # In ra danh sách các cột để kiểm tra
+    print("Các cột trong DataFrame sau khi đổi tên:", df.columns)
+
+    # Nhóm dữ liệu theo 'group_order' và chuyển đổi sang định dạng yêu cầu
+    grouped_data = df.groupby('group_order')
+
+    result = []
+    for group_order, group in grouped_data:
+        # Lấy các cột dữ liệu không liên quan đến sản phẩm
+        common_data = group.iloc[0][[
+            'group_order', 'type_list', 'client_id', 'client_name',
+            'client_lv1', 'nvtt', 'date_company_get', 'created_by',
+            'date_get', 'date_delay', 'note'
+        ]].to_dict()
+
+        # Lấy danh sách các sản phẩm
+        products = group[['product_id', 'product_name', 'quantity', 'box', 'price']].to_dict(orient='records')
+
+        # Ghép dữ liệu chung và danh sách sản phẩm vào một dict
+        common_data['order_detail'] = products
+        result.append(common_data)
+
+    return result

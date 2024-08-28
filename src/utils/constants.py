@@ -36,7 +36,6 @@ perm_actions = {
     'update': 'update',
     'destroy': 'destroy'
 }
-status = ['active', 'deactivate', 'pending', 'draft']
 user_type = {
     'client': 'client',
     'employee': 'employee'
@@ -48,6 +47,8 @@ phone_magic = MAGIC_PHONE  # '0943355165'
 magic_verify_code = MAGIC_OTP  # '240390'
 max_phone = 3
 
+status = ['active', 'deactivate', 'pending', 'draft']
+data_status = SimpleNamespace(active='active', deactivate='deactivate', pending='pending', draft='draft')
 so_type = SimpleNamespace(manual='manual', consider_user='consider_offer_user', template='template')
 so_type_list = list(so_type.__dict__.values())
 

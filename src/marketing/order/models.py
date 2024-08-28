@@ -1,3 +1,4 @@
+import json
 from datetime import datetime, timedelta, date
 
 from dateutil.relativedelta import relativedelta
@@ -53,30 +54,23 @@ class Order(models.Model):
 
     def save(self, *args, **kwargs):
         self.clean()
-        is_new = self._state.adding
         if not self.pk:
             self.id = self.generate_pk()
         if not self.nvtt_id and self.client_id:
             self.nvtt_id = self.client_id.clientprofile.nvtt_id
         if self.new_special_offer or self.id_so:
             self.is_so = True
-        self.calculate_totals()
+
+        if self.note:
+            try:
+                # Ensure it's JSON-encoded string
+                json_data = json.loads(self.note)
+                note = json.dumps(json_data)
+            except ValueError as e:
+                raise ValidationError("Invalid JSON data")
+        if not self.order_point and not self.order_price:
+            self.calculate_totals()
         super().save(*args, **kwargs)
-
-        # if is_new:
-        # update_sale_statistics_for_user(self.client_id)
-
-    # def save(self, *args, **kwargs):
-    #     is_new = self._state.adding
-    #     if not self.pk:
-    #         self.id = self.generate_pk()
-    #     self.calculate_totals()
-    #     super().save(*args, **kwargs)
-    #
-    #     if is_new:
-    #         update_all_sale_statistics_for_user(self.client_id)
-    # if kwargs.get('update_sale_statistic', True):
-    #     SaleStatistic.objects.update_from_order(self)
 
     def calculate_totals(self):
         order_details = self.order_detail.aggregate(
@@ -109,7 +103,7 @@ class OrderDetail(models.Model):
     order_quantity = models.IntegerField(null=False, default=1)
     order_box = models.FloatField(null=False, default=0)
     price_list_so = models.FloatField(null=True)
-    note = models.CharField(max_length=255, null=True)
+    note = models.TextField(null=True)
     product_price = models.BigIntegerField(null=True)
     point_get = models.FloatField(null=True)
 
