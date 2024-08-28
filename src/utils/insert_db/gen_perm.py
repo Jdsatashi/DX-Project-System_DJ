@@ -67,10 +67,24 @@ def add_permissions(user_instance, managed_users):
 
 def update_nvtt():
     orders = Order.objects.filter(nvtt_id__isnull=True)
+
+    total_items = orders.count()
+    quantity_loop = 2000
+    time_loop = total_items // quantity_loop
+    for i in range(time_loop):
+        start_items = i * quantity_loop
+        end_items = start_items + quantity_loop
+        print(f"-- i: {i} | start {start_items} to {end_items}")
+        orders_data = orders[start_items:end_items]
+        update_orders(orders_data)
+
+
+def update_orders(orders):
     orders_not_have_client = list()
     client_not_have_profile = list()
     client_not_have_nvtt = list()
     updating_order = list()
+
     for order in orders:
         user = order.client_id
 
