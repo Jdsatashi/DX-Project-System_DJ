@@ -1,14 +1,17 @@
 import datetime
+import math
 import os
 
 import pandas as pd
 from dateutil.relativedelta import relativedelta
+from django.db import transaction
 from django.db.models import Q, Sum
 
 from account.models import User
 from app.settings import PROJECT_DIR
 from marketing.order.models import Order, OrderDetail
 from marketing.sale_statistic.models import UserSaleStatistic, SaleTarget, UsedTurnover
+from system_func.models import PeriodSeason, PointOfSeason
 
 
 def remove_user_orders(user_id: str):
@@ -101,5 +104,76 @@ def get_all_kh():
 
     # Hiển thị dữ liệu
     print(ma_khach_hang_data)
+
+
+def update_nvtt():
+    current_season = PeriodSeason.get_period_by_date('point')
+    date_ = current_season.from_date
+    orders = Order.objects.filter(Q(date_get__gte=date_) & Q(nvtt_id__isnull=True))
+
+    total_items = orders.count()
+    print(f"Total items: {total_items}")
+    quantity_loop = 2000
+    time_loop = math.ceil(total_items / quantity_loop)
+
+    for i in range(time_loop):
+        start_items = i * quantity_loop
+        end_items = start_items + quantity_loop
+        if i == time_loop:
+            end_items = total_items % i
+        print(f"-- i: {i} | start {start_items} to {end_items}")
+        orders_data = orders[start_items:end_items]
+        update_orders(orders_data)
+
+
+def update_orders(orders):
+    orders_not_have_client = list()
+    client_not_have_profile = list()
+    client_not_have_nvtt = list()
+    updating_order = list()
+
+    for order in orders:
+        user = order.client_id
+
+        if user:
+            if user.clientprofile:
+                if user.clientprofile.nvtt_id:
+                    order.nvtt_id = user.clientprofile.nvtt_id
+                    updating_order.append(order)
+                else:
+                    client_not_have_nvtt.append(order.id)
+            else:
+                client_not_have_profile.append(order.id)
+        else:
+            orders_not_have_client.append(order.id)
+    print(f"Total update: {len(updating_order)}")
+    print(f"Order not have client: {orders_not_have_client}")
+    print(f"Client not have profile: {client_not_have_profile}")
+    print(f"Client not have nvtt: {client_not_have_nvtt}")
+
+    Order.objects.bulk_update(updating_order, ['nvtt_id'])
+
+
+def update_user_point():
+    current_season: PeriodSeason = PeriodSeason.get_period_by_date('point')
+    date_ = current_season.from_date
+    date_end = current_season.to_date
+    users_with_orders = User.objects.filter(
+        order__date_get__gte=date_,
+        order__date_get__lte=date_end
+    ).distinct()
+
+    points_of_season = PointOfSeason.objects.filter(
+        user__in=users_with_orders,
+        period=current_season
+    )
+    print(f"items: {points_of_season.count()}")
+    with transaction.atomic():
+        update_user = list()
+        for point_user in points_of_season:
+            point_user.auto_point()
+            update_user.append(point_user)
+        PointOfSeason.objects.bulk_update(update_user, ['point', 'total_point'])
+
 
 # from utils.truncate.order import get_all_kh
