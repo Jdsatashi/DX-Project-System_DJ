@@ -59,6 +59,8 @@ class RegistrationCertSerializer(serializers.ModelSerializer):
             raise serializers.ValidationError({'id': 'This field is required'})
         unit_data = validated_data.pop('registered_unit', None)
         producer_data = validated_data.pop('producer', None)
+        print(f"unit data: {unit_data}")
+        print(f"producer_data data: {producer_data}")
         # Add unit data if not None
         if unit_data is not None:
             unit, _ = RegistrationUnit.objects.get_or_create(**unit_data)
@@ -88,9 +90,13 @@ class RegistrationCertSerializer(serializers.ModelSerializer):
 
 
 class ProductCateSerializer(BaseRestrictSerializer):
-    registration = RegistrationCertSerializer()
-    product_type = ViewProductTypeSerializer()
-    company = ProductCompanySerializer()
+    registration = RegistrationCertSerializer(read_only=True)
+    product_type = ViewProductTypeSerializer(read_only=True)
+    company = ProductCompanySerializer(read_only=True)
+
+    registration_id = serializers.CharField(required=True)
+    product_type_id = serializers.CharField(required=True)
+    company_id = serializers.CharField(required=True)
 
     class Meta:
         model = ProductCategory
@@ -113,12 +119,23 @@ class ProductCateSerializer(BaseRestrictSerializer):
         _id = validated_data.get('id', None)
         if _id is None:
             raise serializers.ValidationError({'id': 'This field is required'})
-        # Get data for RegistrationCert
-        registration_data = validated_data.pop('registration')
         # Get insert data for Product Category
         insert_data, perm_data = self.split_data(validated_data)
         # Process create RegistrationCert
-        registration_cert = RegistrationCertSerializer().create(registration_data)
+        registration_id = insert_data.get('registration_id')
+        product_type_id = insert_data.get('product_type_id')
+        company_id = insert_data.get('company_id')
+        registration_cert = RegistrationCert.objects.filter(id=registration_id).first()
+        if registration_cert is None:
+            raise serializers.ValidationError({'message': f'not found registration certificate {registration_id}'})
+        company = Company.objects.filter(id=company_id).first()
+        if company is None:
+            raise serializers.ValidationError({'message': f'not found company {company_id}'})
+        product_type = ProductType.objects.filter(id=product_type_id).first()
+        if product_type is None:
+            raise serializers.ValidationError({'message': f'not found product type {product_type_id}'})
+        insert_data['product_type'] = product_type
+        insert_data['company'] = company
         # Process create ProductCategory
         product_category = ProductCategory.objects.create(registration=registration_cert, **insert_data)
         app_log.info(registration_cert)
@@ -129,19 +146,43 @@ class ProductCateSerializer(BaseRestrictSerializer):
         return product_category
 
     def update(self, instance, validated_data):
-        registration_data = validated_data.pop('registration', None)
-        if registration_data:
-            reg_serializer = RegistrationCertSerializer(instance=instance.registration, data=registration_data,
-                                                        partial=True)
-            if reg_serializer.is_valid():
-                reg_serializer.save()
+        _id = validated_data.pop('id', None)
+
         # Get insert data for Product Category
         insert_data, perm_data = self.split_data(validated_data)
+
+        # Process update RegistrationCert
+        registration_id = insert_data.get('registration_id')
+        product_type_id = insert_data.get('product_type_id')
+        company_id = insert_data.get('company_id')
+
+        if registration_id:
+            registration_cert = RegistrationCert.objects.filter(id=registration_id).first()
+            if registration_cert is None:
+                raise serializers.ValidationError({'message': f'not found registration certificate {registration_id}'})
+            instance.registration = registration_cert
+
+        if product_type_id:
+            product_type = ProductType.objects.filter(id=product_type_id).first()
+            if product_type is None:
+                raise serializers.ValidationError({'message': f'not found product type {product_type_id}'})
+            instance.product_type = product_type
+
+        if company_id:
+            company = Company.objects.filter(id=company_id).first()
+            if company is None:
+                raise serializers.ValidationError({'message': f'not found company {company_id}'})
+            instance.company = company
+
+        # Update the other fields
         for attr, value in insert_data.items():
             setattr(instance, attr, value)
+
+        # Handle restrict permissions
         restrict = perm_data.get('restrict')
         if restrict:
             self.handle_restrict(perm_data, instance.id, self.Meta.model)
+
         instance.save()
         return instance
 
