@@ -813,7 +813,7 @@ def get_new_order_from_current():
                 client = None
             notes = json.dumps({"notes": str(v[6])}) if client is not None else json.dumps(
                 {"notes": str(v[6]), "client_id": v[3]})
-
+            nvtt_id = client.clientprofile.nvtt_id
             date_company_get = make_aware(v[2]) if v[2] is not None else None
             insert = {
                 "date_get": v[1],
@@ -824,6 +824,7 @@ def get_new_order_from_current():
                 "is_so": v[14],
                 "id_so": v[15],
                 "id_offer_consider": v[16],
+                "nvtt_id": nvtt_id,
                 "created_by": v[7],
                 "note": notes,
                 "status": v[9],
