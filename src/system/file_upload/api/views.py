@@ -44,7 +44,7 @@ class ApiFileProductCate(viewsets.GenericViewSet, mixins.ListModelMixin, mixins.
     # permission_classes = [partial(ValidatePermRest, model=ProductCateFile)]
 
     def list(self, request, *args, **kwargs):
-        response = filter_data(self, request, ['id'],
+        response = filter_data(self, request, ['id', 'product_cate__id', 'product_cate__name'],
                                **kwargs)
         return Response(response, status.HTTP_200_OK)
 
