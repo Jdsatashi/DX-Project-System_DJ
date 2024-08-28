@@ -29,6 +29,7 @@ class FileViewSerializer(serializers.ModelSerializer):
     class Meta:
         model = FileUpload
         fields = ['id', 'file', 'file_name', 'file_ext', 'type']
+        read_only_fields = ('id', 'file_name', 'file_ext', 'type')
 
 
 class FileShortViewSerializer(serializers.ModelSerializer):
@@ -46,18 +47,18 @@ class FileCateShortView(serializers.ModelSerializer):
 
 
 class FileProductCateSerializer(serializers.ModelSerializer):
-    file_data = FileViewSerializer(source='file', read_only=True)
+    file_data = FileViewSerializer(source='file')
 
     class Meta:
         model = ProductCateFile
         fields = '__all__'
         read_only_fields = ('id', 'created_at', 'updated_at')
 
-    def create(self, validated_data):
-        file_data = validated_data.pop('file')
-        file_instance = FileUpload.objects.create(**file_data)
-        product_file_instance = ProductCateFile.objects.create(file=file_instance, **validated_data)
-        return product_file_instance
+    # def create(self, validated_data):
+    #     file_data = validated_data.pop('file')
+    #     file_instance = FileUpload.objects.create(**file_data)
+    #     product_file_instance = ProductCateFile.objects.create(file=file_instance, **validated_data)
+    #     return product_file_instance
 
     def update(self, instance, validated_data):
         file_data = validated_data.pop('file', None)
