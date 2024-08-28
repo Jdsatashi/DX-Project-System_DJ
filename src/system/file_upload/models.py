@@ -67,7 +67,7 @@ class ProductCateFile(models.Model):
     file = models.ForeignKey(FileUpload, null=True, on_delete=models.SET_NULL, related_name='product_cate_files')
     product_cate = models.ForeignKey(ProductCategory, null=True, on_delete=models.SET_NULL, related_name='product_cate_files')
     priority = models.IntegerField(default=1)
-    docs_type = models.CharField(null=True, choices=(('gdk', 'GDK'), ('cbhq', 'CBHQ')))
+    docs_type = models.CharField(null=True, choices=(('gdk', 'GDK'), ('cbhq', 'CBHQ'), ('image', 'Hình ảnh')))
 
     note = models.CharField(max_length=255, null=True, blank=True)
     created_by = models.CharField(max_length=255, null=True, blank=True)
