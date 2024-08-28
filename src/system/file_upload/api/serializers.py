@@ -47,27 +47,40 @@ class FileCateShortView(serializers.ModelSerializer):
 
 
 class FileProductCateSerializer(serializers.ModelSerializer):
-    file_data = FileViewSerializer(source='file')
+    file_data = FileViewSerializer(write_only=True, required=False)
 
     class Meta:
         model = ProductCateFile
         fields = '__all__'
         read_only_fields = ('id', 'created_at', 'updated_at')
 
-    # def create(self, validated_data):
-    #     file_data = validated_data.pop('file')
-    #     file_instance = FileUpload.objects.create(**file_data)
-    #     product_file_instance = ProductCateFile.objects.create(file=file_instance, **validated_data)
-    #     return product_file_instance
+    def to_representation(self, instance):
+        ret = super().to_representation(instance)
+        ret['file_data'] = FileViewSerializer(instance.file).data
+        return ret
+
+    def create(self, validated_data):
+        file_instance = validated_data.pop('file', None)
+        file_data = validated_data.pop('file_data', None)
+
+        if not file_instance:
+            if not file_data:
+                raise serializers.ValidationError({'message': 'yêu cầu file: id hoặc file_data.file: file mới'})
+            file_instance = FileUpload.objects.create(file=file_data.get('file'))
+            print(f"Create new file: {file_instance}")
+        product_file_instance = ProductCateFile.objects.create(file=file_instance, **validated_data)
+        return product_file_instance
 
     def update(self, instance, validated_data):
-        file_data = validated_data.pop('file', None)
+        file_instance = validated_data.pop('file', None)
+        file_data = validated_data.pop('file_data', None)
 
-        if file_data is not None:
-            file_serializer = FileUploadSerializer(instance.file, data=file_data, partial=True)
-            if file_serializer.is_valid():
-                file_serializer.save()
+        if not file_instance:
+            if not file_data:
+                raise serializers.ValidationError({'message': 'yêu cầu file: id hoặc file_data.file: file mới'})
+            file_instance = FileUpload.objects.create(file=file_data.get('file'))
 
+        validated_data['file'] = file_instance
         for attr, value in validated_data.items():
             setattr(instance, attr, value)
         instance.save()
