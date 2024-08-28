@@ -1074,7 +1074,7 @@ def create_order(data):
                 error_data.append(data_error)
                 # Skip this loop
                 continue
-            nvtt = User.objects.filter(clientprofile__register_name__icontains=order['nvtt'])
+            nvtt = User.objects.filter(clientprofile__register_name__icontains=order['nvtt'], group_user__name='nvtt')
             nvtt_id = ''
             if nvtt.exists():
                 nvtt_id = nvtt.first().id
