@@ -18,24 +18,36 @@ class GenericApiProductType(viewsets.GenericViewSet, mixins.ListModelMixin, mixi
                             mixins.RetrieveModelMixin, mixins.UpdateModelMixin, mixins.DestroyModelMixin):
     serializer_class = ProductTypeSerializer
     queryset = ProductType.objects.all()
+
     # authentication_classes = [JWTAuthentication, BasicAuthentication]
     # permission_classes = [partial(ValidatePermRest, model=ProductType)]
+    def list(self, request, *args, **kwargs):
+        response_data = filter_data(self, request, ['id', 'name'], **kwargs)
+        return Response(response_data, status=status.HTTP_200_OK)
 
 
 class GenericApiRegistrationUnit(viewsets.GenericViewSet, mixins.ListModelMixin, mixins.CreateModelMixin,
                                  mixins.RetrieveModelMixin, mixins.UpdateModelMixin, mixins.DestroyModelMixin):
     serializer_class = RegistrationUnitSerializer
     queryset = RegistrationUnit.objects.all()
+
     # authentication_classes = [JWTAuthentication, BasicAuthentication]
     # permission_classes = [partial(ValidatePermRest, model=RegistrationUnit)]
+    def list(self, request, *args, **kwargs):
+        response_data = filter_data(self, request, ['id', 'unit', 'address'], **kwargs)
+        return Response(response_data, status=status.HTTP_200_OK)
 
 
 class GenericApiProducer(viewsets.GenericViewSet, mixins.ListModelMixin, mixins.CreateModelMixin,
                          mixins.RetrieveModelMixin, mixins.UpdateModelMixin, mixins.DestroyModelMixin):
     serializer_class = ProducerSerializer
     queryset = Producer.objects.all()
+
     # authentication_classes = [JWTAuthentication, BasicAuthentication]
     # permission_classes = [partial(ValidatePermRest, model=Producer)]
+    def list(self, request, *args, **kwargs):
+        response_data = filter_data(self, request, ['id', 'name', 'address'], **kwargs)
+        return Response(response_data, status=status.HTTP_200_OK)
 
 
 class GenericApiRegistrationCert(viewsets.GenericViewSet, mixins.ListModelMixin, mixins.CreateModelMixin,
