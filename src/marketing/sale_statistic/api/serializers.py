@@ -38,8 +38,8 @@ class UserSaleStatisticSerializer(serializers.ModelSerializer):
         user = instance.user
         current_season: PeriodSeason = PeriodSeason.get_period_by_date('turnover')
         user_so = (user.order_set.filter(is_so=True,
-                                         order__date_get__gte=current_season.from_date,
-                                         order__date_get__lte=current_season.to_date
+                                         date_get__gte=current_season.from_date,
+                                         date_get__lte=current_season.to_date
                                          )
                    # .exclude(new_special_offer__type_list=so_type.consider_user)
                    )
