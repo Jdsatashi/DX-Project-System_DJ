@@ -7,9 +7,10 @@ from rest_framework_simplejwt.authentication import JWTAuthentication
 
 from account.handlers.validate_perm import ValidatePermRest
 from marketing.product.api.serializers import ProductTypeSerializer, ProductCateSerializer, RegistrationCertSerializer, \
-    ProducerSerializer, RegistrationUnitSerializer, ProductSerializer, CategoryDetailSerializer, ProductIdSerializer
+    ProducerSerializer, RegistrationUnitSerializer, ProductSerializer, CategoryDetailSerializer, ProductIdSerializer, \
+    UseObjectSerializer, UseForSerializer
 from marketing.product.models import ProductType, ProductCategory, RegistrationCert, Producer, RegistrationUnit, \
-    Product, CategoryDetail
+    Product, CategoryDetail, UseObject, UseFor
 from utils.model_filter_paginate import filter_data
 
 
@@ -41,6 +42,7 @@ class GenericApiRegistrationCert(viewsets.GenericViewSet, mixins.ListModelMixin,
                                  mixins.RetrieveModelMixin, mixins.UpdateModelMixin, mixins.DestroyModelMixin):
     serializer_class = RegistrationCertSerializer
     queryset = RegistrationCert.objects.all()
+
     # authentication_classes = [JWTAuthentication, BasicAuthentication]
     # permission_classes = [partial(ValidatePermRest, model=RegistrationCert)]
 
@@ -53,6 +55,7 @@ class GenericApiProductCategory(viewsets.GenericViewSet, mixins.ListModelMixin, 
                                 mixins.RetrieveModelMixin, mixins.UpdateModelMixin, mixins.DestroyModelMixin):
     serializer_class = ProductCateSerializer
     queryset = ProductCategory.objects.all()
+
     # authentication_classes = [JWTAuthentication, BasicAuthentication]
     # permission_classes = [partial(ValidatePermRest, model=ProductCategory)]
 
@@ -65,6 +68,7 @@ class GenericApiCategoryDetail(viewsets.GenericViewSet, mixins.ListModelMixin, m
                                mixins.RetrieveModelMixin, mixins.UpdateModelMixin, mixins.DestroyModelMixin):
     serializer_class = CategoryDetailSerializer
     queryset = CategoryDetail.objects.all()
+
     # authentication_classes = [JWTAuthentication, BasicAuthentication]
     # permission_classes = [partial(ValidatePermRest, model=ProductCategory)]
 
@@ -77,6 +81,7 @@ class GenericApiProduct(viewsets.GenericViewSet, mixins.ListModelMixin, mixins.C
                         mixins.RetrieveModelMixin, mixins.UpdateModelMixin, mixins.DestroyModelMixin):
     serializer_class = ProductSerializer
     queryset = Product.objects.all()
+
     # authentication_classes = [JWTAuthentication, BasicAuthentication]
     # permission_classes = [partial(ValidatePermRest, model=Product)]
 
@@ -88,3 +93,29 @@ class GenericApiProduct(viewsets.GenericViewSet, mixins.ListModelMixin, mixins.C
 class ApiProductId(viewsets.GenericViewSet, mixins.ListModelMixin):
     serializer_class = ProductIdSerializer
     queryset = Product.objects.all()
+
+
+class ApiUseObject(viewsets.GenericViewSet, mixins.ListModelMixin, mixins.CreateModelMixin,
+                   mixins.RetrieveModelMixin, mixins.UpdateModelMixin, mixins.DestroyModelMixin):
+    serializer_class = UseObjectSerializer
+    queryset = UseObject.objects.all()
+
+    # authentication_classes = [JWTAuthentication, BasicAuthentication]
+    # permission_classes = [partial(ValidatePermRest, model=Product)]
+
+    def list(self, request, *args, **kwargs):
+        response_data = filter_data(self, request, ['id', 'name'], **kwargs)
+        return Response(response_data, status=status.HTTP_200_OK)
+
+
+class ApiUseFor(viewsets.GenericViewSet, mixins.ListModelMixin, mixins.CreateModelMixin,
+                mixins.RetrieveModelMixin, mixins.UpdateModelMixin, mixins.DestroyModelMixin):
+    serializer_class = UseForSerializer
+    queryset = UseFor.objects.all()
+
+    # authentication_classes = [JWTAuthentication, BasicAuthentication]
+    # permission_classes = [partial(ValidatePermRest, model=Product)]
+
+    def list(self, request, *args, **kwargs):
+        response_data = filter_data(self, request, ['id', 'name'], **kwargs)
+        return Response(response_data, status=status.HTTP_200_OK)

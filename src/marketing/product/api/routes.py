@@ -2,20 +2,13 @@ from django.urls import path
 from rest_framework.routers import DefaultRouter
 
 from marketing.product.api.views import GenericApiProductType, GenericApiProductCategory, GenericApiRegistrationUnit, \
-    GenericApiProducer, GenericApiRegistrationCert, GenericApiProduct, GenericApiCategoryDetail, ApiProductId
+    GenericApiProducer, GenericApiRegistrationCert, GenericApiProduct, GenericApiCategoryDetail, ApiProductId, \
+    ApiUseFor, ApiUseObject
 from utils.constants import actions_views, actions_detail
 
 app_name = 'api_account'
 
 router = DefaultRouter()
-router.register('genericview', GenericApiProductType, basename='api_product_type')
-router.register('genericview', GenericApiRegistrationUnit, basename='api_register_unit')
-router.register('genericview', GenericApiProducer, basename='api_register_producer')
-router.register('genericview', GenericApiRegistrationCert, basename='api_register_cert')
-router.register('genericview', GenericApiProductCategory, basename='api_category')
-router.register('genericview', GenericApiCategoryDetail, basename='api_category_detail')
-router.register('genericview', GenericApiProduct, basename='api_product')
-router.register('genericview', ApiProductId, basename='api_product_id')
 
 # Product Type view
 prod_type_view = GenericApiProductType.as_view(actions_views)
@@ -39,6 +32,12 @@ cate_detail_detail = GenericApiCategoryDetail.as_view(actions_detail)
 prod_view = GenericApiProduct.as_view(actions_views)
 prod_detail = GenericApiProduct.as_view(actions_detail)
 
+use_object_view = ApiUseObject.as_view(actions_views)
+use_object_detail = ApiUseObject.as_view(actions_detail)
+
+use_for_view = ApiUseFor.as_view(actions_views)
+use_for_detail = ApiUseFor.as_view(actions_detail)
+
 urlpatterns = [
     # Product Type urls
     path('type/', prod_type_view),
@@ -58,6 +57,12 @@ urlpatterns = [
     # Product urls
     path('', prod_view),
     path('<pk>', prod_detail),
+
+    path('categories/use-object/', use_object_view),
+    path('categories/use-object/<pk>', use_object_detail),
+
+    path('categories/use-for/', use_for_view),
+    path('categories/use-for/<pk>', use_for_detail),
 
     path('get-id/', ApiProductId.as_view({'get': 'list'}))
 ]
