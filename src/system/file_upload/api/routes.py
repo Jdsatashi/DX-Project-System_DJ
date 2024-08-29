@@ -29,9 +29,9 @@ urlpatterns = [
     path('', fileupload_view),
     path('<pk>', fileupload_detail),
     path('content/', file_content_view),
-    path('content/<pk>/', file_content_detail),
+    path('content/<pk>', file_content_detail),
     path('product-category/', file_product_cate_view),
-    path('product-category/<pk>/', file_product_cate_detail),
+    path('product-category/<pk>', file_product_cate_detail),
     path('product/', file_product_view),
-    path('product/<pk>/', file_product_detail),
+    path('product/<pk>', file_product_detail),
 ]

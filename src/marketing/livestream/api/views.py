@@ -24,8 +24,8 @@ class ApiLiveStream(viewsets.GenericViewSet, mixins.ListModelMixin, mixins.Creat
     serializer_class = LiveStreamSerializer
     queryset = LiveStream.objects.all()
 
-    # authentication_classes = [JWTAuthentication, BasicAuthentication]
-    # permission_classes = [partial(ValidatePermRest, model=LiveStream)]
+    authentication_classes = [JWTAuthentication, BasicAuthentication]
+    permission_classes = [partial(ValidatePermRest, model=LiveStream)]
 
     def get_queryset(self):
         user = self.request.user
