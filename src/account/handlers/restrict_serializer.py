@@ -2,7 +2,7 @@ import time
 from typing import Union, Type
 
 from django.contrib.contenttypes.models import ContentType
-from django.db import models
+from django.db import models, transaction
 from django.db.models import Model, Q
 from rest_framework import serializers
 
@@ -26,20 +26,28 @@ class BaseRestrictSerializer(serializers.ModelSerializer):
     read_only_groups = serializers.ListField(child=serializers.CharField(), required=False, write_only=True)
 
     def create(self, validated_data):
-        data, quyen_data = self.split_data(validated_data)
-        instance = super().create(data)
-        if quyen_data.get('restrict'):
-            self.handle_restrict(quyen_data, instance.id, self.Meta.model)
-        return instance
+        try:
+            with transaction.atomic():
+                data, quyen_data = self.split_data(validated_data)
+                instance = super().create(data)
+                if quyen_data.get('restrict'):
+                    self.handle_restrict(quyen_data, instance.id, self.Meta.model)
+                return instance
+        except Exception as e:
+            raise e
 
     def update(self, instance, validated_data):
-        data, quyen_data = self.split_data(validated_data)
-        for attr, value in data.items():
-            setattr(instance, attr, value)
-        instance.save()
-        if quyen_data.get('restrict'):
-            self.handle_restrict(quyen_data, instance.id, self.Meta.model)
-        return instance
+        try:
+            with transaction.atomic():
+                data, quyen_data = self.split_data(validated_data)
+                for attr, value in data.items():
+                    setattr(instance, attr, value)
+                instance.save()
+                if quyen_data.get('restrict'):
+                    self.handle_restrict(quyen_data, instance.id, self.Meta.model)
+                return instance
+        except Exception as e:
+            raise e
 
     @staticmethod
     def split_data(data):
