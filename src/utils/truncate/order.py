@@ -47,16 +47,18 @@ def get_all_kh():
 
     users = User.objects.filter(id__in=ma_khach_hang_data)
 
-    #for user in users:
+    # for user in users:
     #     update_point(user)
     #     update_season_stats_user(user, first_date_last_month)
     #    create_or_get_sale_stats_user(user, first_date_last_month)
     #
-    #for user in users:
+    # for user in users:
     #     update_point(user)
     #     update_season_stats_user(user, first_date)
     #    create_or_get_sale_stats_user(user, first_date)
 
+
+def turnover_user(users, first_date, last_date):
     for user in users:
         user_stats, _ = UserSaleStatistic.objects.get_or_create(user=user)
 
@@ -101,9 +103,6 @@ def get_all_kh():
                                         note='tính tự động')
             UsedTurnover.objects.create(user_sale_stats=user_stats, turnover=-abs(total_used), purpose='admin_fix',
                                         note='tính tự động')
-
-    # Hiển thị dữ liệu
-    print(ma_khach_hang_data)
 
 
 def update_nvtt():
@@ -175,5 +174,16 @@ def update_user_point():
             update_user.append(point_user)
         PointOfSeason.objects.bulk_update(update_user, ['point', 'total_point'])
 
+
+def update_user_turnover():
+    today = datetime.datetime.today()
+    current_date = today.date()
+    start_month = current_date.replace(day=1)
+    end_month = (start_month + relativedelta(months=1)) - datetime.timedelta(days=1)
+    users_with_orders = User.objects.filter(
+        order__date_get__gte=start_month,
+        order__date_get__lt=end_month
+    ).distinct()
+    turnover_user(users_with_orders, start_month, end_month)
 
 # from utils.truncate.order import get_all_kh

@@ -15,6 +15,7 @@ from marketing.order.models import Order, OrderDetail, OrderBackup, OrderBackupD
 from marketing.price_list.models import PriceList, ProductPrice, SpecialOffer, SpecialOfferProduct
 from marketing.product.models import Product, UseObject, UseFor, ProductCategory, CategoryDetail, RegistrationCert, \
     Producer, RegistrationUnit, ProductType
+from system_func.models import PeriodSeason, PointOfSeason
 from user_system.client_profile.models import ClientProfile, ClientGroup
 from user_system.employee_profile.models import EmployeeProfile, Position, Department
 from utils.helpers import table_data, normalize_vietnamese, table_data_2, count_table_items, get_new_orders, \
@@ -29,6 +30,9 @@ def append_kh():
     for k, v in enumerate(data):
         if k == 1:
             app_log.info(v)
+        if User.objects.filter(id=v[0]).exists():
+            print(f"User {v[0]} existed, skip...")
+            continue
         client_group_id = ClientGroup.objects.filter(id=v[3]).first()
         group_client = GroupPerm.objects.get(name='client')
         group_of_user = GroupPerm.objects.filter(display_name__icontains=client_group_id.name).first()
@@ -800,6 +804,7 @@ def add_CTKM_product():
 def get_new_order_from_current():
     newest_order = Order.objects.filter(id__icontains='MT').exclude(id__icontains='MTN').order_by('-id').first()
     data = get_new_orders(old_data['tb_toa'], newest_order.id)
+    client_set: set = set()
     with transaction.atomic():
         list_order = list()
         list_order_update = list()
@@ -813,7 +818,9 @@ def get_new_order_from_current():
                 client = None
             notes = json.dumps({"notes": str(v[6])}) if client is not None else json.dumps(
                 {"notes": str(v[6]), "client_id": v[3]})
-            nvtt_id = client.clientprofile.nvtt_id
+            nvtt_id = None
+            if client.clientprofile:
+                nvtt_id = client.clientprofile.nvtt_id
             date_company_get = make_aware(v[2]) if v[2] is not None else None
             insert = {
                 "date_get": v[1],
@@ -838,11 +845,12 @@ def get_new_order_from_current():
             list_order.append(order)
             order_update = Order(id=v[0], created_at=create_at)
             list_order_update.append(order_update)
+            client_set.add(client)
 
         Order.objects.bulk_create(list_order, ignore_conflicts=True)
         Order.objects.bulk_update(list_order_update, ['created_at'])
         # OrderBackup.objects.bulk_create(list_data_backup, ignore_conflicts=True)
-        return list_order
+        return list_order, client_set
 
 
 def get_new_orderdetail_from_current(list_order):
@@ -922,9 +930,15 @@ def get_new_orderdetail_from_current(list_order):
 
 def add_new_order():
     with transaction.atomic():
-        data = get_new_order_from_current()
+        data, client_set = get_new_order_from_current()
         get_new_orderdetail_from_current(data)
-# from utils.insert_db.get_old_data import
+        period = PeriodSeason.objects.filter(type='point', period='current').first()
+        for user in client_set:
+            point, _ = PointOfSeason.objects.get_or_create(user=user, period=period)
+            point.auto_point()
+            point.save()
+
+# from utils.insert_db.get_old_data import add_new_order
 
 
 if __name__ == '__main__':
