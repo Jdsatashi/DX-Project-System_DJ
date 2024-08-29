@@ -5,6 +5,7 @@ from rest_framework import serializers
 from account.handlers.restrict_serializer import BaseRestrictSerializer
 from marketing.order.models import OrderDetail
 from marketing.sale_statistic.models import SaleStatistic, SaleTarget, UserSaleStatistic, UsedTurnover
+from system_func.models import PeriodSeason
 from utils.constants import so_type
 
 
@@ -35,8 +36,11 @@ class UserSaleStatisticSerializer(serializers.ModelSerializer):
     def to_representation(self, instance: UserSaleStatistic):
         representation = super().to_representation(instance)
         user = instance.user
-
-        user_so = (user.order_set.filter(is_so=True)
+        current_season: PeriodSeason = PeriodSeason.get_period_by_date('turnover')
+        user_so = (user.order_set.filter(is_so=True,
+                                         order__date_get__gte=current_season.from_date,
+                                         order__date_get__lte=current_season.to_date
+                                         )
                    # .exclude(new_special_offer__type_list=so_type.consider_user)
                    )
         used_box = OrderDetail.objects.filter(order_id__in=user_so).aggregate(total_box=Sum('order_box'))
