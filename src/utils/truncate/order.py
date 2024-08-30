@@ -99,7 +99,7 @@ def turnover_user(users, first_date, last_date):
         print(f"User stats: {user_stats.user} - {user_stats}")
         print(f"Total: {total_turnover} | Used: {total_used}")
         if orders_count.exists() or orders_so.exists():
-            user_stats.turnover = user_stats.turnover + total_turnover - total_used
+            user_stats.turnover += total_turnover - total_used
             user_stats.save()
             UsedTurnover.objects.create(user_sale_stats=user_stats, turnover=total_turnover, purpose='admin_fix',
                                         note='tính tự động')
