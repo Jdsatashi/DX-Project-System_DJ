@@ -1186,6 +1186,9 @@ def get_excel_to_dict(file):
     # Xử lý các giá trị NaN, +inf, -inf
     df.replace({np.inf: None, -np.inf: None, np.nan: None}, inplace=True)
 
+    df['date_company_get'] = df['date_company_get'].apply(convert_date_format)
+    df['date_get'] = df['date_get'].apply(convert_date_format)
+
     # In ra danh sách các cột để kiểm tra
     print("Các cột trong DataFrame sau khi đổi tên:", df.columns)
 
@@ -1209,3 +1212,17 @@ def get_excel_to_dict(file):
         result.append(common_data)
 
     return result
+
+
+def convert_date_format(date_str):
+    try:
+        return datetime.strptime(date_str, '%d/%m/%Y').strftime('%Y-%m-%d')
+    except ValueError:
+        pass
+
+    try:
+        return datetime.strptime(date_str, '%Y-%m-%d').strftime('%Y-%m-%d')
+    except ValueError:
+        pass
+
+    return date_str
