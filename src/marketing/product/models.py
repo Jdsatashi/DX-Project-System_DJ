@@ -1,7 +1,7 @@
 from django.db import models
 
 from marketing.company.models import Company
-from utils.helpers import normalize_vietnamese
+from utils.helpers import normalize_vietnamese, self_id
 
 
 # Create your models here.
@@ -30,11 +30,19 @@ class Producer(models.Model):
 
 
 class RegistrationCert(models.Model):
-    id = models.CharField(primary_key=True, max_length=255)
+    # id = models.CharField(primary_key=True, max_length=255)
+    id = models.CharField(primary_key=True, editable=True)
+    name = models.CharField(max_length=255, unique=True, null=True)
+
     date_activated = models.DateField()
     date_expired = models.DateField()
     registered_unit = models.ForeignKey(RegistrationUnit, null=True, on_delete=models.SET_NULL)
     producer = models.ForeignKey(Producer, null=True, on_delete=models.SET_NULL)
+
+    def save(self, *args, **kwargs):
+        if not self.pk or not self.id:
+            self.id = self_id('GDK', RegistrationCert, 4)
+        super().save(*args, **kwargs)
 
 
 class ProductCategory(models.Model):
