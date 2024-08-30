@@ -42,21 +42,21 @@ class ProductCompanySerializer(serializers.ModelSerializer):
 
 
 class RegistrationCertSerializer(serializers.ModelSerializer):
-    registered_unit = RegistrationUnitSerializer(allow_null=True)
-    producer = ProducerSerializer(allow_null=True)
+    registered_unit_data = RegistrationUnitSerializer(source='registered_unit', allow_null=True, read_only=True)
+    producer_data = ProducerSerializer(source='producer', allow_null=True, read_only=True)
 
     class Meta:
         model = RegistrationCert
         fields = '__all__'
+        read_only_fields = ('id',)
+        extra_kwargs = {
+            'registered_unit': {'write_only': True},
+            'producer': {'write_only': True}
+        }
 
-    def __init__(self, *args, **kwargs):
-        super(RegistrationCertSerializer, self).__init__(*args, **kwargs)
-        self.fields['id'].required = False
 
+"""
     def create(self, validated_data):
-        id = validated_data.get('id', None)
-        if id is None:
-            raise serializers.ValidationError({'id': 'This field is required'})
         unit_data = validated_data.pop('registered_unit', None)
         producer_data = validated_data.pop('producer', None)
         print(f"unit data: {unit_data}")
@@ -77,16 +77,25 @@ class RegistrationCertSerializer(serializers.ModelSerializer):
         unit_data = validated_data.pop('registered_unit', None)
         producer_data = validated_data.pop('producer', None)
 
-        if unit_data:
-            unit_serializer = RegistrationUnitSerializer(instance=instance.registered_unit, data=unit_data)
-            if unit_serializer.is_valid():
-                unit_serializer.save()
+        # Update or create RegistrationUnit if unit_data is provided
+        if unit_data is not None:
+            unit, _ = RegistrationUnit.objects.get_or_create(**unit_data)
+            instance.registered_unit = unit
 
-        if producer_data:
-            producer_serializer = ProducerSerializer(instance=instance.producer, data=producer_data)
-            if producer_serializer.is_valid():
-                producer_serializer.save()
-        return super().update(instance, validated_data)
+        # Update or create Producer if producer_data is provided
+        if producer_data is not None:
+            producer, _ = Producer.objects.get_or_create(**producer_data)
+            instance.producer = producer
+
+        # Update the remaining fields on the instance
+        for attr, value in validated_data.items():
+            setattr(instance, attr, value)
+
+        # Save the instance with the updated data
+        instance.save()
+
+        return instance
+"""
 
 
 class ProductCateSerializer(BaseRestrictSerializer):
