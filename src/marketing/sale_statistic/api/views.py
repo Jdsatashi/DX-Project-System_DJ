@@ -1,7 +1,11 @@
 from functools import partial
 
+import openpyxl
 import pandas as pd
+from django.db import transaction
+from django.http import HttpResponse
 from django.utils import timezone
+from openpyxl.utils import get_column_letter
 from rest_framework import viewsets, mixins, status
 from rest_framework.authentication import BasicAuthentication, SessionAuthentication
 from rest_framework.response import Response
@@ -98,27 +102,62 @@ class ApiMainSaleStatistic(viewsets.GenericViewSet, mixins.ListModelMixin, mixin
         if file is None:
             return Response({'message': 'import_file is required'})
         try:
-            df = pd.read_excel(file, engine='openpyxl')
+            with transaction.atomic():
+                df = pd.read_excel(file, engine='openpyxl')
 
-            if 'maKH' not in df.columns or 'thay_doi_doanh_so' not in df.columns:
-                return Response({'message': 'File phải chứa các cột "maKH" và "thay_doi_doanh_so"'})
+                if 'maKH' not in df.columns or 'thay_doi_doanh_so' not in df.columns:
+                    return Response({'message': 'File phải chứa các cột "maKH" và "thay_doi_doanh_so"'})
 
-            data = df[['maKH', 'thay_doi_doanh_so']]
-            update_turnover = list()
-            for index, row in data.iterrows():
-                user_id = row['maKH']
-                fix_turnover = row['thay_doi_doanh_so']
-                user_stats = UserSaleStatistic.objects.filter(user=user_id).first()
-                if user_stats is None:
-                    user = User.objects.get(id=user_id)
-                    user_stats = UserSaleStatistic.objects.create(user=user)
-                user_stats.turnover += fix_turnover
-                update_turnover.append(user_stats)
-            UserSaleStatistic.objects.bulk_update(update_turnover, ['turnover'])
-            return Response({'message': 'Import file successfully'})
+                data = df[['maKH', 'thay_doi_doanh_so', 'ghi_chu']]
+                update_turnover = list()
+                create_record = list()
+                for index, row in data.iterrows():
+                    user_id = row['maKH']
+                    fix_turnover = row['thay_doi_doanh_so']
+                    user_stats = UserSaleStatistic.objects.filter(user=user_id).first()
+                    if user_stats is None:
+                        user = User.objects.get(id=user_id)
+                        user_stats = UserSaleStatistic.objects.create(user=user)
+                    user_stats.turnover += fix_turnover
+                    update_turnover.append(user_stats)
+                    record = UsedTurnover(user_sale_stats=user_stats, turnover=fix_turnover, note=row['ghi_chu'])
+                    create_record.append(record)
+                UserSaleStatistic.objects.bulk_update(update_turnover, ['turnover'])
+                UsedTurnover.objects.bulk_create(create_record)
+                return Response({'message': 'Import file successfully'})
 
         except Exception as e:
             raise e
+
+    def export_file(self, request, *args, **kwargs):
+        data = UserSaleStatistic.objects.all().order_by('user__id').values('user__id', 'turnover')
+
+        # Tạo Workbook mới
+        workbook = openpyxl.Workbook()
+        sheet = workbook.active
+        sheet.title = "User Sale Statistics"
+
+        # Ghi tiêu đề cột
+        columns = ['Username', 'Turnover']
+        for col_num, column_title in enumerate(columns, 1):
+            column_letter = get_column_letter(col_num)
+            sheet[f'{column_letter}1'] = column_title
+
+        # Ghi dữ liệu vào Excel
+        for row_num, row_data in enumerate(data, 2):
+            sheet[f'A{row_num}'] = row_data['user__id']  # Cột Username
+            sheet[f'B{row_num}'] = row_data['turnover']  # Cột Turnover
+
+        # Tạo response HTTP và thiết lập tiêu đề
+        response = HttpResponse(
+            content_type='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+        )
+        response['Content-Disposition'] = 'attachment; filename=user_sale_statistics.xlsx'
+
+        # Lưu file Excel vào response
+        workbook.save(response)
+
+        return response
 
 
 class ApiUserUsedStatistic(viewsets.GenericViewSet, mixins.ListModelMixin):
