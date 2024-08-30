@@ -59,9 +59,10 @@ def get_all_kh():
 
 
 def turnover_user(users, first_date, last_date):
+    print(f"Total user: {len(users)}")
     for user in users:
         user_stats, _ = UserSaleStatistic.objects.get_or_create(user=user)
-
+        print(f"Date: {first_date} | {last_date}")
         query_filter = Q(client_id=user) & Q(date_get__range=(first_date, last_date))
 
         filter_so_count = Q(Q(query_filter) & Q(
@@ -72,12 +73,13 @@ def turnover_user(users, first_date, last_date):
 
         exclude_so = Q(Q(status='deactivate') |
                        Q(id_so__isnull=False) | Q(id_offer_consider__isnull=False))
-
         orders_count = Order.objects.filter(filter_so_count).exclude(exclude_so)
+        print(f"Normal order: {orders_count.count()}")
 
         orders_so = (Order.objects.filter(query_filter & Q(Q(is_so=True)))
                      # .exclude(new_special_offer__type_list=so_type.consider_user)
                      )
+        print(f"So order: {orders_so.count()}")
 
         total_used = 0
         sale_target, _ = SaleTarget.objects.get_or_create(month=first_date)
@@ -94,10 +96,10 @@ def turnover_user(users, first_date, last_date):
             OrderDetail.objects.filter(order_id__in=orders_count).aggregate(total_price=Sum('product_price'))[
                 'total_price'] or 0
 
-        print(f"Create user stats: {user_stats}")
-
-        if orders_count.exists():
-            user_stats.turnover = total_turnover - total_used
+        print(f"User stats: {user_stats.user} - {user_stats}")
+        print(f"Total: {total_turnover} | Used: {total_used}")
+        if orders_count.exists() or orders_so.exists():
+            user_stats.turnover = user_stats.turnover + total_turnover - total_used
             user_stats.save()
             UsedTurnover.objects.create(user_sale_stats=user_stats, turnover=total_turnover, purpose='admin_fix',
                                         note='tính tự động')
