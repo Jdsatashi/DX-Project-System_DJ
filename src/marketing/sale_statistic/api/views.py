@@ -120,7 +120,10 @@ class ApiMainSaleStatistic(viewsets.GenericViewSet, mixins.ListModelMixin, mixin
                         user_stats = UserSaleStatistic.objects.create(user=user)
                     user_stats.turnover += fix_turnover
                     update_turnover.append(user_stats)
-                    record = UsedTurnover(user_sale_stats=user_stats, turnover=fix_turnover, note=row['ghi_chu'])
+                    note = row['ghi_chu']
+                    if note in ['nan', None, '']:
+                        note = 'import excel'
+                    record = UsedTurnover(user_sale_stats=user_stats, turnover=fix_turnover, purpose='admin_fix', note=note)
                     create_record.append(record)
                 UserSaleStatistic.objects.bulk_update(update_turnover, ['turnover'])
                 UsedTurnover.objects.bulk_create(create_record)
