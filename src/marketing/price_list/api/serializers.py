@@ -10,7 +10,8 @@ from app.logs import app_log
 from marketing.price_list.models import PriceList, ProductPrice, SpecialOfferProduct, SpecialOffer
 from marketing.product.models import Product
 from user_system.employee_profile.models import EmployeeProfile
-from utils.constants import so_type_list
+from utils.constants import so_type_list, perm_actions
+from utils.import_excel import get_user_list
 
 
 class ProductPriceSerializer(serializers.ModelSerializer):
@@ -58,6 +59,7 @@ class ProductPriceReadSerializer(serializers.ModelSerializer):
 
 class PriceListSerializer(BaseRestrictSerializer):
     products = ProductPriceSerializer(many=True, write_only=True, required=False, allow_null=True)
+    import_users = serializers.FileField(required=False)
 
     class Meta:
         model = PriceList
@@ -107,7 +109,7 @@ class PriceListSerializer(BaseRestrictSerializer):
         # Split data for permission
         data, perm_data = self.split_data(validated_data)
         products_data = data.pop('products', None)
-
+        import_users = data.pop('import_users', None)
         # Kiểm tra quyền hạn và ngày tháng
         # self.check_user_or_group_perm(perm_data['allow_users'], perm_data['allow_nhom'], data['date_start'],
         #                               data['date_end'], data['type'])
@@ -129,6 +131,19 @@ class PriceListSerializer(BaseRestrictSerializer):
                                                         quantity_in_box=quantity_in_box, point=point)
                         except Product.DoesNotExist:
                             raise serializers.ValidationError({'message': f'Product with ID {product_id} does not exist.'})
+                if import_users:
+                    users = perm_data.pop('allow_users', None)
+                    users_list = get_user_list(import_users)
+                    users_list = list(set(users_list))
+                    if users:
+                        for user in users:
+                            if user.lower() not in users_list and user.upper() not in users_list:
+                                users_list.append(user)
+                    perm_data['allow_users'] = users_list
+                    actions = perm_data.pop('allow_actions', None)
+                    user_actions = [perm_actions['view'], perm_actions['create']]
+                    perm_data['allow_actions'] = user_actions
+                    perm_data['restrict'] = True
                 # Add permission
                 restrict = perm_data.get('restrict')
                 if restrict:
@@ -141,6 +156,7 @@ class PriceListSerializer(BaseRestrictSerializer):
     def update(self, instance, validated_data):
         data, perm_data = self.split_data(validated_data)
         products_data = data.pop('products', None)
+        import_users = data.pop('import_users', None)
 
         # self.check_user_or_group_perm(perm_data['allow_users'], perm_data['allow_nhom'], data['date_start'],
         #                               data['date_end'], data['type'])
@@ -172,6 +188,19 @@ class PriceListSerializer(BaseRestrictSerializer):
                                 'point': product_data.get('point'),
                             }
                         )
+                if import_users:
+                    users = perm_data.pop('allow_users', None)
+                    users_list = get_user_list(import_users)
+                    users_list = list(set(users_list))
+                    if users:
+                        for user in users:
+                            if user.lower() not in users_list and user.upper() not in users_list:
+                                users_list.append(user)
+                    perm_data['allow_users'] = users_list
+                    actions = perm_data.pop('allow_actions', None)
+                    user_actions = [perm_actions['view'], perm_actions['create']]
+                    perm_data['allow_actions'] = user_actions
+                    perm_data['restrict'] = True
                 # Handle permissions if needed
                 restrict = perm_data.get('restrict')
                 if restrict:
