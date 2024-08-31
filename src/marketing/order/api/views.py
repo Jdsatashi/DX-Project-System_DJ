@@ -9,7 +9,7 @@ import numpy as np
 import openpyxl
 import pandas as pd
 from django.core.exceptions import FieldError
-from django.core.paginator import Paginator
+from django.core.paginator import Paginator, PageNotAnInteger, EmptyPage
 from django.db import transaction
 from django.db.models import Prefetch, QuerySet
 from django.db.models import Sum, Q, Case, When, FloatField, F
@@ -291,6 +291,24 @@ class ExportReport(APIView):
     def get(self, request):
         start_time = time.time()
         orders = handle_order(request)
+
+        total_items = orders.count()
+        limit = request.query_params.get('limit', 10)
+        page = request.query_params.get('page', 1)
+
+        limit = int(limit)
+        page = int(page)
+
+        if page <= 0:
+            page = 1
+        start_item = (page - 1) * limit
+        print(f"page: {type(page)} | limit {type(limit)}")
+        end_item = page * limit
+
+        if end_item > total_items:
+            end_item = total_items - 1
+
+        orders = orders[start_item:end_item]
 
         response = StreamingHttpResponse(
             generate_order_excel(orders),
@@ -892,6 +910,7 @@ def handle_order(request) -> QuerySet[Order]:
     orders = orders.select_related('client_id').prefetch_related(
         Prefetch('order_detail', queryset=OrderDetail.objects.select_related('product_id'))
     )
+
     return orders
 
 
@@ -911,9 +930,13 @@ def generate_order_excel(orders: QuerySet[Order]):
     title_cell.font = title_font
     title_cell.alignment = center_alignment
 
-    note = f'Ngày thống kê: {datetime.now().strftime("%d/%m/%Y")}   ||   Tổng doanh thu: None   ||   Số lượng bản kê: {orders.count()}'
+    total_price = orders.aggregate(total_price=Sum('order_price'))['total_price']
+    total_price = OrderDetail.objects.filter(order_id__in=orders).aggregate(
+                        total_price=Sum('product_price'))['total_price']
     sheet.merge_cells('A2:N2')
     note_cell = sheet.cell(row=2, column=1)
+    note = f'Ngày thống kê: {datetime.now().strftime("%d/%m/%Y")}   ||   Tổng doanh thu: {total_price}   ||   Số lượng bản kê: {orders.count()}'
+
     note_cell.value = note
     note_cell.font = note_font
     note_cell.alignment = center_alignment
@@ -963,7 +986,6 @@ def generate_order_excel(orders: QuerySet[Order]):
             nvtt_ids.add(client_profiles[o.client_id_id].nvtt_id)
 
     employee_profiles = {ep.employee_id_id: ep for ep in EmployeeProfile.objects.filter(employee_id__in=nvtt_ids)}
-
     for i, order in enumerate(orders):
         client_data = client_profiles.get(order.client_id_id)
         try:
@@ -1007,7 +1029,7 @@ def generate_order_excel(orders: QuerySet[Order]):
                 continue
             total_price = detail.product_price or 0
             try:
-                price = total_price / detail.order_box
+                price = total_price / (detail.order_quantity * detail.order_box)
             except ZeroDivisionError:
                 price = 0
             details_data = [
@@ -1131,11 +1153,11 @@ def create_order(data):
                     point_get=points,
                 )
 
-            #     total_point += points
-            #     total_price += detail['price']
+                #     total_point += points
+                #     total_price += detail['price']
                 detail_order.append(order_detail)
             # if has_nvtt and all(product_prices):
-                # handle_after_order(client, total_point, total_price)
+            # handle_after_order(client, total_point, total_price)
             update_list.append(order_data.id)
             OrderDetail.objects.bulk_create(detail_order)
             update_point(client)
