@@ -83,11 +83,11 @@ class OrderSerializer(BaseRestrictSerializer):
                     order.save()
 
                     # Deactivate when user used
-                    # if is_consider:
-                    #     special_offer: SpecialOffer = data.get('new_special_offer')
-                    #     special_offer.status = 'deactivate'
-                    #     special_offer.used = True
-                    #     special_offer.save()
+                    if is_consider:
+                        special_offer: SpecialOffer = data.get('new_special_offer')
+                        special_offer.status = 'deactivate'
+                        special_offer.used = True
+                        special_offer.save()
 
                     app_log.info(f"Testing user sale statistic: {user_sale_statistic}")
 
