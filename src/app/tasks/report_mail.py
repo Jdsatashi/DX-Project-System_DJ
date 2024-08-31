@@ -14,7 +14,7 @@ def send_daily_email(date_get):
 
     user_get_mails = UserGetMail.objects.filter(email_detail=email_detail)
 
-    orders = Order.objects.filter(date_get=date_get).exclude(status='deactivate').order_by('-date_get')
+    orders = Order.objects.filter(date_company_get=date_get).exclude(status='deactivate').order_by('-date_get')
 
     excel_data = generate_order_excel(orders)
 
@@ -26,7 +26,7 @@ def send_daily_email(date_get):
     emails = [user_get_mail.user.email for user_get_mail in user_get_mails
               if user_get_mail.user.email and user_get_mail.user.email != '']
 
-    send_bulk_email(emails, email_detail.name, context, excel_data)
+    send_bulk_email(emails, context, date_get, excel_data)
 
     # Cập nhật last_sent cho từng user
     for user_get_mail in user_get_mails:
@@ -34,13 +34,13 @@ def send_daily_email(date_get):
         user_get_mail.save()
 
 
-def send_bulk_email(emails, subject, context, excel_data):
+def send_bulk_email(emails, context, date_get, excel_data):
     email = EmailMessage(
-        subject=subject,
+        subject=context['subject'],
         body=context['body_message'],
         from_email=settings.EMAIL_HOST_USER,
         to=emails,
     )
-
-    email.attach('report.xlsx', excel_data.read(), 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet')
+    file_name = f"Báo cáo {date_get}.xlsx"
+    email.attach(file_name, excel_data.read(), 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet')
     email.send()

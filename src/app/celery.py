@@ -1,5 +1,5 @@
 import os
-from datetime import datetime
+from datetime import datetime, timedelta
 import django
 
 from celery import Celery, shared_task
@@ -25,5 +25,5 @@ def debug_task(self):
 def send_daily_email_task():
     from app.tasks.report_mail import send_daily_email
 
-    today = datetime.now().date()
+    today = datetime.now().date()   # - timedelta(days=1)
     send_daily_email(today)
