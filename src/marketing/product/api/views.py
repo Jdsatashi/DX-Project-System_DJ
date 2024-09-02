@@ -59,7 +59,7 @@ class GenericApiRegistrationCert(viewsets.GenericViewSet, mixins.ListModelMixin,
     # permission_classes = [partial(ValidatePermRest, model=RegistrationCert)]
 
     def list(self, request, *args, **kwargs):
-        response_data = filter_data(self, request, ['id', 'registered_unit__id', 'producer__id'], **kwargs)
+        response_data = filter_data(self, request, ['id', 'name', 'registered_unit__id', 'producer__id'], **kwargs)
         return Response(response_data, status=status.HTTP_200_OK)
 
 
