@@ -26,5 +26,8 @@ urlpatterns = [
     path('special-offer/consider/', ApiSpecialOfferConsider.as_view({'get': 'list'}), name='api_special_offer_consider'),
     path('import/', ApiImportProductPL.as_view(), name='api_price_list_import'),
     path('special-offer/import/', ApiImportProductSO.as_view()),
-    path('special-offer/products/', ApiSOProduct.as_view({'get': 'list'}))
+    path('special-offer/products/', ApiSOProduct.as_view({'get': 'list'})),
+
+    path('<pk>/export-products/', GenericApiPriceList.as_view({'get': 'export_products'})),
+    path('<pk>/export-users/', GenericApiPriceList.as_view({'get': 'export_users'})),
 ]
