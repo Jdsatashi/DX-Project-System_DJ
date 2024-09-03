@@ -156,7 +156,10 @@ class ApiMainSaleStatistic(viewsets.GenericViewSet, mixins.ListModelMixin, mixin
             turnover = instance['turnover']
 
             # Lấy đối tượng User
-            user = User.objects.get(id=user_id)
+            try:
+                user = User.objects.get(id=user_id)
+            except User.DoesNotExist:
+                continue
 
             # Lấy dữ liệu used_box cho user
             user_so = user.order_set.filter(
