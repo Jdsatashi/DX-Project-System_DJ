@@ -660,7 +660,7 @@ class OrderReportView(APIView):
                     order_details_include.remove(field_name)
             order_details.append(details_data)
 
-        field_dict['order_details'] = order_details
+        field_dict['order_detail'] = order_details
         field_dict['clients'] = client_info
         return field_dict
 
