@@ -32,7 +32,7 @@ from account.handlers.validate_perm import ValidatePermRest
 from account.models import User
 from app.logs import app_log
 from marketing.order.api.serializers import OrderSerializer, ProductStatisticsSerializer, SeasonalStatisticSerializer, \
-    SeasonStatsUserPointSerializer, update_point, update_season_stats_user, update_user_turnover
+    SeasonStatsUserPointSerializer, update_point, update_season_stats_user, update_user_turnover, OrderUpdateSerializer
 from marketing.order.models import Order, OrderDetail, SeasonalStatistic, SeasonalStatisticUser
 from marketing.price_list.models import SpecialOffer, PriceList, ProductPrice
 from marketing.product.models import Product
@@ -46,16 +46,24 @@ from utils.model_filter_paginate import filter_data, get_query_parameters, build
 
 class GenericApiOrder(viewsets.GenericViewSet, mixins.ListModelMixin, mixins.CreateModelMixin,
                       mixins.RetrieveModelMixin, mixins.UpdateModelMixin, mixins.DestroyModelMixin):
-    serializer_class = OrderSerializer
+    # serializer_class = OrderSerializer
     queryset = Order.objects.all()
     authentication_classes = [JWTAuthentication, BasicAuthentication, SessionAuthentication]
 
     permission_classes = [partial(ValidatePermRest, model=Order)]
 
+    def get_serializer_class(self):
+        if self.action in ['update', 'partial_update']:
+            return OrderUpdateSerializer
+        return OrderSerializer
+
     def list(self, request, *args, **kwargs):
         response = filter_data(self, request, ['id', 'date_get', 'date_company_get', 'client_id__id'],
                                **kwargs)
         return Response(response, status.HTTP_200_OK)
+
+    def update(self, request, *args, **kwargs):
+        return super().update(request, *args, **kwargs)
 
     def destroy(self, request, *args, **kwargs):
         instance = self.get_object()

@@ -19,6 +19,8 @@ from marketing.pick_number.models import UserJoinEvent
 from marketing.price_list.models import ProductPrice, SpecialOfferProduct, SpecialOffer
 from marketing.sale_statistic.models import SaleTarget, SaleStatistic, UserSaleStatistic
 from system_func.models import PeriodSeason, PointOfSeason
+from user_system.client_profile.models import ClientProfile
+from user_system.employee_profile.models import EmployeeProfile
 from utils.constants import so_type
 
 
@@ -72,12 +74,12 @@ class OrderSerializer(BaseRestrictSerializer):
                 if price_list_id.status == 'deactivate':
                     raise ValidationError({'message': 'bảng giá không hoạt động'})
                 order = Order.objects.create(**data)
-                order_by = self.update_order_by()
+                order_by = update_order_by(self)
                 if order_by:
                     order.created_by = order_by
                     order.save()
                 # Calculate total price and point
-                details = self.calculate_total_price_and_point(order, order_details_data)
+                details = calculate_total_price_and_point(order, order_details_data)
                 if details:
                     OrderDetail.objects.bulk_create(details)
                     # Check if order details were created
@@ -126,79 +128,6 @@ class OrderSerializer(BaseRestrictSerializer):
             app_log.error(f"Error when create order: {e}")
             raise e
             # raise serializers.ValidationError({'message': 'unexpected error'})
-
-    def update(self, instance: Order, validated_data):
-        # Split insert data
-        data, perm_data = self.split_data(validated_data)
-        # Get order detail data
-        order_details_data = data.pop('order_detail', None)
-
-        user_sale_statistic, is_so, is_consider = self.validate_special_offer(data, order_details_data)
-
-        with transaction.atomic():
-            # Update Order fields
-            data.pop('client_id', None)
-            data.pop('new_special_offer', None)
-            for attr, value in data.items():
-                setattr(instance, attr, value)
-            instance.save()
-            order_by = self.update_order_by()
-            if order_by:
-                instance.created_by = instance.created_by + f"|{order_by}"
-                instance.save()
-
-            # Update OrderDetail
-            current_details_id = [detail.id for detail in instance.order_detail.all()]
-            new_details_id = []
-            total_point = float(0)
-            total_price = float(0)
-            old_order_data = OrderSerializer(instance).data
-            # Update order details
-            if order_details_data:
-                for detail_data in order_details_data:
-                    detail_id = detail_data.get('id')
-                    product_id = detail_data.get('product_id')
-                    quantity = detail_data.get('order_quantity')
-
-                    if detail_id:
-                        detail = OrderDetail.objects.get(id=detail_id, order_id=instance)
-                        for attr, value in detail_data.items():
-                            setattr(detail, attr, value)
-                        detail.save()
-                    else:
-                        prices, point, box = self.calculate_price_and_point(instance, product_id, quantity)
-                        detail_data['product_price'] = prices
-                        detail_data['point_get'] = point
-                        detail_data['order_box'] = float(box)
-                        detail = OrderDetail(order_id=instance, **detail_data)
-                        detail.save()
-                        detail_id = detail.id
-
-                    new_details_id.append(detail_id)
-                    total_point += detail.point_get
-                    total_price += detail.product_price
-
-                # Remove OrderDetails not included in the update
-                for detail_id in current_details_id:
-                    if detail_id not in new_details_id:
-                        OrderDetail.objects.filter(id=detail_id).delete()
-
-                # Update order point and price
-                instance.order_point = total_point
-                instance.order_price = total_price
-                instance.save()
-            # app_log.info(f"Testing user sale statistic: {user_sale_statistic}")
-            update_point(instance.client_id)
-            update_season_stats_user(instance.client_id, instance.date_get)
-            order_month = instance.date_get.replace(day=1)
-            user_stats = create_or_get_sale_stats_user(instance.client_id, order_month)
-            update_user_turnover(instance.client_id, instance, instance.is_so, old_order_data)
-            print(user_stats)
-            restrict = perm_data.get('restrict')
-            if restrict:
-                self.handle_restrict(perm_data, instance.id, self.Meta.model)
-
-        return instance
 
     def delete(self, instance):
         try:
@@ -253,7 +182,7 @@ class OrderSerializer(BaseRestrictSerializer):
         if special_offer:
             # Validate permission
             if not special_offer.for_nvtt:
-                self.validate_so_perm(special_offer, user)
+                validate_so_perm(special_offer, user)
             # Get phone of user
             phones = PhoneNumber.objects.filter(user=user)
             # Check if SpecialOffer of livestream
@@ -274,7 +203,7 @@ class OrderSerializer(BaseRestrictSerializer):
             if special_offer.status == 'deactivate' or special_offer.used is True or not can_use:
                 raise serializers.ValidationError({'message': 'ưu đãi đã hết hạn'})
 
-            buy_target = special_offer.target if special_offer.target >=0 else month_target.month_target
+            buy_target = special_offer.target if special_offer.target >= 0 else month_target.month_target
 
             # Calculate max box can buy
             if special_offer.type_list == so_type.consider_user:
@@ -334,73 +263,77 @@ class OrderSerializer(BaseRestrictSerializer):
             return user_sale_statistic, True, is_consider
         return user_sale_statistic, False, is_consider
 
-    def calculate_price_and_point(self, order, product_id, quantity):
-        try:
-            if order.new_special_offer:
-                product_price = SpecialOfferProduct.objects.get(special_offer=order.new_special_offer,
-                                                                product=product_id)
-            else:
-                product_price = ProductPrice.objects.get(price_list=order.price_list_id, product=product_id)
-            prices, point, box = self.calculate_box_point(product_price, quantity)
-        except (ProductPrice.DoesNotExist, SpecialOfferProduct.DoesNotExist):
-            raise serializers.ValidationError({'message': 'sản phẩm không thuộc ưu đãi hoặc bảng giá'})
-        return prices, point, box
 
-    @staticmethod
-    def calculate_box_point(product_price, quantity):
-        prices = float(product_price.price) * float(quantity) if product_price.price is not None else 0
-        point = (float(product_price.point) * (quantity / product_price.quantity_in_box)
-                 if product_price.point is not None else 0)
-        try:
-            box = int(quantity) / int(product_price.quantity_in_box)
-        except ZeroDivisionError:
-            box = 0
-        return prices, point, box
+def calculate_price_and_point(order, product_id, quantity):
+    try:
+        if order.new_special_offer:
+            product_price = SpecialOfferProduct.objects.get(special_offer=order.new_special_offer,
+                                                            product=product_id)
+        else:
+            product_price = ProductPrice.objects.get(price_list=order.price_list_id, product=product_id)
+        prices, point, box = calculate_box_point(product_price, quantity)
+    except (ProductPrice.DoesNotExist, SpecialOfferProduct.DoesNotExist):
+        raise serializers.ValidationError({'message': 'sản phẩm không thuộc ưu đãi hoặc bảng giá'})
+    return prices, point, box
 
-    def calculate_total_price_and_point(self, order, order_details_data):
-        details = []
-        for detail_data in order_details_data:
-            quantity = detail_data.get('order_quantity')
-            product_id = detail_data.pop('product_id')
 
-            prices, point, box = self.calculate_price_and_point(order, product_id, quantity)
+def calculate_box_point(product_price, quantity):
+    prices = float(product_price.price) * float(quantity) if product_price.price is not None else 0
+    point = (float(product_price.point) * (quantity / product_price.quantity_in_box)
+             if product_price.point is not None else 0)
+    try:
+        box = int(quantity) / int(product_price.quantity_in_box)
+    except ZeroDivisionError:
+        box = 0
+    return prices, point, box
 
-            # Add result calculate to detail_data
-            detail_data['product_price'] = prices
-            detail_data['point_get'] = point
-            detail_data['order_box'] = float(box)
-            if order.is_so:
-                so_obj = SpecialOfferProduct.objects.get(special_offer=order.new_special_offer, product=product_id)
-                detail_data['price_list_so'] = so_obj.cashback
 
-            # Prin logs
-            app_log.info(f"Order details data: {detail_data}")
+def calculate_total_price_and_point(order, order_details_data):
+    details = []
+    for detail_data in order_details_data:
+        quantity = detail_data.get('order_quantity')
+        product_id = detail_data.pop('product_id')
 
-            # Assign temporary OrderDetail
-            detail = OrderDetail(order_id=order, product_id=product_id, **detail_data)
-            details.append(detail)
-        return details
+        prices, point, box = calculate_price_and_point(order, product_id, quantity)
 
-    def update_order_by(self):
-        try:
-            request = self.context['request']
-            auth_header = request.headers.get('Authorization')
+        # Add result calculate to detail_data
+        detail_data['product_price'] = prices
+        detail_data['point_get'] = point
+        detail_data['order_box'] = float(box)
+        if order.is_so:
+            so_obj = SpecialOfferProduct.objects.get(special_offer=order.new_special_offer, product=product_id)
+            detail_data['price_list_so'] = so_obj.cashback
 
-            access_token = auth_header.split(' ')[1]
+        # Prin logs
+        app_log.info(f"Order details data: {detail_data}")
 
-            # Decode access token
-            token = AccessToken(str(access_token))
-            # Decode token
-            phone_number = token.get('phone_number')
-            app_log.info(f"Order by user {phone_number}")
-            return str(phone_number)
-        except Exception as e:
-            app_log.error(f"Get error at order by")
-            pass
+        # Assign temporary OrderDetail
+        detail = OrderDetail(order_id=order, product_id=product_id, **detail_data)
+        details.append(detail)
+    return details
 
-    def validate_so_perm(self, special_offer, user):
-        user_obj = User.objects.get(id=user)
-        # ValidatePermRest(special_offer, user_obj)
+
+def update_order_by(self):
+    try:
+        request = self.context['request']
+        auth_header = request.headers.get('Authorization')
+
+        access_token = auth_header.split(' ')[1]
+
+        # Decode access token
+        token = AccessToken(str(access_token))
+        # Decode token
+        phone_number = token.get('phone_number')
+        app_log.info(f"Order by user {phone_number}")
+        return str(phone_number)
+    except Exception as e:
+        app_log.error(f"Get error at order by")
+        pass
+
+
+def validate_so_perm(special_offer, user):
+    user_obj = User.objects.get(id=user)
+    # ValidatePermRest(special_offer, user_obj)
 
 
 class ProductStatisticsSerializer(serializers.Serializer):
@@ -709,3 +642,118 @@ def update_user_turnover(user: User, order: Order, is_so: bool, old_order=None):
                 user_sale_stats.turnover += total_price
     print(f"TEST DATA: {old_turnover} | {user_sale_stats.turnover}")
     user_sale_stats.save()
+
+
+class OrderUpdateSerializer(BaseRestrictSerializer):
+    order_detail = OrderDetailSerializer(many=True, allow_null=True)
+    list_type = serializers.CharField(required=False, allow_blank=True, allow_null=True)
+    note = serializers.CharField(required=False, allow_blank=True, allow_null=True)
+    status = serializers.CharField(required=False, allow_blank=True, allow_null=True)
+
+    class Meta:
+        model = Order
+        fields = '__all__'
+        read_only_fields = ['id', 'created_by', 'created_at', 'updated_at', 'order_point', 'order_price',
+                            'is_so', 'id_so', 'id_offer_consider'
+                            ]
+        extra_kwargs = {
+            'client_id': {
+                'allow_null': True,
+                'required': False
+            },
+            'new_special_offer': {
+                'allow_null': True,
+                'required': False
+            }
+        }
+
+    def to_representation(self, instance):
+        ret = super().to_representation(instance)
+        nvtt_id = instance.nvtt_id if instance.nvtt_id else instance.client_id.clientprofile.nvtt_id
+
+        nvtt = EmployeeProfile.objects.filter(employee_id=nvtt_id).first()
+        nvtt_name = nvtt.register_name if nvtt else None
+        client_lv1_id = instance.client_id.clientprofile.client_lv1_id
+        client_lv1 = ClientProfile.objects.filter(client_id=client_lv1_id).first()
+
+        client_lv1_name = client_lv1.register_name if client_lv1 else None
+
+        client_info = {
+            'id': instance.client_id.id if instance.client_id else '',
+            'name': instance.client_id.clientprofile.register_name,
+            'nvtt': nvtt_name,
+            'register_lv1': client_lv1_name
+        }
+        ret['clients'] = client_info
+        return ret
+
+    def update(self, instance: Order, validated_data):
+        # Split insert data
+        data, perm_data = self.split_data(validated_data)
+        # Get order detail data
+        order_details_data = data.pop('order_detail', None)
+
+        with transaction.atomic():
+            # Update Order fields
+            data.pop('client_id', None)
+            data.pop('new_special_offer', None)
+            for attr, value in data.items():
+                setattr(instance, attr, value)
+            instance.save()
+            order_by = update_order_by(self)
+            if order_by:
+                instance.created_by = instance.created_by + f"|{order_by}"
+                instance.save()
+
+            # Update OrderDetail
+            current_details_id = [detail.id for detail in instance.order_detail.all()]
+            new_details_id = []
+            total_point = float(0)
+            total_price = float(0)
+            old_order_data = OrderSerializer(instance).data
+            # Update order details
+            if order_details_data:
+                for detail_data in order_details_data:
+                    detail_id = detail_data.get('id')
+                    product_id = detail_data.get('product_id')
+                    quantity = detail_data.get('order_quantity')
+
+                    if detail_id:
+                        detail = OrderDetail.objects.get(id=detail_id, order_id=instance)
+                        for attr, value in detail_data.items():
+                            setattr(detail, attr, value)
+                        detail.save()
+                    else:
+                        prices, point, box = calculate_price_and_point(instance, product_id, quantity)
+                        detail_data['product_price'] = prices
+                        detail_data['point_get'] = point
+                        detail_data['order_box'] = float(box)
+                        detail = OrderDetail(order_id=instance, **detail_data)
+                        detail.save()
+                        detail_id = detail.id
+
+                    new_details_id.append(detail_id)
+                    total_point += detail.point_get
+                    total_price += detail.product_price
+
+                # Remove OrderDetails not included in the update
+                for detail_id in current_details_id:
+                    if detail_id not in new_details_id:
+                        OrderDetail.objects.filter(id=detail_id).delete()
+
+                # Update order point and price
+                instance.order_point = total_point
+                instance.order_price = total_price
+                instance.save()
+            # app_log.info(f"Testing user sale statistic: {user_sale_statistic}")
+            update_point(instance.client_id)
+            update_season_stats_user(instance.client_id, instance.date_get)
+            order_month = instance.date_get.replace(day=1)
+            user_stats = create_or_get_sale_stats_user(instance.client_id, order_month)
+            update_user_turnover(instance.client_id, instance, instance.is_so, old_order_data)
+            print(user_stats)
+            restrict = perm_data.get('restrict')
+            if restrict:
+                self.handle_restrict(perm_data, instance.id, self.Meta.model)
+
+        return instance
