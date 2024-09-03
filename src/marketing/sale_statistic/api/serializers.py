@@ -37,6 +37,7 @@ class UserSaleStatisticSerializer(serializers.ModelSerializer):
         representation = super().to_representation(instance)
         user = instance.user
         current_season: PeriodSeason = PeriodSeason.get_period_by_date('turnover')
+        used_boxes = 0
         if user:
             user_so = (user.order_set.filter(is_so=True,
                                              date_get__gte=current_season.from_date,
@@ -44,8 +45,9 @@ class UserSaleStatisticSerializer(serializers.ModelSerializer):
                                              )
                        # .exclude(new_special_offer__type_list=so_type.consider_user)
                        )
-        used_box = OrderDetail.objects.filter(order_id__in=user_so).aggregate(total_box=Sum('order_box'))
-        representation['used_box'] = used_box['total_box']
+            used_box = OrderDetail.objects.filter(order_id__in=user_so).aggregate(total_box=Sum('order_box'))
+            used_boxes =  used_box['total_box']
+        representation['used_box'] = used_boxes
         return representation
 
     def update(self, instance: UserSaleStatistic, validated_data):
