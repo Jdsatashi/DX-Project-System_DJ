@@ -1,4 +1,4 @@
-from datetime import datetime
+from datetime import datetime, time
 from functools import partial
 
 from rest_framework import mixins, viewsets, status
@@ -53,8 +53,9 @@ class ApiSendMail(APIView):
 
         if serializer.is_valid():
             email = serializer.validated_data.get('email')
-            date_get = serializer.validated_data.get('date_get', datetime.now().date())
-
+            date_get = serializer.validated_data.get('date_get')
+            if not date_get:
+                date_get = datetime.combine(datetime.today(), time.min)
             try:
                 send_report_order_email(email, date_get, True)
             except Exception as e:

@@ -1,5 +1,5 @@
 import base64
-from datetime import datetime
+from datetime import datetime, timedelta
 from io import BytesIO
 
 from celery import shared_task
@@ -19,9 +19,11 @@ def send_order_report_email_task(email, subject, context, date_get):
 
 def send_order_report_email(email: list, subject, context, date_get):
     today = datetime.now().date()
-
-    orders = Order.objects.filter(date_get=date_get).exclude(status='deactivate').order_by('-date_get')
-
+    start_date = date_get
+    end_date = date_get + timedelta(days=1)
+    app_log.info(f"Test date: {start_date} - {end_date}")
+    orders = Order.objects.filter(date_company_get__gte=start_date, date_company_get__lt=end_date).exclude(status='deactivate').order_by('-date_get')
+    app_log.info(f"Data: {orders.count()} items")
     excel_data = generate_order_excel(orders)
 
     # Tạo và render template HTML cho email
