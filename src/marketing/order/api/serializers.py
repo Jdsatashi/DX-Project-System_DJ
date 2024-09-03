@@ -40,7 +40,9 @@ class OrderSerializer(BaseRestrictSerializer):
     class Meta:
         model = Order
         fields = '__all__'
-        read_only_fields = ['id', 'created_by', 'created_at', 'updated_at', 'order_point', 'order_price']
+        read_only_fields = ['id', 'created_by', 'created_at', 'updated_at', 'order_point', 'order_price',
+                            'is_so', 'id_so', 'id_offer_consider'
+                            ]
 
     def create(self, validated_data):
         # Split insert data
@@ -122,6 +124,8 @@ class OrderSerializer(BaseRestrictSerializer):
 
         with transaction.atomic():
             # Update Order fields
+            data.pop('client_id')
+            data.pop('new_special_offer')
             for attr, value in data.items():
                 setattr(instance, attr, value)
             instance.save()
@@ -170,7 +174,7 @@ class OrderSerializer(BaseRestrictSerializer):
                 instance.order_point = total_point
                 instance.order_price = total_price
                 instance.save()
-            app_log.info(f"Testing user sale statistic: {user_sale_statistic}")
+            # app_log.info(f"Testing user sale statistic: {user_sale_statistic}")
             update_point(instance.client_id)
             update_season_stats_user(instance.client_id, instance.date_get)
             order_month = instance.date_get.replace(day=1)
