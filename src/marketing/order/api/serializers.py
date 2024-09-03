@@ -43,10 +43,23 @@ class OrderSerializer(BaseRestrictSerializer):
         read_only_fields = ['id', 'created_by', 'created_at', 'updated_at', 'order_point', 'order_price',
                             'is_so', 'id_so', 'id_offer_consider'
                             ]
+        extra_kwargs = {
+            'client_id': {
+                'allow_null': True,
+                'required': False
+            },
+            'new_special_offer': {
+                'allow_null': True,
+                'required': False
+            }
+        }
 
     def create(self, validated_data):
         # Split insert data
         data, perm_data = self.split_data(validated_data)
+        client = data.get('client_id', None)
+        if not client:
+            raise ValidationError({'message': 'client_id field is required'})
         # Get order detail data
         order_details_data = data.pop('order_detail', [])
         # Validate product order details
