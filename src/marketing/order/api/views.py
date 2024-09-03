@@ -1119,6 +1119,8 @@ def create_order(data):
             main_pl = PriceList.get_main_pl()
             detail_order = list()
 
+            total_point = 0
+            total_price = 0
             # Loop to details_data
             for detail in details_data:
                 # Trying get product object
@@ -1142,6 +1144,7 @@ def create_order(data):
                 }
                 note = json.dumps(note)
                 points = point * detail['box']
+                price = detail['total_price'] if detail['total_price'] else 0
                 order_detail = OrderDetail(
                     order_id=order_data,
                     product_id=product,
@@ -1149,13 +1152,17 @@ def create_order(data):
                     order_box=detail['box'],
 
                     note=note,
-                    product_price=detail['price'],
+                    product_price=price,
                     point_get=points,
                 )
-
-                #     total_point += points
+                total_price += price
+                total_point += points
                 #     total_price += detail['price']
                 detail_order.append(order_detail)
+
+            order_data.order_point = total_point
+            order_data.order_price = total_price
+            order_data.save()
             # if has_nvtt and all(product_prices):
             # handle_after_order(client, total_point, total_price)
             update_list.append(order_data.id)
