@@ -72,6 +72,7 @@ class GenericApiOrder(viewsets.GenericViewSet, mixins.ListModelMixin, mixins.Cre
         return Response(status=status.HTTP_204_NO_CONTENT)
 
     def users_order(self, request, *args, **kwargs):
+        self.serializer_class = self.get_serializer_class()
         user_id = request.query_params.get('user', '')
         if user_id == '':
             user = request.user
