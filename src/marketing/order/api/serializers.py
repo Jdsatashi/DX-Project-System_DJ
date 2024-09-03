@@ -314,8 +314,9 @@ def calculate_total_price_and_point(order, order_details_data):
 
 
 def update_order_by(self):
+    request = self.context['request']
+
     try:
-        request = self.context['request']
         auth_header = request.headers.get('Authorization')
 
         access_token = auth_header.split(' ')[1]
@@ -328,7 +329,11 @@ def update_order_by(self):
         return str(phone_number)
     except Exception as e:
         app_log.error(f"Get error at order by")
-        pass
+        try:
+            user = request.user
+            return user.id
+        except Exception as e:
+            return None
 
 
 def validate_so_perm(special_offer, user):
@@ -700,10 +705,6 @@ class OrderUpdateSerializer(BaseRestrictSerializer):
             for attr, value in data.items():
                 setattr(instance, attr, value)
             instance.save()
-            order_by = update_order_by(self)
-            if order_by:
-                instance.created_by = instance.created_by + f"|{order_by}"
-                instance.save()
 
             # Update OrderDetail
             current_details_id = [detail.id for detail in instance.order_detail.all()]
