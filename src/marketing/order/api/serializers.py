@@ -137,8 +137,8 @@ class OrderSerializer(BaseRestrictSerializer):
 
         with transaction.atomic():
             # Update Order fields
-            data.pop('client_id')
-            data.pop('new_special_offer')
+            data.pop('client_id', None)
+            data.pop('new_special_offer', None)
             for attr, value in data.items():
                 setattr(instance, attr, value)
             instance.save()
