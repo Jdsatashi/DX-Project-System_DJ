@@ -996,30 +996,44 @@ def generate_order_excel(orders: QuerySet[Order]):
 
     employee_profiles = {ep.employee_id_id: ep for ep in EmployeeProfile.objects.filter(employee_id__in=nvtt_ids)}
     for i, order in enumerate(orders):
+        # Get client data from query result
         client_data = client_profiles.get(order.client_id_id)
+        # Handle change datetime format date_company_get
         try:
-            date_send = datetime.strftime(order.date_company_get, "%d/%m/%Y")
+            date_obj_local = order.date_company_get.astimezone()
+            date_send = datetime.strftime(date_obj_local, "%d/%m/%Y")
+        except Exception as e:
+            raise e
+            # date_send = ''
+
+        # Handle change date format date_get
+        try:
+            date_get = datetime.strftime(order.date_get, "%d/%m/%Y")
         except TypeError:
-            date_send = ''
+            date_get = ''
+
+        # Get type list
         type_list = order.list_type if order.list_type and order.list_type != '' else 'cấp 2 gửi'
 
+        # Get client lv1/npp name
         client_lv1_name = ''
         if client_data and client_data.client_lv1_id in client_lv1_profiles:
             client_lv1_name = client_lv1_profiles[client_data.client_lv1_id].register_name
-
+        # Get nvtt name
         nvtt_name = ''
         nvtt_id = order.nvtt_id if order.nvtt_id else (client_data.nvtt_id if client_data else None)
         if nvtt_id and nvtt_id in employee_profiles:
             nvtt_name = employee_profiles[nvtt_id].register_name
-
+        # Generate note as dict for json decode
         note_dict = {}
         if order.note != '':
             try:
                 note_dict = json.loads(order.note)
             except (json.JSONDecodeError, TypeError):
                 pass
-
+        # Trying get dict[key] from notes dict
         noting = note_dict.get('notes', '')
+        # Create data for a row
         data_list = [
             order.id,
             type_list,
@@ -1029,7 +1043,7 @@ def generate_order_excel(orders: QuerySet[Order]):
             nvtt_name,  # NVTT
             date_send,
             order.created_by,
-            order.date_get.strftime("%d/%m/%Y") if order.date_get else '',
+            date_get,
             order.date_delay if order.date_delay else 0,
             noting,
         ]
