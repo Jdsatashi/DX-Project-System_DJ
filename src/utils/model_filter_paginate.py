@@ -123,7 +123,11 @@ def dynamic_q(queries, fields, strict_mode, model):
 
 def filter_data(self, request, query_fields, **kwargs):
     # Get query set if exists or get default
-    model = self.serializer_class.Meta.model
+    try:
+        model = self.serializer_class.Meta.model
+    except AttributeError:
+        serializer_classes = self.get_serializer_class()
+        model = serializer_classes.Meta.model
     queryset = kwargs.get('queryset', self.get_queryset())
     order_by_required = kwargs.get('order_by_required', True)
     # Split query search, strict mode, limit, page, order_by
