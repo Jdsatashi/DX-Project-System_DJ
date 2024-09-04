@@ -314,7 +314,7 @@ class ExportLiveReport(APIView):
 
         # Lưu và trả về file
         response = HttpResponse(content_type='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet')
-        response['Content-Disposition'] = 'attachment; filename="live_stream_report.xlsx"'
+        response['Content-Disposition'] = f'attachment; filename="livestream_{pk}_report.xlsx"'
         workbook.save(response)
 
         return response
