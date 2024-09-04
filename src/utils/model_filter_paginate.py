@@ -123,11 +123,11 @@ def dynamic_q(queries, fields, strict_mode, model):
 
 def filter_data(self, request, query_fields, **kwargs):
     # Get query set if exists or get default
-    try:
-        model = self.serializer_class.Meta.model
-    except AttributeError:
+    serializer_classes = self.serializer_class
+    if serializer_classes is None:
         serializer_classes = self.get_serializer_class()
-        model = serializer_classes.Meta.model
+    model = serializer_classes.Meta.model
+
     queryset = kwargs.get('queryset', self.get_queryset())
     order_by_required = kwargs.get('order_by_required', True)
     # Split query search, strict mode, limit, page, order_by
@@ -154,7 +154,7 @@ def filter_data(self, request, query_fields, **kwargs):
         except ValueError:
             pass
     # Get fields in models
-    valid_fields = [f.name for f in self.serializer_class.Meta.model._meta.get_fields()]
+    valid_fields = [f.name for f in model._meta.get_fields()]
     # Check field order_by exists, then order queryset
     try:
         if order_by in valid_fields or order_by.lstrip('-') in valid_fields:
@@ -177,11 +177,7 @@ def filter_data(self, request, query_fields, **kwargs):
 
     # Check when limit is 0, return all data
     if limit == 0:
-        try:
-            serializer = self.serializer_class(queryset, many=True)
-        except Exception as e:
-            serializer_classes = self.get_serializer_class()
-            serializer = serializer_classes(queryset, many=True)
+        serializer = serializer_classes(queryset, many=True)
         response_data = {
             'data': serializer.data,
             'total_page': 1,
@@ -196,11 +192,7 @@ def filter_data(self, request, query_fields, **kwargs):
     # Get page object
     page_obj = paginator.get_page(page)
     # Get serializer data in page objects data
-    try:
-        serializer = self.serializer_class(page_obj, many=True)
-    except Exception as e:
-        serializer_classes = self.get_serializer_class()
-        serializer = serializer_classes(page_obj, many=True)
+    serializer = serializer_classes(page_obj, many=True)
     # Validate page number
     if page < 0:
         page = 1
