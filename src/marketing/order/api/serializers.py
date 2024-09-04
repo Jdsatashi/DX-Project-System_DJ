@@ -1,7 +1,9 @@
 import json
+import time
 from datetime import datetime
 
 import pandas as pd
+import pytz
 from django.db import transaction
 from django.db.models import Sum, F
 from rest_framework import serializers
@@ -12,6 +14,7 @@ from account.handlers.restrict_serializer import BaseRestrictSerializer
 from account.handlers.validate_perm import ValidatePermRest
 from account.models import PhoneNumber, User
 from app.logs import app_log
+from app.settings import TIME_ZONE
 from marketing.livestream.models import LiveStreamOfferRegister
 from marketing.order.models import Order, OrderDetail, SeasonalStatistic, SeasonalStatisticUser, \
     update_season_stats_users, create_or_get_sale_stats_user
@@ -69,15 +72,30 @@ class OrderSerializer(BaseRestrictSerializer):
         try:
             with transaction.atomic():
                 price_list_id = data.get('price_list_id', None)
+                # Validate orders
                 if price_list_id is None:
                     raise ValidationError({'message': 'toa yêu cầu bảng giá'})
                 if price_list_id.status == 'deactivate':
                     raise ValidationError({'message': 'bảng giá không hoạt động'})
+
+                local_datetime = data.get('date_company_get')
+                if datetime.utcoffset(local_datetime) is None:
+                    # If date data not have timezone
+                    local_datetime = pytz.utc.localize(local_datetime)
+                # Change timezone to local
+                local_timezone = pytz.timezone(TIME_ZONE)
+                local_datetime = local_datetime.astimezone(local_timezone)
+
+                data['date_company_get'] = local_datetime
+
                 order = Order.objects.create(**data)
+
+                # Add order_by
                 order_by = update_order_by(self)
                 if order_by:
                     order.created_by = order_by
                     order.save()
+
                 # Calculate total price and point
                 details = calculate_total_price_and_point(order, order_details_data)
                 if details:
