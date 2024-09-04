@@ -71,7 +71,6 @@ class LiveStreamSerializer(BaseRestrictSerializer):
         if (request and request.method == 'GET'
                 and hasattr(request, 'resolver_match')
                 and request.resolver_match.kwargs.get('pk')):
-
             # Get user added in price list
             perm_name = get_full_permname(self.Meta.model, 'view', instance.id)
             user_group = get_user_by_permname_sql(perm_name)
@@ -81,7 +80,6 @@ class LiveStreamSerializer(BaseRestrictSerializer):
                                                                                      flat=True).distinct()
             ret['groups'] = list(groups_user)
         return ret
-
 
     def update(self, instance, validated_data):
         # Split insert data

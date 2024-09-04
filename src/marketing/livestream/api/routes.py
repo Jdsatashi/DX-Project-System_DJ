@@ -4,7 +4,7 @@ from rest_framework.routers import DefaultRouter
 from marketing.livestream.api.views import (ApiLiveStream, ApiLiveStreamComment,
                                             ApiLiveStatistic, ApiLiveTracking,
                                             ApiLiveStreamDetailComment, ApiPeekView, JoinPeekView, LeavePeekView,
-                                            ApiLiveOfferRegister, CheckLiveStreamRegistrationView)
+                                            ApiLiveOfferRegister, CheckLiveStreamRegistrationView, ExportLiveReport)
 from utils.constants import actions_views, actions_detail
 
 app_name = 'api_livestream'
@@ -49,9 +49,12 @@ livestream_comment_views = ApiLiveStreamComment.as_view(actions_views)
 
 livestream_detail_comment = ApiLiveStreamDetailComment.as_view({'get': 'list'})
 
+
+
 urlpatterns = [
     path('', livestream_views, name='api_livestream'),
     path('<pk>', livestream_details, name='api_livestream_detail'),
+    path('<pk>/report-export/', ExportLiveReport.as_view(), name='api_livestream_detail'),
     path('comments/', livestream_comment_views, name='api_livestream_comment'),
     path('stream-comments/<livestream_id>', livestream_detail_comment, name='api_livestream_detail_comment'),
     # path('products/', live_product_views, name='api_livestream_product'),
