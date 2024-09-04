@@ -593,16 +593,13 @@ class OrderReportView(APIView):
 
         orders = handle_order(request)
 
+        client_ids = orders.values_list('client_id_id', flat=True).distinct()
         client_profiles = {cp.client_id_id: cp for cp in
-                           ClientProfile.objects.filter(client_id__in=[o.client_id_id for o in orders])}
-        nvtt_ids = set()
-        client_lv1_ids = set()
-        for o in orders:
-            if o.client_id_id in client_profiles:
-                if client_profiles[o.client_id_id].nvtt_id:
-                    nvtt_ids.add(client_profiles[o.client_id_id].nvtt_id)
-                if client_profiles[o.client_id_id].client_lv1_id:
-                    client_lv1_ids.add(client_profiles[o.client_id_id].client_lv1_id)
+                           ClientProfile.objects.filter(client_id__in=client_ids)}
+
+        nvtt_ids = {cp.nvtt_id for cp in client_profiles.values() if cp.nvtt_id}
+        client_lv1_ids = {cp.client_lv1_id for cp in client_profiles.values() if cp.client_lv1_id}
+
         employee_profiles = {ep.employee_id_id: ep for ep in EmployeeProfile.objects.filter(employee_id__in=nvtt_ids)}
         client_lv1_profiles = {cp.client_id_id: cp for cp in ClientProfile.objects.filter(client_id__in=client_lv1_ids)}
 
