@@ -130,7 +130,8 @@ class PriceListSerializer(BaseRestrictSerializer):
                             ProductPrice.objects.create(price_list=price_list, product=product, price=price,
                                                         quantity_in_box=quantity_in_box, point=point)
                         except Product.DoesNotExist:
-                            raise serializers.ValidationError({'message': f'Product with ID {product_id} does not exist.'})
+                            raise serializers.ValidationError(
+                                {'message': f'Product with ID {product_id} does not exist.'})
                 if import_users:
                     users = perm_data.pop('allow_users', None)
                     users_list = get_user_list(import_users)
@@ -173,7 +174,8 @@ class PriceListSerializer(BaseRestrictSerializer):
                     new_product_ids = {item['product_id'] for item in products_data}
 
                     # Delete products that are not in the new data
-                    instance.productprice_set.filter(product_id__in=list(current_product_ids - new_product_ids)).delete()
+                    instance.productprice_set.filter(
+                        product_id__in=list(current_product_ids - new_product_ids)).delete()
 
                     # Update existing products and create new ones
                     for product_data in products_data:
@@ -296,7 +298,8 @@ class SpecialOfferSerializer(BaseRestrictSerializer):
             user_group = get_user_by_permname_sql(perm_name)
             user_manage = list(user_group)
             ret['users'] = user_manage
-            groups_user = GroupPerm.objects.filter(perm__name=perm_name).values_list('display_name', flat=True).distinct()
+            groups_user = GroupPerm.objects.filter(perm__name=perm_name).values_list('display_name',
+                                                                                     flat=True).distinct()
             ret['groups'] = list(groups_user)
         return ret
 
@@ -339,13 +342,33 @@ class SpecialOfferSerializer(BaseRestrictSerializer):
             raise serializers.ValidationError({'message': 'unexpected error when create special offer'})
             # raise e
 
-    def update(self, instance, validated_data):
+    def update(self, instance: SpecialOffer, validated_data):
         # Split insert data
         data, perm_data = self.split_data(validated_data)
         products_data = data.pop('special_offers', None)
         try:
             with transaction.atomic():
                 # Update SpecialOffer fields
+                count_turnover = data.get('count_turnover')
+                target = data.get('target')
+                orders = instance.orders
+                if orders.exists():
+                    if target != instance.target:
+                        message = f'Không thể thay đổi chỉ tiêu cho ưu đãi đã được sử dụng'
+                        raise ValidationError({
+                            'message': message,
+                            'detail': {
+                                'orders': orders.values_list('id', flat=True)
+                            }
+                        })
+                    if count_turnover != instance.count_turnover:
+                        message = f'Không thể thay đổi tính doanh số cho ưu đãi đã được sử dụng'
+                        raise ValidationError({
+                            'message': message,
+                            'detail': {
+                                'orders': orders.values_list('id', flat=True)
+                            }
+                        })
                 for attr, value in data.items():
                     setattr(instance, attr, value)
                 instance.save()
@@ -376,7 +399,7 @@ class SpecialOfferSerializer(BaseRestrictSerializer):
                         if product.id not in keep_products:
                             product.delete()
                 # if instance.for_nvtt:
-                    # perm_data['groups'] = ['nvtt']
+                # perm_data['groups'] = ['nvtt']
                 restrict = perm_data.get('restrict')
                 perm_name = get_perm_name(self.Meta.model)
                 perm_name = perm_name + f"_{instance.id}"
@@ -388,7 +411,6 @@ class SpecialOfferSerializer(BaseRestrictSerializer):
             app_log.error(f"Error when update special offer: {e}")
             raise serializers.ValidationError({'message': f'unexpected error when update special offer {instance.id}'})
             # raise e
-
 
     @staticmethod
     def set_default_values(special_offer, product_data):
