@@ -410,6 +410,11 @@ class GrantAccess(models.Model):
     def save(self, *args, **kwargs):
         if self.active and not self.allow:
             self.active = self.allow
+        grant_accesses = GrantAccess.objects.filter(manager=self.manager, active=True).exclude(self)
+        if grant_accesses.exists():
+            for grant_access in grant_accesses:
+                grant_access.active = False
+                grant_access.save()
         # self.active = self.allow
         super().save(*args, **kwargs)
         with transaction.atomic():
