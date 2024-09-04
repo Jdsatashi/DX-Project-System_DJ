@@ -173,7 +173,11 @@ def filter_data(self, request, query_fields, **kwargs):
 
     # Check when limit is 0, return all data
     if limit == 0:
-        serializer = self.serializer_class(queryset, many=True)
+        try:
+            serializer = self.serializer_class(queryset, many=True)
+        except Exception as e:
+            serializer_classes = self.get_serializer_class()
+            serializer = serializer_classes(queryset, many=True)
         response_data = {
             'data': serializer.data,
             'total_page': 1,
@@ -188,7 +192,11 @@ def filter_data(self, request, query_fields, **kwargs):
     # Get page object
     page_obj = paginator.get_page(page)
     # Get serializer data in page objects data
-    serializer = self.serializer_class(page_obj, many=True)
+    try:
+        serializer = self.serializer_class(page_obj, many=True)
+    except Exception as e:
+        serializer_classes = self.get_serializer_class()
+        serializer = serializer_classes(page_obj, many=True)
     # Validate page number
     if page < 0:
         page = 1
