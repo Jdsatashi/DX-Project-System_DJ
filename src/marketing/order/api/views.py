@@ -46,7 +46,7 @@ from utils.model_filter_paginate import filter_data, get_query_parameters, build
 
 class GenericApiOrder(viewsets.GenericViewSet, mixins.ListModelMixin, mixins.CreateModelMixin,
                       mixins.RetrieveModelMixin, mixins.UpdateModelMixin, mixins.DestroyModelMixin):
-    # serializer_class = OrderSerializer
+    serializer_class = OrderSerializer
     queryset = Order.objects.all()
     authentication_classes = [JWTAuthentication, BasicAuthentication, SessionAuthentication]
 
