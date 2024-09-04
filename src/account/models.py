@@ -410,7 +410,7 @@ class GrantAccess(models.Model):
     def save(self, *args, **kwargs):
         if self.active and not self.allow:
             self.active = self.allow
-        grant_accesses = GrantAccess.objects.filter(manager=self.manager, active=True).exclude(self)
+        grant_accesses = GrantAccess.objects.filter(manager=self.manager, active=True).exclude(id=self.id)
         if grant_accesses.exists():
             for grant_access in grant_accesses:
                 grant_access.active = False
