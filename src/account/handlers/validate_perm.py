@@ -247,11 +247,13 @@ def check_perm(user, permission: str, perm_name: str):
     is_perm = perm_exist(permission)
     if not is_perm:
         return True
-
+    print(f"Checking perm: {permission}")
     user_has_perm = user.is_perm(permission)
     if user_has_perm:
         if not user.is_allow(permission):
+            print(f"False here")
             return False
+        return True
     # Get user groups has permission
     is_valid = user.is_group_allow(permission)
     return is_valid

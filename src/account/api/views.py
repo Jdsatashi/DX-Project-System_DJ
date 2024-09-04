@@ -744,6 +744,57 @@ class ApiGetManageUser(APIView):
             return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
 
 
+class ApiUpdateAccess(APIView):
+    def post(self, request, *args, **kwargs):
+        # Validate user
+        user = request.user
+        if not user.is_authenticated:
+            return Response({'message': 'bạn chưa đăng nhập'}, status=status.HTTP_401_UNAUTHORIZED)
+        # Get data from request
+        manager_id = request.data.get('manager', None)
+        grant_user_id = request.data.get('grant_user', None)
+        # Validate id request data is none
+        if not manager_id or not grant_user_id:
+            return Response({'message': 'cần cung cấp manager id và grant_user id'}, status=status.HTTP_400_BAD_REQUEST)
+        # Get manager user as object
+        try:
+            manage_user_obj = User.objects.get(id=manager_id.upper())
+        # Return error when not found user with id
+        except User.DoesNotExist:
+            return Response({'message': f'user {manager_id} không tồn tại'}, status=status.HTTP_400_BAD_REQUEST)
+        # Get grant user as object
+        try:
+            grant_user_obj = User.objects.get(id=grant_user_id.upper())
+        # Return error when not found user with id
+        except User.DoesNotExist:
+            return Response({'message': f'user {grant_user_id} không tồn tại'}, status=status.HTTP_400_BAD_REQUEST)
+
+        # Validate if grant user belong to manager list of manager user
+        if manage_user_obj.id not in [grant_user_obj.clientprofile.nvtt_id, grant_user_obj.clientprofile.client_lv1_id]:
+            return Response({'message': f'user {grant_user_id} không thuộc quản lý của user {manager_id}'},
+                            status=status.HTTP_400_BAD_REQUEST)
+
+        # Validate Perm control of grant user and manager user
+        manager_perm = get_full_permname(User, perm_actions['update'], manage_user_obj.id)
+        is_manager_perm = check_perm(user, manager_perm, get_perm_name(User))
+        # Return error when user not has perm
+        if not is_manager_perm:
+            return Response({'message': 'không có quyền truy cập'}, status=status.HTTP_403_FORBIDDEN)
+        # Get grant access manager object
+        try:
+            grant_access = GrantAccess.objects.get(
+                manager=manage_user_obj, grant_user=grant_user_obj)
+        except GrantAccess.DoesNotExist:
+            return Response({'message': f'không tìm thấy user {grant_user_id} uỷ quyền cho {manager_id}'},
+                            status=status.HTTP_404_NOT_FOUND)
+        # Update active and saving
+        grant_access.active = True
+        grant_access.save()
+
+        # Return ok
+        return Response({'message': 'ok'}, status=status.HTTP_200_OK)
+
+
 class GetUserManager(APIView):
     authentication_classes = [JWTAuthentication, BasicAuthentication, SessionAuthentication]
 

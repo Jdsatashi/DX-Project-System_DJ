@@ -408,9 +408,9 @@ class GrantAccess(models.Model):
         ]
 
     def save(self, *args, **kwargs):
-        # if self.active and not self.allow:
-        #     self.active = self.allow
-        self.active = self.allow
+        if self.active and not self.allow:
+            self.active = self.allow
+        # self.active = self.allow
         super().save(*args, **kwargs)
         with transaction.atomic():
             if self.allow and self.active:
