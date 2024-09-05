@@ -48,6 +48,7 @@ class Order(models.Model):
         if self.price_list_id:
             if self.date_get is None:
                 self.date_get = local_time()
+            print(f"Type: {self.price_list_id.date_start} | {self.date_get} | {self.price_list_id.date_end}")
             if not (self.price_list_id.date_start <= self.date_get <= self.price_list_id.date_end):
                 raise ValidationError(
                     f"Order date {self.date_get} must be between the PriceList's date range from {self.price_list_id.date_start} to {self.price_list_id.date_end}.")
@@ -102,7 +103,7 @@ class OrderDetail(models.Model):
     product_id = models.ForeignKey(Product, null=True, on_delete=models.CASCADE, related_name="order_product")
     order_quantity = models.IntegerField(null=False, default=1)
     order_box = models.FloatField(null=False, default=0)
-    price_list_so = models.FloatField(null=True)
+    price_so = models.FloatField(null=True)
     note = models.TextField(null=True)
     product_price = models.BigIntegerField(null=True)
     point_get = models.FloatField(null=True)

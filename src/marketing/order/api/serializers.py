@@ -33,7 +33,7 @@ class OrderDetailSerializer(BaseRestrictSerializer):
     class Meta:
         model = OrderDetail
         fields = ['product_id', 'product_name', 'order_quantity', 'order_box', 'product_price', 'point_get',
-                  'price_list_so']
+                  'price_so']
 
 
 class OrderSerializer(BaseRestrictSerializer):
@@ -320,7 +320,7 @@ def calculate_total_price_and_point(order, order_details_data):
         detail_data['order_box'] = float(box)
         if order.is_so:
             so_obj = SpecialOfferProduct.objects.get(special_offer=order.new_special_offer, product=product_id)
-            detail_data['price_list_so'] = so_obj.cashback
+            detail_data['price_so'] = so_obj.cashback
 
         # Prin logs
         app_log.info(f"Order details data: {detail_data}")
@@ -611,12 +611,11 @@ def update_season_stats_user(user: User, date_get):
                                                   ['turn_per_point', 'turn_pick', 'redundant_point', 'total_point'])
 
 
-def update_user_turnover(user: User, order: Order, is_so: bool, old_order=None):
+def update_user_turnover(user: User, order: Order, is_so: bool, old_order=None, *args, **kwargs):
     if old_order is None:
         old_order = {}
     if order.nvtt_id == '' or order.nvtt_id is None:
         return
-
     user_sale_stats = UserSaleStatistic.objects.filter(user=user).first()
     if not user_sale_stats:
         user_sale_stats = UserSaleStatistic.objects.create(user=user)
@@ -632,18 +631,38 @@ def update_user_turnover(user: User, order: Order, is_so: bool, old_order=None):
 
     old_turnover = old_order.get('order_price', 0)
     old_status = old_order.get('status', 'active')
-
+    so_data = kwargs.get('so_data', {})
+    print(f"so_data: {so_data.get('minus', None)}")
+    print(f"so_data: {so_data.get('count', None)}")
     if is_so:
         print("Is special offer")
         # order.new_special_offer.type_list != so_type.consider_user:
         first_date = order.date_get.replace(day=1)
         sale_target, _ = SaleTarget.objects.get_or_create(month=first_date)
-        so_target = order.new_special_offer.target
-        target = so_target if so_target >= 0 else sale_target.month_target
-        print(f"|__ Fix target: {target} | {so_target}")
+        if so_data.get('minus', None) is not None and isinstance(so_data.get('minus'), (int, float)):
+            target = so_data.get('minus')
+        elif 'x' in so_data.get('minus', None):
+            target = sale_target.month_target
+        else:
+            try:
+                so_target = order.new_special_offer.target
+                target = so_target if so_target >= 0 else sale_target.month_target
+            except AttributeError:
+                target = sale_target.month_target
+        # print(f"|__ Fix target: {target} | {so_target}")
         fix_price = (target * total_box)
         print(f"|__ Fix price: {fix_price}")
-        if order.new_special_offer.count_turnover is False:
+
+        count_turnover = False
+        if order.new_special_offer is not None:
+            if order.new_special_offer.count_turnover:
+                count_turnover = order.new_special_offer.count_turnover
+        elif so_data.get('count', None) not in ['', 'nan', None]:
+            count_turnover = so_data.get('count')
+        else:
+            count_turnover = False
+
+        if count_turnover is False:
             if order.status == 'deactivate':
                 user_sale_stats.turnover += fix_price
             else:
@@ -655,14 +674,20 @@ def update_user_turnover(user: User, order: Order, is_so: bool, old_order=None):
                 user_sale_stats.turnover += total_price - fix_price
         print(f"|__ Final turnover: {user_sale_stats.turnover}")
     else:
-        if order.status == 'deactivate':
-            print(f"Test old turnover: {old_turnover}")
-            user_sale_stats.turnover -= old_turnover
-        else:
-            if old_status == 'active':
-                user_sale_stats.turnover += (total_price - old_turnover)
-            if old_status == 'deactivate':
+        if so_data.get('count', None) not in ['', 'nan', None]:
+            if not so_data.get('count'):
+                pass
+            else:
                 user_sale_stats.turnover += total_price
+        else:
+            if order.status == 'deactivate':
+                print(f"Test old turnover: {old_turnover}")
+                user_sale_stats.turnover -= old_turnover
+            else:
+                if old_status == 'active':
+                    user_sale_stats.turnover += (total_price - old_turnover)
+                if old_status == 'deactivate':
+                    user_sale_stats.turnover += total_price
     print(f"TEST DATA: {old_turnover} | {user_sale_stats.turnover}")
     user_sale_stats.save()
 

@@ -34,7 +34,7 @@ from app.logs import app_log
 from marketing.order.api.serializers import OrderSerializer, ProductStatisticsSerializer, SeasonalStatisticSerializer, \
     SeasonStatsUserPointSerializer, update_point, update_season_stats_user, update_user_turnover, OrderUpdateSerializer
 from marketing.order.models import Order, OrderDetail, SeasonalStatistic, SeasonalStatisticUser
-from marketing.price_list.models import SpecialOffer, PriceList, ProductPrice
+from marketing.price_list.models import SpecialOffer, PriceList, ProductPrice, SpecialOfferProduct
 from marketing.product.models import Product
 from marketing.sale_statistic.models import UserSaleStatistic
 from system_func.models import PeriodSeason, PointOfSeason
@@ -215,7 +215,7 @@ class ProductStatisticsView(APIView):
             total_price=Sum('product_price'),
             total_box=Sum('order_box'),
             total_cashback=Sum(Case(
-                When(price_list_so__isnull=False, then=Abs(Coalesce(F('price_list_so'), 0.0)) * F('order_box')),
+                When(price_so__isnull=False, then=Abs(Coalesce(F('price_so'), 0.0)) * F('order_box')),
                 default=0,
                 output_field=FloatField()
             ))
@@ -226,7 +226,7 @@ class ProductStatisticsView(APIView):
             total_price=Sum('product_price'),
             total_box=Sum('order_box'),
             total_cashback=Sum(Case(
-                When(price_list_so__isnull=False, then=Abs(Coalesce(F('price_list_so'), 0.0)) * F('order_box')),
+                When(price_so__isnull=False, then=Abs(Coalesce(F('price_so'), 0.0)) * F('order_box')),
                 default=0,
                 output_field=FloatField()
             ))
@@ -447,8 +447,8 @@ class TotalStatisticsView(APIView):
             total_price=Sum('order_detail__product_price'),
             total_box=Sum('order_detail__order_box'),
             total_cashback=Sum(Case(
-                When(order_detail__price_list_so__isnull=False,
-                     then=Abs(Coalesce('order_detail__price_list_so', 0.0)) * F('order_detail__order_box')),
+                When(order_detail__price_so__isnull=False,
+                     then=Abs(Coalesce('order_detail__price_so', 0.0)) * F('order_detail__order_box')),
                 default=0,
                 output_field=FloatField()
             ))
@@ -460,8 +460,8 @@ class TotalStatisticsView(APIView):
             total_price=Sum('order_detail__product_price'),
             total_box=Sum('order_detail__order_box'),
             total_cashback=Sum(Case(
-                When(order_detail__price_list_so__isnull=False,
-                     then=Abs(Coalesce('order_detail__price_list_so', 0.0)) * F('order_detail__order_box')),
+                When(order_detail__price_so__isnull=False,
+                     then=Abs(Coalesce('order_detail__price_so', 0.0)) * F('order_detail__order_box')),
                 default=0,
                 output_field=FloatField()
             ))
@@ -651,7 +651,8 @@ class OrderReportView(APIView):
         order_details = []
         for obj in order_detail:
             details_data = {}
-            order_details_include = ['product_id', 'order_quantity', 'order_box', 'product_price', 'point_get', 'note']
+            order_details_include = ['product_id', 'order_quantity', 'order_box', 'product_price', 'point_get',
+                                     'price_so', 'note']
             for field in details_fields:
                 field_name = field.name
                 if field_name in order_details_include:
@@ -926,9 +927,9 @@ def generate_order_excel(orders: QuerySet[Order]):
 
     title_font = Font(bold=True, size=20)
     note_font = Font(size=11)
-    header_font = Font(bold=True)
+    header_font = Font(bold=True, color='FFFFFF')
     center_alignment = Alignment(horizontal='center', vertical='center')
-    header_fill = PatternFill(start_color='FFFF00', end_color='FFFF00', fill_type='solid')
+    header_fill = PatternFill(start_color='33cc33', end_color='33cc33', fill_type='solid')
 
     sheet.merge_cells('A1:N1')
     title_cell = sheet.cell(row=1, column=1)
@@ -937,8 +938,9 @@ def generate_order_excel(orders: QuerySet[Order]):
     title_cell.alignment = center_alignment
 
     total_price = orders.aggregate(total_price=Sum('order_price'))['total_price']
+
     total_price = OrderDetail.objects.filter(order_id__in=orders).aggregate(
-                        total_price=Sum('product_price'))['total_price']
+        total_price=Sum('product_price'))['total_price']
     sheet.merge_cells('A2:N2')
     note_cell = sheet.cell(row=2, column=1)
     note = f'Ngày thống kê: {datetime.now().strftime("%d/%m/%Y")}   ||   Tổng doanh thu: {total_price}   ||   Số lượng bản kê: {orders.count()}'
@@ -951,7 +953,7 @@ def generate_order_excel(orders: QuerySet[Order]):
         'Mã toa',
         'Loại bảng kê', 'Mã khách hàng', 'Tên Khách hàng', 'Khách hàng cấp 1', 'NVTT',
         'Ngày nhận toa', 'Người tạo toa', 'Ngày nhận hàng', 'Ngày gửi trễ', 'Ghi chú',
-        'Mã sản phẩm', 'Tên sản phẩm', 'Số lượng', 'Số thùng', 'Đơn giá', 'Thành tiền'
+        'Mã sản phẩm', 'Tên sản phẩm', 'Số lượng', 'Số thùng', 'Đơn giá', 'Thành tiền', 'Đơn giá KM'
     ]
 
     column_widths = {
@@ -984,6 +986,8 @@ def generate_order_excel(orders: QuerySet[Order]):
                       o.client_id_id in client_profiles and client_profiles[o.client_id_id].client_lv1_id]
     client_lv1_profiles = {cp.client_id_id: cp for cp in ClientProfile.objects.filter(client_id__in=client_lv1_ids)}
 
+    # price_lists = orders.values_list('price_list_id_id', flat=True).distinct()
+
     nvtt_ids = set()
     for o in orders:
         if o.nvtt_id:
@@ -1000,8 +1004,7 @@ def generate_order_excel(orders: QuerySet[Order]):
             date_obj_local = order.date_company_get.astimezone()
             date_send = datetime.strftime(date_obj_local, "%d/%m/%Y")
         except Exception as e:
-            raise e
-            # date_send = ''
+            date_send = ''
 
         # Handle change date format date_get
         try:
@@ -1030,6 +1033,7 @@ def generate_order_excel(orders: QuerySet[Order]):
                 pass
         # Trying get dict[key] from notes dict
         noting = note_dict.get('notes', '')
+
         # Create data for a row
         data_list = [
             order.id,
@@ -1048,8 +1052,20 @@ def generate_order_excel(orders: QuerySet[Order]):
             if not detail.product_id:
                 continue
             total_price = detail.product_price or 0
+            price_so = detail.price_so if detail.price_so else ''
+            # Get price from note
+            # try:
+            #     note_price = json.loads(detail.note).get('price')
+            #     price = float(note_price) if note_price else None
+            # except (json.JSONDecodeError, TypeError, ValueError):
+            #     price = None
+            # if price is None:
+            #     if order.new_special_offer_id:
+            #         price = get_special_offer_price(detail.product_id, order.new_special_offer_id)
+            #     elif order.price_list_id_id:
+            #         price = get_product_price(detail.product_id, order.price_list_id_id)
             try:
-                price = total_price / (detail.order_quantity * detail.order_box)
+                price = total_price / detail.order_quantity
             except ZeroDivisionError:
                 price = 0
             details_data = [
@@ -1059,6 +1075,7 @@ def generate_order_excel(orders: QuerySet[Order]):
                 detail.order_box,
                 price,
                 detail.product_price,
+                price_so
             ]
             export_data = data_list + details_data
             sheet.append(export_data)
@@ -1068,6 +1085,20 @@ def generate_order_excel(orders: QuerySet[Order]):
     workbook.save(output)
     output.seek(0)
     return output
+
+
+def get_product_price(product_id, price_list_id):
+    product_price = ProductPrice.objects.filter(
+        product_id=product_id, price_list_id=price_list_id
+    ).first()
+    return product_price.price if product_price else None
+
+
+def get_special_offer_price(product_id, special_offer_id):
+    special_offer_product = SpecialOfferProduct.objects.filter(
+        product_id=product_id, special_offer_id=special_offer_id
+    ).first()
+    return special_offer_product.price if special_offer_product else None
 
 
 class ApiImportOrder(APIView):
@@ -1123,6 +1154,7 @@ def create_order(data):
             # Create Order data
             order_data = Order(
                 client_id=client,
+                list_type=order['type_list'],
                 date_get=order['date_get'],
                 date_company_get=order['date_company_get'],
                 date_delay=order['date_delay'],
@@ -1130,15 +1162,26 @@ def create_order(data):
                 created_by=order['created_by'],
                 status=data_status.active
             )
+            noting = order['note']
             # Jsonify note
-            note = json.dumps({'note': order['note']})
+            note = json.dumps({'note': noting})
             order_data.note = note
+
             # Call save() to create Order
             order_data.save()
 
             main_pl = PriceList.get_main_pl()
             detail_order = list()
-
+            turnover_minus = order.get('minus_turnover', None)
+            count_so = order.get('count_so', None)
+            count_turnover = False
+            if count_so not in ['', 'nan', None]:
+                count_turnover = True
+            so_data = {
+                'is_so': False,
+                'minus': turnover_minus,
+                'count': count_turnover
+            }
             total_point = 0
             total_price = 0
             # Loop to details_data
@@ -1165,6 +1208,7 @@ def create_order(data):
                 note = json.dumps(note)
                 points = point * detail['box']
                 price = detail['total_price'] if detail['total_price'] else 0
+                price_so = detail['price_so'] if detail['price_so'] not in ['', None, 'nan'] else None
                 order_detail = OrderDetail(
                     order_id=order_data,
                     product_id=product,
@@ -1174,14 +1218,18 @@ def create_order(data):
                     note=note,
                     product_price=price,
                     point_get=points,
+                    price_so=price_so
                 )
                 total_price += price
                 total_point += points
                 #     total_price += detail['price']
                 detail_order.append(order_detail)
-
+                if price_so and not so_data.get('is_so'):
+                    so_data['is_so'] = True
             order_data.order_point = total_point
             order_data.order_price = total_price
+            if so_data.get('is_so'):
+                order_data.is_so = so_data.get('is_so')
             order_data.save()
             # if has_nvtt and all(product_prices):
             # handle_after_order(client, total_point, total_price)
@@ -1189,7 +1237,8 @@ def create_order(data):
             OrderDetail.objects.bulk_create(detail_order)
             update_point(client)
             update_season_stats_user(client, order_data.date_get)
-            update_user_turnover(client, order_data, False)
+            is_so = order_data.is_so if order_data.is_so in [False, True] else False
+            update_user_turnover(client, order_data, is_so, so_data=so_data)
     return update_list, error_data
 
 
@@ -1226,7 +1275,10 @@ def get_excel_to_dict(file):
         'Số lượng': 'quantity',
         'Số thùng': 'box',
         'Đơn giá': 'price',
-        'Thành tiền': 'total_price'
+        'Thành tiền': 'total_price',
+        'Đơn giá KM': 'price_so',
+        'Tính doanh số': 'count_so',
+        'Trừ doanh số': 'minus_turnover'
     }
 
     # Đổi tên các cột theo mapping
@@ -1250,11 +1302,11 @@ def get_excel_to_dict(file):
         common_data = group.iloc[0][[
             'group_order', 'type_list', 'client_id', 'client_name',
             'client_lv1', 'nvtt', 'date_company_get', 'created_by',
-            'date_get', 'date_delay', 'note'
+            'date_get', 'date_delay', 'note', 'count_so', 'minus_turnover'
         ]].to_dict()
 
         # Lấy danh sách các sản phẩm
-        products = group[['product_id', 'product_name', 'quantity', 'box', 'price']].to_dict(orient='records')
+        products = group[['product_id', 'product_name', 'quantity', 'box', 'price', 'total_price', 'price_so']].to_dict(orient='records')
 
         # Ghép dữ liệu chung và danh sách sản phẩm vào một dict
         common_data['order_detail'] = products
@@ -1263,15 +1315,17 @@ def get_excel_to_dict(file):
     return result
 
 
-def convert_date_format(date_str):
-    try:
-        return datetime.strptime(date_str, '%d/%m/%Y').strftime('%Y-%m-%d')
-    except ValueError:
-        pass
-
-    try:
-        return datetime.strptime(date_str, '%Y-%m-%d').strftime('%Y-%m-%d')
-    except ValueError:
-        pass
-
-    return date_str
+def convert_date_format(date_input):
+    if isinstance(date_input, pd.Timestamp):
+        return date_input.date()  # Chuyển đổi sang datetime.date
+    elif isinstance(date_input, datetime):
+        return date_input.date()  # Chuyển đổi sang datetime.date
+    elif isinstance(date_input, str):
+        try:
+            return datetime.strptime(date_input, '%d/%m/%Y').date()  # Chuyển đổi từ chuỗi sang datetime.date
+        except ValueError:
+            try:
+                return datetime.strptime(date_input, '%Y-%m-%d').date()  # Chuyển đổi từ chuỗi sang datetime.date
+            except ValueError:
+                pass
+    return None
