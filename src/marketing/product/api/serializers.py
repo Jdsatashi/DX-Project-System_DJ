@@ -266,7 +266,7 @@ class ProductSerializer(BaseRestrictSerializer):
 class ProductIdSerializer(serializers.ModelSerializer):
     class Meta:
         model = Product
-        fields = ['id', 'category']
+        fields = ['id', 'name', 'category']
 
 
 # Support functions
