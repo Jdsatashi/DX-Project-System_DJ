@@ -641,7 +641,7 @@ def update_user_turnover(user: User, order: Order, is_so: bool, old_order=None, 
         sale_target, _ = SaleTarget.objects.get_or_create(month=first_date)
         if so_data.get('minus', None) is not None and isinstance(so_data.get('minus'), (int, float)):
             target = so_data.get('minus')
-        elif 'x' in so_data.get('minus', None):
+        elif so_data.get('minus', None) == 'x':
             target = sale_target.month_target
         else:
             try:
