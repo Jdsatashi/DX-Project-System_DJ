@@ -17,7 +17,7 @@ from django.db.models.functions import Abs, Coalesce
 from django.http import HttpResponse
 from django.http import StreamingHttpResponse
 from django.utils import timezone
-from openpyxl.styles import Font, Alignment, PatternFill
+from openpyxl.styles import Font, Alignment, PatternFill, Border, Side
 from openpyxl.utils import get_column_letter
 from rest_framework import viewsets, mixins, status
 from rest_framework.authentication import BasicAuthentication, SessionAuthentication
@@ -319,8 +319,13 @@ class ExportReport(APIView):
 
         orders = orders[start_item:end_item]
 
+        workbook = generate_order_excel(orders)
+        output = BytesIO()
+        workbook.save(output)
+        output.seek(0)
+
         response = StreamingHttpResponse(
-            generate_order_excel(orders),
+            output,
             content_type='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'
         )
         response['Content-Disposition'] = f'attachment; filename=BangToa_{datetime.now().strftime("%d-%m-%Y")}.xlsx'
@@ -925,11 +930,16 @@ def generate_order_excel(orders: QuerySet[Order]):
     workbook = openpyxl.Workbook()
     sheet = workbook.active
 
-    title_font = Font(bold=True, size=20)
-    note_font = Font(size=11)
-    header_font = Font(bold=True, color='FFFFFF')
+    title_font = Font(name='Times New Roman', bold=True, size=20)
+    note_font = Font(name='Times New Roman', size=11)
+    header_font = Font(name='Times New Roman', bold=True, color='FFFFFF')
+    date_font = Font(name='Times New Roman', size=10)
     center_alignment = Alignment(horizontal='center', vertical='center')
     header_fill = PatternFill(start_color='33cc33', end_color='33cc33', fill_type='solid')
+    bold_font = Font(name='Times New Roman', bold=True)
+
+    border_style = Side(style='medium')
+    full_border_style = Border(left=border_style, right=border_style, top=border_style, bottom=border_style, diagonal=border_style, diagonal_direction=0)
 
     sheet.merge_cells('A1:N1')
     title_cell = sheet.cell(row=1, column=1)
@@ -957,12 +967,24 @@ def generate_order_excel(orders: QuerySet[Order]):
     ]
 
     column_widths = {
-        'Loại bảng kê': 88,
-        'Mã khách hàng': 104,
-        'Tên Khách hàng': 160,
-        'Khách hàng cấp 1': 160,
-        'NVTT': 160,
-        'Tên sản phẩm': 200,
+        'Mã toa': 100,
+        'Loại bảng kê': 82,
+        'Mã khách hàng': 98,
+        'Tên Khách hàng': 132,
+        'Khách hàng cấp 1': 140,
+        'NVTT': 144,
+        'Ngày nhận toa': 92,
+        'Người tạo toa': 86,
+        'Ngày nhận hàng': 98,
+        'Ngày gửi trễ': 84,
+        'Ghi chú': 72,
+        'Mã sản phẩm': 84,
+        'Tên sản phẩm': 188,
+        'Số lượng': 64,
+        'Số thùng': 68,
+        'Đơn giá': 80,
+        'Thành tiền': 80,
+        'Đơn giá KM': 80
     }
 
     for col_num, column_title in enumerate(columns, 1):
@@ -971,6 +993,7 @@ def generate_order_excel(orders: QuerySet[Order]):
         cell.font = header_font
         cell.alignment = center_alignment
         cell.fill = header_fill
+        cell.border = full_border_style
 
         col_letter = get_column_letter(col_num)
         if column_title in column_widths:
@@ -996,7 +1019,9 @@ def generate_order_excel(orders: QuerySet[Order]):
             nvtt_ids.add(client_profiles[o.client_id_id].nvtt_id)
 
     employee_profiles = {ep.employee_id_id: ep for ep in EmployeeProfile.objects.filter(employee_id__in=nvtt_ids)}
+    print(f"__ Count order: {orders.count()}")
     for i, order in enumerate(orders):
+        print(i)
         # Get client data from query result
         client_data = client_profiles.get(order.client_id_id)
         # Handle change datetime format date_company_get
@@ -1048,6 +1073,7 @@ def generate_order_excel(orders: QuerySet[Order]):
             order.date_delay if order.date_delay else 0,
             noting,
         ]
+
         for detail in order.order_detail.all():
             if not detail.product_id:
                 continue
@@ -1079,12 +1105,54 @@ def generate_order_excel(orders: QuerySet[Order]):
             ]
             export_data = data_list + details_data
             sheet.append(export_data)
+
+            for col, value in enumerate(export_data, 1):
+                cell = sheet.cell(row=row_num, column=col)
+                cell.font = note_font
+                if col in {7, 9}:
+                    cell.alignment = center_alignment
+                    cell.font = date_font
+                if col == 18:  # 'Đơn giá KM' column
+                    cell = sheet.cell(row=row_num, column=col)
+                    cell.font = bold_font
+
             row_num += 1
 
-    output = BytesIO()
-    workbook.save(output)
-    output.seek(0)
-    return output
+    final_row = row_num - 1
+
+    top_left_border = Border(top=Side(style='medium'), left=Side(style='medium'))
+    top_border = Border(top=Side(style='medium'))
+    top_right_border = Border(top=Side(style='medium'), right=Side(style='medium'))
+    left_border = Border(left=Side(style='medium'))
+    right_border = Border(right=Side(style='medium'))
+    bottom_left_border = Border(bottom=Side(style='medium'), left=Side(style='medium'))
+    bottom_border = Border(bottom=Side(style='medium'))
+    bottom_right_border = Border(bottom=Side(style='medium'), right=Side(style='medium'))
+
+    start_row = 5
+    end_row = final_row
+    start_col = 1
+    end_col = len(columns)
+    for row in range(start_row, end_row + 1):
+        for col in range(start_col, end_col + 1):
+            cell = sheet.cell(row=row, column=col)
+            if row == start_row and col == start_col:
+                cell.border = top_left_border
+            elif row == start_row and col == end_col:
+                cell.border = top_right_border
+            elif row == end_row and col == start_col:
+                cell.border = bottom_left_border
+            elif row == end_row and col == end_col:
+                cell.border = bottom_right_border
+            elif row == start_row:
+                cell.border = top_border
+            elif row == end_row:
+                cell.border = bottom_border
+            elif col == start_col:
+                cell.border = left_border
+            elif col == end_col:
+                cell.border = right_border
+    return workbook
 
 
 def get_product_price(product_id, price_list_id):
@@ -1306,7 +1374,8 @@ def get_excel_to_dict(file):
         ]].to_dict()
 
         # Lấy danh sách các sản phẩm
-        products = group[['product_id', 'product_name', 'quantity', 'box', 'price', 'total_price', 'price_so']].to_dict(orient='records')
+        products = group[['product_id', 'product_name', 'quantity', 'box', 'price', 'total_price', 'price_so']].to_dict(
+            orient='records')
 
         # Ghép dữ liệu chung và danh sách sản phẩm vào một dict
         common_data['order_detail'] = products
@@ -1317,15 +1386,15 @@ def get_excel_to_dict(file):
 
 def convert_date_format(date_input):
     if isinstance(date_input, pd.Timestamp):
-        return date_input.date()  # Chuyển đổi sang datetime.date
+        return date_input.date()
     elif isinstance(date_input, datetime):
-        return date_input.date()  # Chuyển đổi sang datetime.date
+        return date_input.date()
     elif isinstance(date_input, str):
         try:
-            return datetime.strptime(date_input, '%d/%m/%Y').date()  # Chuyển đổi từ chuỗi sang datetime.date
+            return datetime.strptime(date_input, '%d/%m/%Y').date()
         except ValueError:
             try:
-                return datetime.strptime(date_input, '%Y-%m-%d').date()  # Chuyển đổi từ chuỗi sang datetime.date
+                return datetime.strptime(date_input, '%Y-%m-%d').date()
             except ValueError:
                 pass
     return None

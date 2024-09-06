@@ -24,7 +24,11 @@ def send_order_report_email(email: list, subject, context, date_get):
     app_log.info(f"Test date: {start_date} - {end_date}")
     orders = Order.objects.filter(date_company_get__gte=start_date, date_company_get__lt=end_date).exclude(status='deactivate').order_by('-date_get')
     app_log.info(f"Data: {orders.count()} items")
-    excel_data = generate_order_excel(orders)
+    workbook = generate_order_excel(orders)
+
+    excel_data = BytesIO()
+    workbook.save(excel_data)
+    excel_data.seek(0)
 
     # Tạo và render template HTML cho email
     html_content = render_to_string('email/report_mail.html', context)

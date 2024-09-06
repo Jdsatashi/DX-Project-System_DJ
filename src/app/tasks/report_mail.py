@@ -1,4 +1,5 @@
 from datetime import datetime
+from io import BytesIO
 
 from django.conf import settings
 from django.core.mail import EmailMessage
@@ -16,7 +17,11 @@ def send_daily_email(date_get):
 
     orders = Order.objects.filter(date_company_get=date_get).exclude(status='deactivate').order_by('-date_get')
 
-    excel_data = generate_order_excel(orders)
+    workbook = generate_order_excel(orders)
+
+    excel_data = BytesIO()
+    workbook.save(excel_data)
+    excel_data.seek(0)
 
     context = {
         'subject': email_detail.name,
