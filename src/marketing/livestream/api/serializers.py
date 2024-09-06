@@ -1,3 +1,5 @@
+import traceback
+
 from django.core.exceptions import ValidationError
 from django.db import transaction
 from rest_framework.response import Response
@@ -12,6 +14,8 @@ from account.queries import get_user_by_permname_sql
 from app.logs import app_log
 from marketing.livestream.models import LiveStream, LiveStreamComment, LiveStreamStatistic, LiveStreamTracking, \
     LiveStreamPeekView, LiveStreamOfferRegister
+from utils.constants import perm_actions
+from utils.import_excel import get_user_list
 
 
 class LiveStreamCommentSerializer(BaseRestrictSerializer):
@@ -60,6 +64,7 @@ class LiveStreamDetailCommentSerializer(serializers.ModelSerializer):
 
 
 class LiveStreamSerializer(BaseRestrictSerializer):
+    import_users = serializers.FileField(write_only=True, required=False, allow_null=True)
     class Meta:
         model = LiveStream
         fields = '__all__'
@@ -81,9 +86,29 @@ class LiveStreamSerializer(BaseRestrictSerializer):
             ret['groups'] = list(groups_user)
         return ret
 
+    def create(self, validated_data):
+        data, perm_data = self.split_data(validated_data)
+        try:
+            with transaction.atomic():
+                import_users = data.pop('import_users', None)
+
+                livestream = LiveStream.objects.create(**data)
+
+                self.handle_restrict_import_users_id(import_users, perm_data)
+                restrict = perm_data.get('restrict')
+
+                if restrict:
+                    self.handle_restrict(perm_data, livestream.id, self.Meta.model)
+                return livestream
+        except Exception as e:
+            # raise e
+            app_log.error(f"Lỗi khi tạo livestream: {e}")
+            raise ValidationError({'message': e})
+
     def update(self, instance, validated_data):
         # Split insert data
         data, perm_data = self.split_data(validated_data)
+        import_users = data.pop('import_users', None)
 
         try:
             with transaction.atomic():
@@ -93,6 +118,7 @@ class LiveStreamSerializer(BaseRestrictSerializer):
                 instance.save()
 
                 # Handle restrictions (if any)
+                self.handle_restrict_import_users_id(import_users, perm_data)
                 restrict = perm_data.get('restrict')
                 perm_name = get_perm_name(self.Meta.model)
                 perm_name = perm_name + f"_{instance.id}"
@@ -102,8 +128,10 @@ class LiveStreamSerializer(BaseRestrictSerializer):
                 return instance
 
         except Exception as e:
-            app_log.error(f"Error when updating livestream: {e}")
-            raise serializers.ValidationError({'message': f'unexpected error when updating livestream {instance.id}'})
+            tb = traceback.format_exc()
+            app_log.error(f"Error when updating livestream: {e}\n{tb}")
+            # raise serializers.ValidationError({'message': f'unexpected error when updating livestream {instance.id}'})
+            raise e
 
 
 class LiveStatistic(BaseRestrictSerializer):

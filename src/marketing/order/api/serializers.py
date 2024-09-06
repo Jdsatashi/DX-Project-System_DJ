@@ -473,11 +473,11 @@ class SeasonalStatisticSerializer(serializers.ModelSerializer):
             df = pd.read_excel(file, engine='openpyxl')
             # Clean data to ensure there are no NaN values where not expected
             df = df.fillna({'diem_1_tem': 0, 'so_tem': 0})  # Replace NaN with 0 in these columns
-            df = df.dropna(subset=['khach_hang'])  # Ensure no NaN values in 'khach_hang'
+            df = df.dropna(subset=['maKH'])  # Ensure no NaN values in 'maKH'
 
             # Transform dataframe to the desired list of dictionaries format
             user_data = [
-                {row['khach_hang']: {'turn_per_point': row['diem_1_tem'], 'turn_pick': row['so_tem']}}
+                {row['maKH']: {'turn_per_point': row['diem_1_tem'], 'turn_pick': row['so_tem']}}
                 for index, row in df.iterrows()
             ]
             return user_data

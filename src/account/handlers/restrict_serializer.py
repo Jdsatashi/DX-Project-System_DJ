@@ -10,6 +10,7 @@ from account.models import User, GroupPerm, Perm, UserPerm, UserGroupPerm, Phone
 from app.logs import app_log
 from utils.constants import perm_actions, admin_role
 from utils.helpers import phone_validate
+from utils.import_excel import get_user_list
 
 
 class BaseRestrictSerializer(serializers.ModelSerializer):
@@ -76,6 +77,21 @@ class BaseRestrictSerializer(serializers.ModelSerializer):
             "read_only_groups": read_only_groups,
         }
         return data, perm_data
+
+    def handle_restrict_import_users_id(self, import_users, perm_data):
+        if import_users:
+            users = perm_data.pop('allow_users', None)
+            users_list = get_user_list(import_users)
+            users_list = list(set(users_list))
+            if users:
+                for user in users:
+                    if user.lower() not in users_list and user.upper() not in users_list:
+                        users_list.append(user)
+            perm_data['allow_users'] = users_list
+            actions = perm_data.pop('allow_actions', None)
+            user_actions = [perm_actions['view'], perm_actions['create']]
+            perm_data['allow_actions'] = user_actions
+            perm_data['restrict'] = True
 
     def handle_restrict(self, data: dict, _id: Union[str, int], model: Type[Model]) -> None:
         """ Handle adding rule Perm for specific Object to created object """
