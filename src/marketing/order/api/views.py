@@ -301,24 +301,26 @@ class ExportReport(APIView):
         start_time = time.time()
         orders = handle_order(request)
 
-        # total_items = orders.count()
-        # limit = request.query_params.get('limit', 10)
-        # page = request.query_params.get('page', 1)
-        #
-        # limit = int(limit)
-        # page = int(page)
-        # if limit == 0:
-        #     limit = orders.count()
-        # if page <= 0:
-        #     page = 1
-        # start_item = (page - 1) * limit
-        # print(f"page: {type(page)} | limit {type(limit)}")
-        # end_item = page * limit
+        total_items = orders.count()
+        limit = request.query_params.get('limit', 20000)
+        page = request.query_params.get('page', 1)
 
-        # if end_item > total_items:
-        #     end_item = total_items - 1
-        #
-        # orders = orders[start_item:end_item]
+        limit = int(limit)
+        page = int(page)
+        if limit == 0:
+            limit = orders.count()
+        if orders.count() > 20000:
+            limit = 20000
+        if page <= 0:
+            page = 1
+        start_item = (page - 1) * limit
+        print(f"page: {type(page)} | limit {type(limit)}")
+        end_item = page * limit
+
+        if end_item > total_items:
+            end_item = total_items - 1
+
+        orders = orders[start_item:end_item]
 
         workbook = generate_order_excel(orders)
         output = BytesIO()
