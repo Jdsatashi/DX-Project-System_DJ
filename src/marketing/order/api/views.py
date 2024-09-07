@@ -970,10 +970,10 @@ def generate_order_excel(orders: QuerySet[Order]):
     ]
 
     column_widths = {
-        'Mã toa': 100,
-        'Loại bảng kê': 82,
+        'Mã toa': 106,
+        'Loại bảng kê': 92,
         'Mã khách hàng': 98,
-        'Tên Khách hàng': 132,
+        'Tên Khách hàng': 136,
         'Khách hàng cấp 1': 140,
         'NVTT': 144,
         'Ngày nhận toa': 92,
@@ -982,11 +982,11 @@ def generate_order_excel(orders: QuerySet[Order]):
         'Ngày gửi trễ': 84,
         'Ghi chú': 72,
         'Mã sản phẩm': 84,
-        'Tên sản phẩm': 188,
+        'Tên sản phẩm': 196,
         'Số lượng': 64,
         'Số thùng': 68,
         'Đơn giá': 80,
-        'Thành tiền': 80,
+        'Thành tiền': 82,
         'Đơn giá KM': 80
     }
 
@@ -1186,6 +1186,8 @@ class ApiImportOrder(APIView):
             data = get_excel_to_dict(file)
 
             success, error = create_order(data)
+            app_log.info(f"Import success: \n{success}")
+            app_log.info(f"Import error: \n{error}")
             return Response({
                 'message': 'ok',
                 'success': success,
