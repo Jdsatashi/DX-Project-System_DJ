@@ -111,13 +111,13 @@ class ProductStatisticsView(APIView):
             default_end_date = now
 
             # Get params queries
-            start_date_1 = request.data.get('start_date_1', datetime.strftime(default_start_date, '%d/%m/%Y'))
-            end_date_1 = request.data.get('end_date_1', datetime.strftime(default_end_date, '%d/%m/%Y'))
+            start_date_1 = request.query_params.get('start_date_1', datetime.strftime(default_start_date, '%d/%m/%Y'))
+            end_date_1 = request.query_params.get('end_date_1', datetime.strftime(default_end_date, '%d/%m/%Y'))
 
             start_date_time = datetime.strptime(start_date_1, '%d/%m/%Y')
-            start_date_2 = request.data.get('start_date_2',
+            start_date_2 = request.query_params.get('start_date_2',
                                             datetime.strftime(start_date_time - timedelta(days=365), '%d/%m/%Y'))
-            end_date_2 = request.data.get('end_date_2',
+            end_date_2 = request.query_params.get('end_date_2',
                                           datetime.strftime(start_date_time - timedelta(days=1), '%d/%m/%Y'))
             # Get type to calculate
             type_statistic = request.data.get('type_statistic') or request.query_params.get('type_statistic', 'all')
@@ -300,7 +300,7 @@ class ExportReport(APIView):
     def get(self, request):
         start_time = time.time()
         orders = handle_order(request)
-
+        orders = orders.order_by('-date_get')
         total_items = orders.count()
         limit = request.query_params.get('limit', 20000)
         page = request.query_params.get('page', 1)
@@ -357,15 +357,15 @@ class TotalStatisticsView(APIView):
             default_start_date = now - timedelta(days=365)
             default_end_date = now
 
-            start_date_1 = request.data.get('start_date_1',
+            start_date_1 = request.query_params.get('start_date_1',
                                             datetime.strftime(default_start_date, '%d/%m/%Y'))
-            end_date_1 = request.data.get('end_date_1', datetime.strftime(default_end_date, '%d/%m/%Y'))
+            end_date_1 = request.query_params.get('end_date_1', datetime.strftime(default_end_date, '%d/%m/%Y'))
 
             start_date_time = datetime.strptime(start_date_1, '%d/%m/%Y')
-            start_date_2 = request.data.get('start_date_2',
+            start_date_2 = request.query_params.get('start_date_2',
                                             datetime.strftime(start_date_time - timedelta(days=365),
                                                               '%d/%m/%Y'))
-            end_date_2 = request.data.get('end_date_2',
+            end_date_2 = request.query_params.get('end_date_2',
                                           datetime.strftime(start_date_time - timedelta(days=1),
                                                             '%d/%m/%Y'))
 
