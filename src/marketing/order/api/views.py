@@ -1237,7 +1237,7 @@ def create_order(data):
             )
             noting = order['note']
             # Jsonify note
-            note = json.dumps({'note': noting})
+            note = json.dumps({'notes': noting})
             order_data.note = note
 
             # Call save() to create Order

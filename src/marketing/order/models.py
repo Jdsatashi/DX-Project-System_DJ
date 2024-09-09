@@ -68,7 +68,8 @@ class Order(models.Model):
                 json_data = json.loads(self.note)
                 note = json.dumps(json_data)
             except ValueError as e:
-                raise ValidationError("Invalid JSON data")
+                note = {'notes': self.note}
+                self.note = note
         if not self.order_point and not self.order_price:
             self.calculate_totals()
         super().save(*args, **kwargs)
