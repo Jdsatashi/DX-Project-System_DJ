@@ -55,6 +55,7 @@ urlpatterns = [
     path('', livestream_views, name='api_livestream'),
     path('<pk>', livestream_details, name='api_livestream_detail'),
     path('<pk>/report-export/', ExportLiveReport.as_view(), name='api_livestream_detail'),
+    path('<pk>/export-users/', ApiLiveStream.as_view({'get': 'export_users'})),
     path('comments/', livestream_comment_views, name='api_livestream_comment'),
     path('stream-comments/<livestream_id>', livestream_detail_comment, name='api_livestream_detail_comment'),
     # path('products/', live_product_views, name='api_livestream_product'),

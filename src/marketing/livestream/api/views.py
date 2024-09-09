@@ -13,9 +13,9 @@ from rest_framework.response import Response
 from rest_framework.views import APIView
 from rest_framework_simplejwt.authentication import JWTAuthentication
 
-from account.handlers.perms import perm_queryset
+from account.handlers.perms import perm_queryset, get_perm_name, export_users_has_perm
 from account.handlers.validate_perm import ValidatePermRest
-from account.models import PhoneNumber
+from account.models import PhoneNumber, User, GroupPerm
 from app.logs import app_log
 from marketing.livestream.api.serializers import LiveStreamSerializer, LiveStreamCommentSerializer, \
     LiveStatistic, LiveTracking, LiveStreamDetailCommentSerializer, PeekViewSerializer, LiveOfferRegisterSerializer
@@ -40,6 +40,24 @@ class ApiLiveStream(viewsets.GenericViewSet, mixins.ListModelMixin, mixins.Creat
         response = filter_data(self, request, ['title', 'date_released', 'live_url'],
                                **kwargs)
         return Response(response, status.HTTP_200_OK)
+
+    def export_users(self, request, pk, *args, **kwargs):
+        livestream = LiveStream.objects.filter(id=pk).first()
+        if not livestream:
+            return Response({'message': f'not found livestream id {pk}'})
+
+        workbook = export_users_has_perm(livestream, pk)
+
+        # Chuẩn bị response trả về
+        response = HttpResponse(
+            content_type='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+        )
+        response['Content-Disposition'] = f'attachment; filename="UserLivestream_{pk}.xlsx"'
+
+        # Lưu workbook vào response
+        workbook.save(response)
+
+        return response
 
 
 class ApiLiveStreamComment(viewsets.GenericViewSet, mixins.ListModelMixin, mixins.CreateModelMixin):

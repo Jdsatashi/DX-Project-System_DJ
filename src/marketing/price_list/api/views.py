@@ -16,7 +16,7 @@ from rest_framework.response import Response
 from rest_framework.views import APIView
 from rest_framework_simplejwt.authentication import JWTAuthentication
 
-from account.handlers.perms import perm_queryset, get_perm_name
+from account.handlers.perms import perm_queryset, get_perm_name, export_users_has_perm
 from account.handlers.validate_perm import ValidatePermRest
 from account.models import User, GroupPerm
 from app.logs import app_log
@@ -127,39 +127,8 @@ class GenericApiPriceList(viewsets.GenericViewSet, mixins.ListModelMixin, mixins
             perm_name = get_perm_name(pl)
             perm_name_pk = perm_name + f'_{pk}'
 
-            # Tìm các nhóm có quyền liên quan và không phải là admin
-            groups_with_perm = GroupPerm.objects.filter(
-                groupperm__perm__name__icontains=perm_name_pk,
-                groupperm__allow=True
-            ).exclude(name='admin').distinct()
+            workbook = export_users_has_perm(pl, pk)
 
-            # Tìm các user có UserPerm phù hợp và không thuộc nhóm admin
-            users_with_group_perm = User.objects.filter(
-                usergroupperm__group__in=groups_with_perm,
-                usergroupperm__allow=True
-            ).distinct()
-
-            users_with_direct_perm = User.objects.filter(
-                userperm__perm__name__icontains=perm_name_pk,
-                userperm__allow=True
-            ).distinct()
-
-            # Hợp nhất hai QuerySet
-            users_with_perm = users_with_group_perm.union(users_with_direct_perm)
-            users_with_perm = users_with_perm.values_list('id', flat=True)
-            # Xử lý kết quả, chẳng hạn tạo response hoặc log thông tin
-            app_log.info(
-                f"Found {users_with_perm.count()} users with permission '{perm_name_pk}' not in 'admin' group.")
-
-            workbook = openpyxl.Workbook()
-            sheet = workbook.active
-
-            sheet['A1'] = 'maKH'
-
-            for index, user_id in enumerate(users_with_perm, start=2):
-                sheet[f'{get_column_letter(1)}{index}'] = user_id
-
-                # Chuẩn bị response trả về
             response = HttpResponse(
                 content_type='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
             )

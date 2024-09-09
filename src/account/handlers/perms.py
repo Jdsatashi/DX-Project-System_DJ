@@ -1,10 +1,13 @@
+import openpyxl
+
+from openpyxl.utils import get_column_letter
 from django.contrib.contenttypes.models import ContentType
 from django.db import models
-from django.db.models import Q
+from django.db.models import Q, Model
 from rest_framework import status
 from rest_framework.response import Response
 
-from account.models import Perm, User
+from account.models import Perm, User, GroupPerm
 from app.logs import app_log
 from utils.constants import perm_actions
 
@@ -122,3 +125,52 @@ def get_user_by_permname(perm_name):
         Q(perm_user__name=perm_name, perm_user__userperm__allow=True)
     ).distinct().values_list('id', flat=True)
     return list(user_group)
+
+
+def export_users_has_perm(model: Model, pk: str):
+    perm_name = get_perm_name(model)
+    perm_name_pk = perm_name + f'_{pk}'
+
+    # Tìm các nhóm có quyền liên quan và không phải là admin
+    groups_with_perm = GroupPerm.objects.filter(
+        groupperm__perm__name__icontains=perm_name_pk,
+        groupperm__allow=True
+    ).exclude(name='admin').distinct()
+
+    # Tìm các user có UserPerm phù hợp và không thuộc nhóm admin
+    users_with_group_perm = User.objects.filter(
+        usergroupperm__group__in=groups_with_perm,
+        usergroupperm__allow=True
+    ).distinct()
+
+    users_with_direct_perm = User.objects.filter(
+        userperm__perm__name__icontains=perm_name_pk,
+        userperm__allow=True
+    ).distinct()
+
+    # Hợp nhất hai QuerySet
+    users_with_perm = users_with_group_perm.union(users_with_direct_perm)
+    users_with_perm = users_with_perm.values_list('id', flat=True)
+    # Xử lý kết quả, chẳng hạn tạo response hoặc log thông tin
+    app_log.info(
+        f"Found {users_with_perm.count()} users with permission '{perm_name_pk}' not in 'admin' group.")
+
+    workbook = openpyxl.Workbook()
+    sheet = workbook.active
+
+    sheet['A1'] = 'maKH'
+
+    for index, user_id in enumerate(users_with_perm, start=2):
+        sheet[f'{get_column_letter(1)}{index}'] = user_id
+
+    return workbook
+    # # Chuẩn bị response trả về
+    # response = HttpResponse(
+    #     content_type='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+    # )
+    # response['Content-Disposition'] = f'attachment; filename="UserDungBangGia_{pk}.xlsx"'
+    #
+    # # Lưu workbook vào response
+    # workbook.save(response)
+    #
+    # return response
