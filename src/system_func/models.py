@@ -54,6 +54,6 @@ class PointOfSeason(models.Model):
 
         total_points = order_details.aggregate(total_point=Sum('point_get'))['total_point'] or 0
 
-        print(f"Total points: {total_points}")
+        print(f"Total points: {self.user} {total_points}")
         self.point = total_points
         self.total_point = total_points
