@@ -265,7 +265,7 @@ class ProductStatisticsView(APIView):
                     "point": detail['total_point'],
                     "quantity": detail['total_quantity'],
                     "box": detail['total_box'],
-                    "cashback": detail['total_cashback']
+                    "cashback": int(detail['total_cashback'])
                 },
                 "total_cashback": int(detail['total_cashback'])
             }
@@ -286,7 +286,7 @@ class ProductStatisticsView(APIView):
                 "point": detail['total_point'],
                 "quantity": detail['total_quantity'],
                 "box": detail['total_box'],
-                "cashback": detail['total_cashback']
+                "cashback": int(detail['total_cashback'])
             }
             combined_results[product_id]["total_cashback"] = first_cashback + int(detail['total_cashback'])
 
@@ -495,9 +495,9 @@ class TotalStatisticsView(APIView):
                     "point": detail['total_point'] or 0,
                     "quantity": detail['total_quantity'] or 0,
                     "box": detail['total_box'] or 0,
-                    "cashback": detail['total_cashback'] or 0
+                    "cashback": int(detail['total_cashback'] or 0)
                 },
-                "total_cashback": detail['total_cashback'] or 0
+                "total_cashback": int(detail['total_cashback'] or 0)
             }
             total_price += detail['total_price'] or 0
             total_point += detail['total_point'] or 0
@@ -532,7 +532,7 @@ class TotalStatisticsView(APIView):
                 "point": detail['total_point'] or 0,
                 "quantity": detail['total_quantity'] or 0,
                 "box": detail['total_box'] or 0,
-                "cashback": detail['total_cashback'] or 0
+                "cashback": int(detail['total_cashback'] or 0)
             }
             total_price_2 += detail['total_price'] or 0
             total_point_2 += detail['total_point'] or 0
