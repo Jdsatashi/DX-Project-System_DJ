@@ -215,7 +215,7 @@ class ProductStatisticsView(APIView):
             total_price=Sum('product_price'),
             total_box=Sum('order_box'),
             total_cashback=Sum(Case(
-                When(price_so__isnull=False, then=Abs(Coalesce(F('price_so'), 0.0)) * F('order_box')),
+                When(price_so__isnull=False, then=Coalesce(F('price_so'), 0.0) * F('order_box')),
                 default=0,
                 output_field=FloatField()
             ))
@@ -226,7 +226,7 @@ class ProductStatisticsView(APIView):
             total_price=Sum('product_price'),
             total_box=Sum('order_box'),
             total_cashback=Sum(Case(
-                When(price_so__isnull=False, then=Abs(Coalesce(F('price_so'), 0.0)) * F('order_box')),
+                When(price_so__isnull=False, then=Coalesce(F('price_so'), 0.0) * F('order_box')),
                 default=0,
                 output_field=FloatField()
             ))
@@ -265,7 +265,7 @@ class ProductStatisticsView(APIView):
                     "point": detail['total_point'],
                     "quantity": detail['total_quantity'],
                     "box": detail['total_box'],
-                    "cashback": int(detail['total_cashback'])
+                    "cashback": detail['total_cashback']
                 },
                 "total_cashback": int(detail['total_cashback'])
             }
@@ -286,7 +286,7 @@ class ProductStatisticsView(APIView):
                 "point": detail['total_point'],
                 "quantity": detail['total_quantity'],
                 "box": detail['total_box'],
-                "cashback": int(detail['total_cashback'])
+                "cashback": detail['total_cashback']
             }
             combined_results[product_id]["total_cashback"] = first_cashback + int(detail['total_cashback'])
 
@@ -456,7 +456,7 @@ class TotalStatisticsView(APIView):
             total_box=Sum('order_detail__order_box'),
             total_cashback=Sum(Case(
                 When(order_detail__price_so__isnull=False,
-                     then=Abs(Coalesce('order_detail__price_so', 0.0)) * F('order_detail__order_box')),
+                     then=Coalesce('order_detail__price_so', 0.0) * F('order_detail__order_box')),
                 default=0,
                 output_field=FloatField()
             ))
@@ -469,7 +469,7 @@ class TotalStatisticsView(APIView):
             total_box=Sum('order_detail__order_box'),
             total_cashback=Sum(Case(
                 When(order_detail__price_so__isnull=False,
-                     then=Abs(Coalesce('order_detail__price_so', 0.0)) * F('order_detail__order_box')),
+                     then=Coalesce('order_detail__price_so', 0.0) * F('order_detail__order_box')),
                 default=0,
                 output_field=FloatField()
             ))
@@ -495,9 +495,9 @@ class TotalStatisticsView(APIView):
                     "point": detail['total_point'] or 0,
                     "quantity": detail['total_quantity'] or 0,
                     "box": detail['total_box'] or 0,
-                    "cashback": int(detail['total_cashback'] or 0)
+                    "cashback": detail['total_cashback'] or 0
                 },
-                "total_cashback": int(detail['total_cashback'] or 0)
+                "total_cashback": detail['total_cashback'] or 0
             }
             total_price += detail['total_price'] or 0
             total_point += detail['total_point'] or 0
@@ -532,7 +532,7 @@ class TotalStatisticsView(APIView):
                 "point": detail['total_point'] or 0,
                 "quantity": detail['total_quantity'] or 0,
                 "box": detail['total_box'] or 0,
-                "cashback": int(detail['total_cashback'] or 0)
+                "cashback": detail['total_cashback'] or 0
             }
             total_price_2 += detail['total_price'] or 0
             total_point_2 += detail['total_point'] or 0
