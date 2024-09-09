@@ -5,13 +5,14 @@ import os
 import pandas as pd
 from dateutil.relativedelta import relativedelta
 from django.db import transaction
-from django.db.models import Q, Sum
+from django.db.models import Q, Sum, Prefetch
 
 from account.models import User
 from app.settings import PROJECT_DIR
 from marketing.order.models import Order, OrderDetail
 from marketing.sale_statistic.models import UserSaleStatistic, SaleTarget, UsedTurnover
 from system_func.models import PeriodSeason, PointOfSeason
+from user_system.client_profile.models import ClientProfile
 
 
 def remove_user_orders(user_id: str):
@@ -105,6 +106,39 @@ def turnover_user(users, first_date, last_date):
                                         note='tính tự động')
             UsedTurnover.objects.create(user_sale_stats=user_stats, turnover=-abs(total_used), purpose='admin_fix',
                                         note='tính tự động')
+
+
+def delete_new_order():
+    orders = Order.objects.filter(id__startswith='MTN').delete()
+
+
+def get_order_by_npp(start_date, end_date):
+    orders = Order.objects.filter(
+        date_company_get__gte=start_date,
+        date_company_get__lt=end_date
+    ).exclude(status='deactivate').prefetch_related(
+        Prefetch('client_id__clientprofile')
+    )
+
+    # Bước 2 và 3: Lấy danh sách client_profile và lọc theo client_lv1_id
+    client_profiles = ClientProfile.objects.filter(
+        client_id__in=orders.values_list('client_id', flat=True)
+    ).select_related('client_group_id')
+
+    # Bước 4: Nhóm các đơn hàng theo client_lv1_id
+    orders_by_client_lv1 = {}
+    for profile in client_profiles:
+        client_lv1_id = profile.client_lv1_id
+        if client_lv1_id:
+            if client_lv1_id not in orders_by_client_lv1:
+                orders_by_client_lv1[client_lv1_id] = []
+            client_orders = orders.filter(client_id=profile.client_id)
+            orders_by_client_lv1[client_lv1_id].extend(client_orders)
+
+    # Xử lý trường hợp không có clientprofile hoặc không có client_lv1_id
+    orders_no_lv1 = orders.filter(client_id__clientprofile__isnull=True) | orders.filter(
+        client_id__clientprofile__client_lv1_id__isnull=True)
+    orders_by_client_lv1['no_client_lv1'] = list(orders_no_lv1)
 
 
 def update_nvtt():
