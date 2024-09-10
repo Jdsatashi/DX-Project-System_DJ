@@ -1140,40 +1140,6 @@ def generate_order_excel(orders: QuerySet[Order]):
 
             row_num += 1
 
-    final_row = row_num - 1
-
-    top_left_border = Border(top=Side(style='medium'), left=Side(style='medium'))
-    top_border = Border(top=Side(style='medium'))
-    top_right_border = Border(top=Side(style='medium'), right=Side(style='medium'))
-    left_border = Border(left=Side(style='medium'))
-    right_border = Border(right=Side(style='medium'))
-    bottom_left_border = Border(bottom=Side(style='medium'), left=Side(style='medium'))
-    bottom_border = Border(bottom=Side(style='medium'))
-    bottom_right_border = Border(bottom=Side(style='medium'), right=Side(style='medium'))
-
-    start_row = 5
-    end_row = final_row
-    start_col = 1
-    end_col = len(columns)
-    for row in range(start_row, end_row + 1):
-        for col in range(start_col, end_col + 1):
-            cell = sheet.cell(row=row, column=col)
-            if row == start_row and col == start_col:
-                cell.border = top_left_border
-            elif row == start_row and col == end_col:
-                cell.border = top_right_border
-            elif row == end_row and col == start_col:
-                cell.border = bottom_left_border
-            elif row == end_row and col == end_col:
-                cell.border = bottom_right_border
-            elif row == start_row:
-                cell.border = top_border
-            elif row == end_row:
-                cell.border = bottom_border
-            elif col == start_col:
-                cell.border = left_border
-            elif col == end_col:
-                cell.border = right_border
     return workbook
 
 
