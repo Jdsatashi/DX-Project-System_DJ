@@ -58,35 +58,8 @@ class ApiAccount(viewsets.GenericViewSet, mixins.ListModelMixin, mixins.CreateMo
         self.serializer_class = UserListSerializer
 
         get_user = self.request.query_params.get('get_user', None)
-        match get_user:
-            case 'nvtt':
-                app_log.info(f"Case nvtt")
-                queryset = queryset.filter(
-                    group_user__name='nvtt'
-                )
-            case 'client':
-                app_log.info(f"Case client")
-                queryset = queryset.filter(user_type='client')
-            case 'employee':
-                app_log.info(f"Case employee")
-                queryset = queryset.filter(user_type='employee').exclude(group_user__name=admin_role)
-            case 'farmer':
-                app_log.info(f"Case farmer")
-                queryset = queryset.filter(user_type='farmer')
-            case 'admin':
-                app_log.info(f"Case admin")
-                # queryset = queryset.filter(is_superuser=True)
-                queryset = queryset.filter(group_user__name=admin_role)
-            case 'npp':
-                app_log.info(f"Case npp")
-                queryset = queryset.filter(Q(clientprofile__is_npp=True) | Q(group_user__name='npp'))
-            case 'daily':
-                app_log.info(f"Case daily")
-                queryset = queryset.filter(user_type='client').exclude(
-                    Q(group_user__name='npp') | Q(clientprofile__is_npp=True))
-            case _:
-                app_log.info(f"Case default")
-                pass
+        queryset = self.get_users_query(queryset, get_user)
+
         queryset = queryset.distinct()
 
         npp = self.request.query_params.get('npp', None)
@@ -130,6 +103,47 @@ class ApiAccount(viewsets.GenericViewSet, mixins.ListModelMixin, mixins.CreateMo
                                queryset=queryset, **kwargs)
         app_log.info(f"Query time: {time.time() - start_time}")
         return Response(response, status.HTTP_200_OK)
+
+    def export_users(self, request, *args, **kwargs):
+        queryset = User.objects.all().select_related('clientprofile', 'employeeprofile').prefetch_related(
+            'phone_numbers', 'group_user')
+
+        get_user = self.request.query_params.get('get_user', None)
+        queryset = self.get_users_query(queryset, get_user)
+
+        queryset = queryset.distinct()
+
+    def get_users_query(self, queryset, get_user):
+        match get_user:
+            case 'nvtt':
+                app_log.info(f"Case nvtt")
+                queryset = queryset.filter(
+                    group_user__name='nvtt'
+                )
+            case 'client':
+                app_log.info(f"Case client")
+                queryset = queryset.filter(user_type='client')
+            case 'employee':
+                app_log.info(f"Case employee")
+                queryset = queryset.filter(user_type='employee').exclude(group_user__name=admin_role)
+            case 'farmer':
+                app_log.info(f"Case farmer")
+                queryset = queryset.filter(user_type='farmer')
+            case 'admin':
+                app_log.info(f"Case admin")
+                # queryset = queryset.filter(is_superuser=True)
+                queryset = queryset.filter(group_user__name=admin_role)
+            case 'npp':
+                app_log.info(f"Case npp")
+                queryset = queryset.filter(Q(clientprofile__is_npp=True) | Q(group_user__name='npp'))
+            case 'daily':
+                app_log.info(f"Case daily")
+                queryset = queryset.filter(user_type='client').exclude(
+                    Q(group_user__name='npp') | Q(clientprofile__is_npp=True))
+            case _:
+                app_log.info(f"Case default")
+                pass
+        return queryset
 
 
 class ApiUpdateUserProfile(viewsets.GenericViewSet, mixins.RetrieveModelMixin, mixins.UpdateModelMixin):

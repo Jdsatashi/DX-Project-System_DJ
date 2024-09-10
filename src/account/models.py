@@ -1,4 +1,5 @@
 import datetime
+import re
 
 from django.apps import apps
 from django.contrib.auth.hashers import is_password_usable, make_password
@@ -97,8 +98,6 @@ class User(AbstractBaseUser, PermissionsMixin):
         self.username = self.username if self.username and self.username != '' else self.id
         if self.password is None or self.password == '':
             self.password = self.id.lower()
-
-        if not is_password_usable(self.password):
             self.password = make_password(self.password)
 
         if self.email == '':

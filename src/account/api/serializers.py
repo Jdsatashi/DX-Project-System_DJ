@@ -1,4 +1,5 @@
 import requests
+from django.contrib.auth.hashers import make_password
 from django.db import transaction, IntegrityError
 from django.db.models import Q
 from rest_framework import serializers
@@ -283,8 +284,9 @@ class UserWithPerm(serializers.ModelSerializer):
                 if email and email != '' and User.objects.filter(email=email).exists():
                     raise serializers.ValidationError(
                         {'message': f"email '{email}' already exists"})
-
-                user = super().create(validated_data)
+                if validated_data.get('password', None):
+                    validated_data['password'] = make_password(validated_data['password'])
+                user = User.objects.create(**validated_data)
                 print(f"Test main phone: {main_phone}")
                 # Create phone
                 if phone_data:
@@ -322,6 +324,8 @@ class UserWithPerm(serializers.ModelSerializer):
             with transaction.atomic():
                 # Update user fields
                 for attr, value in validated_data.items():
+                    if attr == 'password':
+                        value = make_password(value)
                     setattr(instance, attr, value)
                 instance.save()
 
