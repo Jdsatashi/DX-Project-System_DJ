@@ -41,6 +41,7 @@ from system_func.models import PeriodSeason, PointOfSeason
 from user_system.client_profile.models import ClientProfile
 from user_system.employee_profile.models import EmployeeProfile
 from utils.constants import maNhomND, so_type, data_status
+from utils.datetime_handle import convert_date_format
 from utils.model_filter_paginate import filter_data, get_query_parameters, build_absolute_uri_with_params
 
 
@@ -913,14 +914,32 @@ def handle_order(request) -> QuerySet[Order]:
         else:
             orders = orders.filter(order_query | order_detail_query | client_profile_query)
 
-    valid_fields = [f.name for f in Order._meta.get_fields()]
-    try:
-        if order_by in valid_fields or order_by.lstrip('-') in valid_fields:
-            orders = orders.order_by(order_by)
-        else:
+    # valid_fields = [f.name for f in Order._meta.get_fields()]
+    # try:
+    #     if order_by in valid_fields or order_by.lstrip('-') in valid_fields:
+    #         orders = orders.order_by(order_by)
+    #     else:
+    #         orders = orders.order_by('created_at')
+    # except FieldError:
+    #     orders = orders.order_by('id')
+
+    order_by_fields = order_by.split(',')
+    normalized_fields = []
+    for field in order_by_fields:
+        normalized_field = field.strip().lstrip('-')
+        if normalized_field in [f.name for f in Order._meta.get_fields()]:
+            normalized_fields.append(field.strip())  # Maintain order direction
+
+    if normalized_fields:
+        orders = orders.order_by(*normalized_fields)
+    else:
+        try:
             orders = orders.order_by('created_at')
-    except FieldError:
-        orders = orders.order_by('id')
+        except FieldError:
+            orders = orders.order_by('id')
+        except Exception as e:
+            app_log.error("Error in order_by with default fields")
+            raise e
 
     orders = orders.select_related('client_id').prefetch_related(
         Prefetch('order_detail', queryset=OrderDetail.objects.select_related('product_id'))
@@ -1179,8 +1198,8 @@ class ApiImportOrder(APIView):
             return Response({'message': f'file_import is required'})
         file_extension = os.path.splitext(file.name)[1].lower()
 
-        if file_extension not in ['.xls', '.xlsx']:
-            return Response({'message': 'File must be .xls or .xlsx'}, status=status.HTTP_400_BAD_REQUEST)
+        if file_extension not in ['.xlsx']:
+            return Response({'message': 'File must be .xlsx'}, status=status.HTTP_400_BAD_REQUEST)
 
         try:
             data = get_excel_to_dict(file)
@@ -1387,19 +1406,3 @@ def get_excel_to_dict(file):
         result.append(common_data)
 
     return result
-
-
-def convert_date_format(date_input):
-    if isinstance(date_input, pd.Timestamp):
-        return date_input.date()
-    elif isinstance(date_input, datetime):
-        return date_input.date()
-    elif isinstance(date_input, str):
-        try:
-            return datetime.strptime(date_input, '%d/%m/%Y').date()
-        except ValueError:
-            try:
-                return datetime.strptime(date_input, '%Y-%m-%d').date()
-            except ValueError:
-                pass
-    return None

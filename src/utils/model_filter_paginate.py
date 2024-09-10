@@ -154,23 +154,40 @@ def filter_data(self, request, query_fields, **kwargs):
         except ValueError:
             pass
     # Get fields in models
-    valid_fields = [f.name for f in model._meta.get_fields()]
+    # valid_fields = [f.name for f in model._meta.get_fields()]
     # Check field order_by exists, then order queryset
-    try:
-        if order_by in valid_fields or order_by.lstrip('-') in valid_fields:
-            queryset = queryset.order_by(order_by)
-        elif not order_by_required:
-            pass
-        else:
-            try:
-                queryset = queryset.order_by('created_at')
-            except FieldError:
-                queryset = queryset.order_by('id')
-            except Exception as e:
-                app_log.error(f"Error order_by fields")
-                raise e
-    except FieldError:
-        pass
+    # try:
+    #     if order_by in valid_fields or order_by.lstrip('-') in valid_fields:
+    #         queryset = queryset.order_by(order_by)
+    #     elif not order_by_required:
+    #         pass
+    #     else:
+    #         try:
+    #             queryset = queryset.order_by('created_at')
+    #         except FieldError:
+    #             queryset = queryset.order_by('id')
+    #         except Exception as e:
+    #             app_log.error(f"Error order_by fields")
+    #             raise e
+    # except FieldError:
+    #     pass
+    order_by_fields = order_by.split(',')
+    normalized_fields = []
+    for field in order_by_fields:
+        normalized_field = field.strip().lstrip('-')
+        if normalized_field in [f.name for f in model._meta.get_fields()]:
+            normalized_fields.append(field.strip())  # Maintain order direction
+
+    if normalized_fields:
+        queryset = queryset.order_by(*normalized_fields)
+    elif order_by_required:
+        try:
+            queryset = queryset.order_by('created_at')
+        except FieldError:
+            queryset = queryset.order_by('id')
+        except Exception as e:
+            app_log.error("Error in order_by with default fields")
+            raise e
 
     # Get total items
     total_count = queryset.count()
@@ -205,16 +222,6 @@ def filter_data(self, request, query_fields, **kwargs):
         'current_page': page,
         'total_count': total_count,
     }
-    # if page_obj.has_next():
-    #     next_page = request.build_absolute_uri(
-    #         '?page={}&limit={}&query={}&order_by={}&date_field={}&from_date={}&to_date={}'.format(
-    #             page_obj.next_page_number(), limit, query, order_by, date_field, from_date, to_date))
-    #     response_data['next_page'] = next_page
-    # if page_obj.has_previous():
-    #     prev_page = request.build_absolute_uri(
-    #         '?page={}&limit={}&query={}&order_by={}&date_field={}&from_date={}&to_date={}'.format(
-    #             page_obj.previous_page_number(), limit, query, order_by, date_field, from_date, to_date))
-    #     response_data['prev_page'] = prev_page
 
     extra_params = kwargs.get('extra_params', {})
 
