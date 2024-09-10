@@ -46,6 +46,6 @@ def send_bulk_email(emails, context, date_get, excel_data):
         from_email=settings.EMAIL_HOST_USER,
         to=emails,
     )
-    file_name = f"Báo cáo {date_get}.xlsx"
+    file_name = f"BaoCaoToa_{date_get}.xlsx"
     email.attach(file_name, excel_data.read(), 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet')
     email.send()
