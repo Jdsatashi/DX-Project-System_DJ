@@ -34,7 +34,7 @@ class UserAdmin(BaseUserAdmin):
         else:  # Editing an existing user
             return (
                 (None, {'classes': ('wide',), 'fields': (
-                    'username', 'email', 'region', 'status', 'user_type', 'is_active', 'is_staff',
+                    'username', 'email', 'password1', 'password2', 'region', 'status', 'user_type', 'is_active', 'is_staff',
                     'is_superuser')}),
             )
 
