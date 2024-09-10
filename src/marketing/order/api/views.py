@@ -943,7 +943,7 @@ def handle_order(request) -> QuerySet[Order]:
 
     orders = orders.select_related('client_id').prefetch_related(
         Prefetch('order_detail', queryset=OrderDetail.objects.select_related('product_id'))
-    )
+    ).distinct()
 
     return orders
 

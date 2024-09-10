@@ -188,7 +188,7 @@ def filter_data(self, request, query_fields, **kwargs):
         except Exception as e:
             app_log.error("Error in order_by with default fields")
             raise e
-
+    queryset = queryset.distinct()
     # Get total items
     total_count = queryset.count()
 
