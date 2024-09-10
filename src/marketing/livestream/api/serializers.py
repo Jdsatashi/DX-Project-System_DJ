@@ -94,7 +94,8 @@ class LiveStreamSerializer(BaseRestrictSerializer):
 
                 livestream = LiveStream.objects.create(**data)
 
-                self.handle_restrict_import_users_id(import_users, perm_data)
+                user_actions = [perm_actions['view'], perm_actions['create']]
+                self.handle_restrict_import_users_id(import_users, perm_data, user_actions)
                 restrict = perm_data.get('restrict')
 
                 if restrict:
@@ -116,9 +117,9 @@ class LiveStreamSerializer(BaseRestrictSerializer):
                 for attr, value in data.items():
                     setattr(instance, attr, value)
                 instance.save()
-
+                user_actions = [perm_actions['view'], perm_actions['create']]
                 # Handle restrictions (if any)
-                self.handle_restrict_import_users_id(import_users, perm_data)
+                self.handle_restrict_import_users_id(import_users, perm_data, user_actions)
                 restrict = perm_data.get('restrict')
                 perm_name = get_perm_name(self.Meta.model)
                 perm_name = perm_name + f"_{instance.id}"

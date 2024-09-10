@@ -78,7 +78,7 @@ class BaseRestrictSerializer(serializers.ModelSerializer):
         }
         return data, perm_data
 
-    def handle_restrict_import_users_id(self, import_users, perm_data):
+    def handle_restrict_import_users_id(self, import_users, perm_data, user_actions):
         if import_users:
             users = perm_data.pop('allow_users', None)
             users_list = get_user_list(import_users)
@@ -89,7 +89,7 @@ class BaseRestrictSerializer(serializers.ModelSerializer):
                         users_list.append(user)
             perm_data['allow_users'] = users_list
             actions = perm_data.pop('allow_actions', None)
-            user_actions = [perm_actions['view'], perm_actions['create']]
+            # user_actions = [perm_actions['view'], perm_actions['create']]
             perm_data['allow_actions'] = user_actions
             perm_data['restrict'] = True
 

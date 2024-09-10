@@ -10,7 +10,7 @@ from app.logs import app_log
 from marketing.price_list.models import PriceList, ProductPrice, SpecialOfferProduct, SpecialOffer
 from marketing.product.models import Product
 from user_system.employee_profile.models import EmployeeProfile
-from utils.constants import so_type_list, perm_actions
+from utils.constants import so_type_list, perm_actions, so_type
 from utils.import_excel import get_user_list
 
 
@@ -132,19 +132,10 @@ class PriceListSerializer(BaseRestrictSerializer):
                         except Product.DoesNotExist:
                             raise serializers.ValidationError(
                                 {'message': f'Product with ID {product_id} does not exist.'})
-                if import_users:
-                    users = perm_data.pop('allow_users', None)
-                    users_list = get_user_list(import_users)
-                    users_list = list(set(users_list))
-                    if users:
-                        for user in users:
-                            if user.lower() not in users_list and user.upper() not in users_list:
-                                users_list.append(user)
-                    perm_data['allow_users'] = users_list
-                    actions = perm_data.pop('allow_actions', None)
-                    user_actions = [perm_actions['view'], perm_actions['create']]
-                    perm_data['allow_actions'] = user_actions
-                    perm_data['restrict'] = True
+
+                user_actions = [perm_actions['view'], perm_actions['create']]
+                self.handle_restrict_import_users_id(import_users, perm_data, user_actions)
+
                 # Add permission
                 restrict = perm_data.get('restrict')
                 if restrict:
@@ -190,19 +181,10 @@ class PriceListSerializer(BaseRestrictSerializer):
                                 'point': product_data.get('point'),
                             }
                         )
-                if import_users:
-                    users = perm_data.pop('allow_users', None)
-                    users_list = get_user_list(import_users)
-                    users_list = list(set(users_list))
-                    if users:
-                        for user in users:
-                            if user.lower() not in users_list and user.upper() not in users_list:
-                                users_list.append(user)
-                    perm_data['allow_users'] = users_list
-                    actions = perm_data.pop('allow_actions', None)
-                    user_actions = [perm_actions['view'], perm_actions['create']]
-                    perm_data['allow_actions'] = user_actions
-                    perm_data['restrict'] = True
+
+                user_actions = [perm_actions['view'], perm_actions['create']]
+                self.handle_restrict_import_users_id(import_users, perm_data, user_actions)
+
                 # Handle permissions if needed
                 restrict = perm_data.get('restrict')
                 if restrict:
@@ -278,6 +260,7 @@ class SpecialOfferProductSerializer(serializers.ModelSerializer):
 
 class SpecialOfferSerializer(BaseRestrictSerializer):
     special_offers = SpecialOfferProductSerializer(many=True, required=False, allow_null=True)
+    import_users = serializers.FileField(required=False, allow_null=True)
 
     class Meta:
         model = SpecialOffer
@@ -306,7 +289,7 @@ class SpecialOfferSerializer(BaseRestrictSerializer):
     def create(self, validated_data):
         # Split insert data
         data, perm_data = self.split_data(validated_data)
-
+        import_users = data.pop('import_users', None)
         products_data = data.pop('special_offers', None)
         try:
             with transaction.atomic():
@@ -332,6 +315,9 @@ class SpecialOfferSerializer(BaseRestrictSerializer):
                 #     perm_data['read_only_users'] = list(nvtt_ids)
                 #     perm_data['hide_users'] = users
                 #     perm_data['allow_users'] = users + list(nvtt_ids)
+                if special_offer.type_list == so_type.manual:
+                    user_actions = [perm_actions['view'], perm_actions['create']]
+                    self.handle_restrict_import_users_id(import_users, perm_data, user_actions)
                 # Create perm for data
                 restrict = perm_data.get('restrict')
                 if restrict:
@@ -345,6 +331,7 @@ class SpecialOfferSerializer(BaseRestrictSerializer):
     def update(self, instance: SpecialOffer, validated_data):
         # Split insert data
         data, perm_data = self.split_data(validated_data)
+        import_users = data.pop('import_users', None)
         products_data = data.pop('special_offers', None)
         try:
             with transaction.atomic():
@@ -400,6 +387,10 @@ class SpecialOfferSerializer(BaseRestrictSerializer):
                             product.delete()
                 # if instance.for_nvtt:
                 # perm_data['groups'] = ['nvtt']
+                if instance.type_list == so_type.manual:
+                    user_actions = [perm_actions['view'], perm_actions['create']]
+                    self.handle_restrict_import_users_id(import_users, perm_data, user_actions)
+
                 restrict = perm_data.get('restrict')
                 perm_name = get_perm_name(self.Meta.model)
                 perm_name = perm_name + f"_{instance.id}"
