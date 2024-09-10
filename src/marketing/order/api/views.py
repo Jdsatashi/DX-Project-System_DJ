@@ -1220,8 +1220,11 @@ class ApiImportOrder(APIView):
 def create_order(data):
     error_data = list()
     update_list = list()
+    start_line = 2
+
     with transaction.atomic():
         for order in data:
+            start_line += 1
             # Split detail data
             details_data = order.pop('order_detail')
             # Get client id
@@ -1232,9 +1235,10 @@ def create_order(data):
             if not client:
                 # Print data to errors
                 data_error = {
+                    'error_line': start_line,
                     'group_order': order.get('group_order'),
                     'client_id': order.get('client_id'),
-                    'order_detail': details_data
+                    'message': f'user {order.get("client_id")} không tồn tại'
                 }
                 error_data.append(data_error)
                 # Skip this loop
@@ -1276,15 +1280,33 @@ def create_order(data):
             }
             total_point = 0
             total_price = 0
+            detail_error = False
             # Loop to details_data
             for detail in details_data:
+                if detail_error:
+                    break
                 # Trying get product object
                 product = Product.objects.filter(id=detail['product_id']).first()
                 point = 0
                 # If product not found
                 if not product:
                     # Create new products
-                    product = Product.objects.create(id=detail['product_id'], name=detail['product_name'])
+                    try:
+                        product = Product.objects.create(id=detail['product_id'], name=detail['product_name'])
+                    except Exception as e:
+                        # Print data to errors
+                        data_error = {
+                            'error_line': start_line,
+                            'group_order': order.get('group_order'),
+                            'client_id': order.get('client_id'),
+                            'message': f'không thể tạo product {detail["product_id"]}',
+                            'detail': e
+                        }
+                        error_data.append(data_error)
+                        # Skip this loop
+                        detail_error = True
+                        break
+                    # continue
                 else:
                     product_price = ProductPrice.objects.filter(price_list=main_pl, product=product)
                     if product_price.exists():
@@ -1318,6 +1340,9 @@ def create_order(data):
                 detail_order.append(order_detail)
                 if price_so and not so_data.get('is_so'):
                     so_data['is_so'] = True
+            if detail_error:
+                order_data.delete()
+                continue
             order_data.order_point = total_point
             order_data.order_price = total_price
             if so_data.get('is_so'):
@@ -1331,6 +1356,7 @@ def create_order(data):
             update_season_stats_user(client, order_data.date_get)
             is_so = order_data.is_so if order_data.is_so in [False, True] else False
             update_user_turnover(client, order_data, is_so, so_data=so_data)
+
     return update_list, error_data
 
 
@@ -1348,7 +1374,6 @@ def handle_after_order(user: User, point: float, price: int):
 def get_excel_to_dict(file):
     # Đọc dữ liệu từ file Excel
     df = pd.read_excel(file, engine='openpyxl')
-
     # Định nghĩa mapping giữa tên cột Excel và key trong dict
     column_mapping = {
         'Mã toa': 'group_order',
