@@ -19,7 +19,7 @@ from django.http import StreamingHttpResponse
 from django.utils import timezone
 from openpyxl.styles import Font, Alignment, PatternFill, Border, Side
 from openpyxl.utils import get_column_letter
-from rest_framework import viewsets, mixins, status
+from rest_framework import viewsets, mixins, status, serializers
 from rest_framework.authentication import BasicAuthentication, SessionAuthentication
 from rest_framework.decorators import action
 from rest_framework.response import Response
@@ -1220,143 +1220,144 @@ class ApiImportOrder(APIView):
 def create_order(data):
     error_data = list()
     update_list = list()
-    start_line = 2
+    start_line = 1
 
-    with transaction.atomic():
-        for order in data:
-            start_line += 1
-            # Split detail data
-            details_data = order.pop('order_detail')
-            # Get client id
-            user_id = order.get('client_id')
-            # Trying query get user by client id
-            client = User.objects.filter(id=user_id).first()
-            # When client not exist
-            if not client:
-                # Print data to errors
-                data_error = {
-                    'error_line': start_line,
-                    'group_order': order.get('group_order'),
-                    'client_id': order.get('client_id'),
-                    'message': f'user {order.get("client_id")} không tồn tại'
-                }
-                error_data.append(data_error)
-                # Skip this loop
-                continue
-            nvtt = User.objects.filter(clientprofile__register_name__icontains=order['nvtt'], group_user__name='nvtt')
-            nvtt_id = ''
-            if nvtt.exists():
-                nvtt_id = nvtt.first().id
-            # Create Order data
-            order_data = Order(
-                client_id=client,
-                list_type=order['type_list'],
-                date_get=order['date_get'],
-                date_company_get=order['date_company_get'],
-                date_delay=order['date_delay'],
-                nvtt_id=nvtt_id,
-                created_by=order['created_by'],
-                status=data_status.active
-            )
-            noting = order['note']
-            # Jsonify note
-            note = json.dumps({'notes': noting})
-            order_data.note = note
-
-            # Call save() to create Order
-            order_data.save()
-
-            main_pl = PriceList.get_main_pl()
-            detail_order = list()
-            turnover_minus = order.get('minus_turnover', None)
-            count_so = order.get('count_so', None)
-            count_turnover = False
-            if count_so not in ['', 'nan', None]:
-                count_turnover = True
-            so_data = {
-                'is_so': False,
-                'minus': turnover_minus,
-                'count': count_turnover
-            }
-            total_point = 0
-            total_price = 0
-            detail_error = False
-            # Loop to details_data
-            for detail in details_data:
-                if detail_error:
-                    break
-                # Trying get product object
-                product = Product.objects.filter(id=detail['product_id']).first()
-                point = 0
-                # If product not found
-                if not product:
-                    # Create new products
-                    try:
-                        product = Product.objects.create(id=detail['product_id'], name=detail['product_name'])
-                    except Exception as e:
-                        # Print data to errors
-                        data_error = {
-                            'error_line': start_line,
-                            'group_order': order.get('group_order'),
-                            'client_id': order.get('client_id'),
-                            'message': f'không thể tạo product {detail["product_id"]}',
-                            'detail': e
-                        }
-                        error_data.append(data_error)
-                        # Skip this loop
-                        detail_error = True
-                        break
-                    # continue
-                else:
-                    product_price = ProductPrice.objects.filter(price_list=main_pl, product=product)
-                    if product_price.exists():
-                        product_price = product_price.first()
-                        point = product_price.point
-
-                note = {
-                    'id': product.id,
-                    'price': detail['price'],
-                    'point': 0,
-                    'to_money': ''
-                }
-                note = json.dumps(note)
-                points = point * detail['box']
-                price = detail['total_price'] if detail['total_price'] else 0
-                price_so = detail['price_so'] if detail['price_so'] not in ['', None, 'nan'] else None
-                order_detail = OrderDetail(
-                    order_id=order_data,
-                    product_id=product,
-                    order_quantity=detail['quantity'],
-                    order_box=detail['box'],
-
-                    note=note,
-                    product_price=price,
-                    point_get=points,
-                    price_so=price_so
+    try:
+        with transaction.atomic():
+            for order in data:
+                start_line += 1
+                # Split detail data
+                details_data = order.pop('order_detail')
+                # Get client id
+                user_id = order.get('client_id')
+                # Trying query get user by client id
+                client = User.objects.filter(id=user_id).first()
+                # When client not exist
+                if not client:
+                    # Print data to errors
+                    data_error = {
+                        'error_line': start_line,
+                        'group_order': order.get('group_order'),
+                        'client_id': order.get('client_id'),
+                        'message': f'user {order.get("client_id")} không tồn tại'
+                    }
+                    error_data.append(data_error)
+                    # Skip this loop
+                    continue
+                nvtt = User.objects.filter(clientprofile__register_name__icontains=order['nvtt'], group_user__name='nvtt')
+                nvtt_id = ''
+                if nvtt.exists():
+                    nvtt_id = nvtt.first().id
+                # Create Order data
+                order_data = Order(
+                    client_id=client,
+                    list_type=order['type_list'],
+                    date_get=order['date_get'],
+                    date_company_get=order['date_company_get'],
+                    date_delay=order['date_delay'],
+                    nvtt_id=nvtt_id,
+                    created_by=order['created_by'],
+                    status=data_status.active
                 )
-                total_price += price
-                total_point += points
-                #     total_price += detail['price']
-                detail_order.append(order_detail)
-                if price_so and not so_data.get('is_so'):
-                    so_data['is_so'] = True
-            if detail_error:
-                order_data.delete()
-                continue
-            order_data.order_point = total_point
-            order_data.order_price = total_price
-            if so_data.get('is_so'):
-                order_data.is_so = so_data.get('is_so')
-            order_data.save()
-            # if has_nvtt and all(product_prices):
-            # handle_after_order(client, total_point, total_price)
-            update_list.append(order_data.id)
-            OrderDetail.objects.bulk_create(detail_order)
-            update_point(client)
-            update_season_stats_user(client, order_data.date_get)
-            is_so = order_data.is_so if order_data.is_so in [False, True] else False
-            update_user_turnover(client, order_data, is_so, so_data=so_data)
+                noting = order['note']
+                # Jsonify note
+                note = json.dumps({'notes': noting})
+                order_data.note = note
 
+                # Call save() to create Order
+                order_data.save()
+
+                main_pl = PriceList.get_main_pl()
+                detail_order = list()
+                turnover_minus = order.get('minus_turnover', None)
+                count_so = order.get('count_so', None)
+                count_turnover = False
+                if count_so not in ['', 'nan', None]:
+                    count_turnover = True
+                so_data = {
+                    'is_so': False,
+                    'minus': turnover_minus,
+                    'count': count_turnover
+                }
+                total_point = 0
+                total_price = 0
+                detail_error = False
+                # Loop to details_data
+                for detail in details_data:
+                    if detail_error:
+                        break
+                    # Trying get product object
+                    product = Product.objects.filter(id=detail['product_id']).first()
+                    point = 0
+                    # If product not found
+                    if not product:
+                        # Create new products
+                        try:
+                            product = Product.objects.create(id=detail['product_id'], name=detail['product_name'])
+                        except Exception as e:
+                            # Print data to errors
+                            data_error = {
+                                'error_line': start_line,
+                                'group_order': order.get('group_order'),
+                                'client_id': order.get('client_id'),
+                                'message': f'không thể tạo product {detail["product_id"]}',
+                                'detail': e
+                            }
+                            error_data.append(data_error)
+                            # Skip this loop
+                            detail_error = True
+                            break
+                        # continue
+                    else:
+                        product_price = ProductPrice.objects.filter(price_list=main_pl, product=product)
+                        if product_price.exists():
+                            product_price = product_price.first()
+                            point = product_price.point
+
+                    note = {
+                        'id': product.id,
+                        'price': detail['price'],
+                        'point': 0,
+                        'to_money': ''
+                    }
+                    note = json.dumps(note)
+                    points = point * detail['box']
+                    price = detail['total_price'] if detail['total_price'] else 0
+                    price_so = detail['price_so'] if detail['price_so'] not in ['', None, 'nan'] else None
+                    order_detail = OrderDetail(
+                        order_id=order_data,
+                        product_id=product,
+                        order_quantity=detail['quantity'],
+                        order_box=detail['box'],
+
+                        note=note,
+                        product_price=price,
+                        point_get=points,
+                        price_so=price_so
+                    )
+                    total_price += price
+                    total_point += points
+                    #     total_price += detail['price']
+                    detail_order.append(order_detail)
+                    if price_so and not so_data.get('is_so'):
+                        so_data['is_so'] = True
+                if detail_error:
+                    continue
+                order_data.order_point = total_point
+                order_data.order_price = total_price
+                if so_data.get('is_so'):
+                    order_data.is_so = so_data.get('is_so')
+                order_data.save()
+                # if has_nvtt and all(product_prices):
+                # handle_after_order(client, total_point, total_price)
+                update_list.append(order_data.id)
+                OrderDetail.objects.bulk_create(detail_order)
+                update_point(client)
+                update_season_stats_user(client, order_data.date_get)
+                is_so = order_data.is_so if order_data.is_so in [False, True] else False
+                update_user_turnover(client, order_data, is_so, so_data=so_data)
+    except Exception as e:
+        raise serializers.ValidationError({'message': 'error when add file', 'error': error_data})
     return update_list, error_data
 
 
