@@ -391,8 +391,7 @@ class SeasonStatsUserPointRead(serializers.ModelSerializer):
         return None
 
     def get_npp(self, obj):
-        npp_id = obj.user.clientprofile.client_lv1_id
-        npp = User.objects.filter(id=npp_id).first()
+        npp = User.objects.filter(id=obj.npp_id).first()
         if npp:
             return npp.clientprofile.register_name
         return None
@@ -721,8 +720,7 @@ class OrderUpdateSerializer(BaseRestrictSerializer):
 
         nvtt = EmployeeProfile.objects.filter(employee_id=nvtt_id).first()
         nvtt_name = nvtt.register_name if nvtt else None
-        client_lv1_id = instance.client_id.clientprofile.client_lv1_id
-        client_lv1 = ClientProfile.objects.filter(client_id=client_lv1_id).first()
+        client_lv1 = ClientProfile.objects.filter(client_id=instance.npp_id).first()
 
         client_lv1_name = client_lv1.register_name if client_lv1 else None
 

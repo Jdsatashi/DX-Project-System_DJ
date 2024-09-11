@@ -607,8 +607,8 @@ class OrderReportView(APIView):
                            ClientProfile.objects.filter(client_id__in=client_ids)}
 
         nvtt_ids = {cp.nvtt_id for cp in client_profiles.values() if cp.nvtt_id}
-        client_lv1_ids = {cp.client_lv1_id for cp in client_profiles.values() if cp.client_lv1_id}
-
+        # client_lv1_ids = {cp.client_lv1_id for cp in client_profiles.values() if cp.client_lv1_id}
+        client_lv1_ids = set(orders.values_list('npp_id', flat=True))
         employee_profiles = {ep.employee_id_id: ep for ep in EmployeeProfile.objects.filter(employee_id__in=nvtt_ids)}
         client_lv1_profiles = {cp.client_id_id: cp for cp in ClientProfile.objects.filter(client_id__in=client_lv1_ids)}
 
@@ -625,7 +625,7 @@ class OrderReportView(APIView):
             for obj in page_obj]
         return data, paginator.num_pages, page, total_orders, page_obj, limit
 
-    def get_order_fields(self, obj, model, get_type_list, client_profiles, employee_profiles, client_lv1_profiles):
+    def get_order_fields(self, obj: Order, model, get_type_list, client_profiles, employee_profiles, client_lv1_profiles):
         order_detail = OrderDetail.objects.filter(order_id=obj)
         client_data = client_profiles.get(obj.client_id_id)
         client_name = client_data.register_name if client_data else None
@@ -633,7 +633,7 @@ class OrderReportView(APIView):
 
         nvtt = employee_profiles.get(nvtt_id, None)
         nvtt_name = nvtt.register_name if nvtt else None
-        client_lv1 = client_lv1_profiles.get(client_data.client_lv1_id) if client_data else None
+        client_lv1 = client_lv1_profiles.get(obj.npp_id, None)
         client_lv1_name = client_lv1.register_name if client_lv1 else None
 
         client_info = {
@@ -738,8 +738,6 @@ class ApiSeasonalStatistic(viewsets.GenericViewSet, mixins.ListModelMixin, mixin
 
             df.rename(columns={
                 'user__id': 'Mã Khách Hàng',
-                # 'client_lv1_id': 'NPP',
-                # 'nvtt_id': 'NVTT',
                 'user__clientprofile__client_lv1_id': 'NPP',
                 'user__clientprofile__nvtt_id': 'NVTT',
                 'turn_per_point': 'Điểm/Tem',
@@ -1027,9 +1025,11 @@ def generate_order_excel(orders: QuerySet[Order]):
 
     client_profiles = {cp.client_id_id: cp for cp in
                        ClientProfile.objects.filter(client_id__in=[o.client_id_id for o in orders])}
-    client_lv1_ids = [client_profiles[o.client_id_id].client_lv1_id for o in orders if
-                      o.client_id_id in client_profiles and client_profiles[o.client_id_id].client_lv1_id]
-    client_lv1_profiles = {cp.client_id_id: cp for cp in ClientProfile.objects.filter(client_id__in=client_lv1_ids)}
+    # client_lv1_ids = [client_profiles[o.client_id_id].client_lv1_id for o in orders if
+    #                   o.client_id_id in client_profiles and client_profiles[o.client_id_id].client_lv1_id]
+    npp_ids = orders.values_list('npp_id', flat=True)
+    npp_ids = list(set(npp_ids))
+    npp_profiles = {cp.client_id_id: cp for cp in ClientProfile.objects.filter(client_id__in=npp_ids)}
 
     # price_lists = orders.values_list('price_list_id_id', flat=True).distinct()
 
@@ -1062,9 +1062,9 @@ def generate_order_excel(orders: QuerySet[Order]):
         type_list = order.list_type if order.list_type and order.list_type != '' else 'cấp 2 gửi'
 
         # Get client lv1/npp name
-        client_lv1_name = ''
-        if client_data and client_data.client_lv1_id in client_lv1_profiles:
-            client_lv1_name = client_lv1_profiles[client_data.client_lv1_id].register_name
+        npp_name = ''
+        if order.npp_id not in [None, '']:
+            npp_name = npp_profiles[order.npp_id].register_name
         # Get nvtt name
         nvtt_name = ''
         nvtt_id = order.nvtt_id if order.nvtt_id else (client_data.nvtt_id if client_data else None)
@@ -1086,7 +1086,7 @@ def generate_order_excel(orders: QuerySet[Order]):
             type_list,
             client_data.client_id_id if client_data else '',  # Mã khách hàng
             client_data.register_name if client_data else '',  # Tên Khách hàng
-            client_lv1_name,  # Khách hàng cấp 1
+            npp_name,  # Khách hàng cấp 1
             nvtt_name,  # NVTT
             date_send,
             order.created_by,

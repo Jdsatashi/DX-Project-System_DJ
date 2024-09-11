@@ -37,6 +37,7 @@ class Order(models.Model):
     order_point = models.FloatField(null=True)
     order_price = models.FloatField(null=True, default=0)  # Default value to ensure it's not None
     nvtt_id = models.CharField(max_length=64, null=True)
+    npp_id = models.CharField(max_length=64, null=True)
 
     created_by = models.CharField(max_length=64, null=True)
     note = models.TextField(null=True)
@@ -58,7 +59,15 @@ class Order(models.Model):
         if not self.pk:
             self.id = self.generate_pk()
         if not self.nvtt_id and self.client_id:
-            self.nvtt_id = self.client_id.clientprofile.nvtt_id
+            try:
+                self.nvtt_id = self.client_id.clientprofile.nvtt_id
+            except AttributeError:
+                pass
+        if not self.npp_id and self.client_id:
+            try:
+                self.npp_id = self.client_id.clientprofile.client_lv1_id
+            except AttributeError:
+                pass
         if self.new_special_offer or self.id_so:
             self.is_so = True
 

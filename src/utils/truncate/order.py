@@ -1,13 +1,16 @@
 import datetime
 import math
 import os
+import time
 
 import pandas as pd
 from dateutil.relativedelta import relativedelta
+from django.core.paginator import Paginator
 from django.db import transaction
 from django.db.models import Q, Sum, Prefetch
 
 from account.models import User
+from app.logs import app_log
 from app.settings import PROJECT_DIR
 from marketing.order.models import Order, OrderDetail
 from marketing.sale_statistic.models import UserSaleStatistic, SaleTarget, UsedTurnover
@@ -222,4 +225,53 @@ def update_user_turnover():
     ).distinct()
     turnover_user(users_with_orders, start_month, end_month)
 
+
+def update_npp_order():
+    start_time = time.time()
+    app_log.info(f"Start update details")
+
+    orders = (Order.objects.filter(client_id__isnull=False, client_id__clientprofile__isnull=False, npp_id__isnull=True)
+              .order_by('-id'))
+
+    total_count = orders.count()
+
+    chunk_size = 2000
+
+    time_loop = math.ceil(total_count / chunk_size)
+    for a in range(time_loop):
+        start_time_2 = time.time()
+
+        start_item = a * chunk_size
+        end_item = start_item + chunk_size
+        if end_item > total_count:
+            end_item = total_count
+
+        try:
+            app_log.info(f"--\nGet data from: {start_item} - {end_item} \n--\n")
+            paginator = Paginator(orders, chunk_size)
+            page = paginator.page(a + 1)
+
+            process_update_npp(page.object_list)
+        except Exception as e:
+            app_log.error(f"\nWhen get data from: {start_item} - {end_item}\n")
+            raise e
+
+        app_log.info(f"Complete UPDATE ORDER items {start_item} - {end_item}: {time.time() - start_time_2} seconds")
+
+        if end_item == total_count:
+            break
+
+    app_log.info(f"Complete UPDATE ORDER time: {time.time() - start_time} seconds")
+
+
+def process_update_npp(orders):
+    with transaction.atomic():
+        list_orders_update = []
+        for i, order in enumerate(orders):
+            if order.npp_id in [None, '']:
+                order.npp_id = order.client_id.clientprofile.client_lv1_id
+                app_log.info(f"Test: {order.id} - {order.npp_id}")
+
+                list_orders_update.append(order)
+        Order.objects.bulk_update(list_orders_update, ['nvtt_id'])
 # from utils.truncate.order import get_all_kh

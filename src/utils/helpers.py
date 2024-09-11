@@ -9,6 +9,7 @@ from django.apps import apps
 from django.contrib.contenttypes.models import ContentType
 from django.core.exceptions import ValidationError
 from django.core.validators import RegexValidator
+from django.db.models import Max
 from django.utils import timezone
 from rest_framework import serializers
 
@@ -112,7 +113,7 @@ def table_data_2(table_name: str, amount='*', options=None):
                 app_log.info(f"Query options")
                 query = f"""
                 SELECT *
-                FROM 
+                FROM {table_name}
                 ORDER BY [ngayLap]
                 OFFSET {options.get('start')} ROWS
                 FETCH NEXT {options.get('end')} ROWS ONLY;
@@ -260,18 +261,42 @@ def get_content(model):
     return ContentType.objects.get_for_model(model)
 
 
-def self_id(prefix: str, models, last_count: int):
-    year_suffix = datetime.now().strftime('%y')
+# def self_id(prefix: str, models, last_count: int):
+#     year_suffix = datetime.now().strftime('%y')
+#
+#     last_id = models.objects.filter(id__startswith=f'{prefix}{year_suffix}').order_by('id').last()
+#     id_prefix = f"{prefix}{year_suffix}"
+#     if last_id:
+#         last_id = last_id.id
+#         test = f"{prefix}{year_suffix}"
+#         last_number = int(last_id[len(test):])
+#         new_id = f'{last_number + 1:0{last_count}d}'
+#     else:
+#         new_id = f'{1:0{last_count}d}'
+#     _id = f'{id_prefix}{new_id}'
+#     return _id
 
-    last_id = models.objects.filter(id__startswith=f'{prefix}{year_suffix}').order_by('id').last()
-    id_prefix = f"{prefix}{year_suffix}"
+
+def self_id(prefix: str, models, last_count: int, time_suffix: str = '%y'):
+    # Tạo hậu tố thời gian dựa trên định dạng được chỉ định
+    current_time = datetime.now()
+    date_suffix = current_time.strftime(time_suffix)
+
+    # Tạo tiền tố ID bao gồm cả prefix và date_suffix
+    id_prefix = f"{prefix}{date_suffix}"
+
+    # Lấy ID cuối cùng từ cơ sở dữ liệu bắt đầu bằng tiền tố này và có độ dài lớn nhất
+    last_id = models.objects.filter(id__startswith=id_prefix).aggregate(max_id=Max('id'))['max_id']
+
     if last_id:
-        last_id = last_id.id
-        test = f"{prefix}{year_suffix}"
-        last_number = int(last_id[len(test):])
+        # Trích xuất phần số từ ID cuối cùng và tăng lên 1
+        last_number = int(last_id[len(id_prefix):])
         new_id = f'{last_number + 1:0{last_count}d}'
     else:
+        # Nếu không tìm thấy ID nào, bắt đầu từ 1
         new_id = f'{1:0{last_count}d}'
+
+    # Tạo ID mới bằng cách nối tiền tố và số mới
     _id = f'{id_prefix}{new_id}'
     return _id
 

@@ -485,7 +485,7 @@ def process_order_detail(data):
         except Order.DoesNotExist:
             order = None
             note['order_id'] = f"{v[1]} not found"
-
+        note['price'] = v[5]
         try:
             product = Product.objects.get(id=v[2])
         except Product.DoesNotExist:
@@ -495,7 +495,7 @@ def process_order_detail(data):
         insert = {
             "order_quantity": v[3],
             "order_box": v[4],
-            "price_list_so": v[8],
+            "price_so": v[8],
             "note": note
         }
         app_log.info(f"Inserting: {order} - {product}")
@@ -819,8 +819,10 @@ def get_new_order_from_current():
             notes = json.dumps({"notes": str(v[6])}) if client is not None else json.dumps(
                 {"notes": str(v[6]), "client_id": v[3]})
             nvtt_id = None
-            if client.clientprofile:
-                nvtt_id = client.clientprofile.nvtt_id
+            if client:
+                if client.clientprofile:
+                    nvtt_id = client.clientprofile.nvtt_id
+
             date_company_get = make_aware(v[2]) if v[2] is not None else None
             insert = {
                 "date_get": v[1],
@@ -891,14 +893,14 @@ def get_new_orderdetail_from_current(list_order):
                 except Product.DoesNotExist:
                     product = None
                     note['product_id'] = f"{v[2]} not found"
-
+                note['price'] = v[5]
                 if current_order.order_detail.filter(product_id=product, order_box=v[4]).exists():
                     continue
 
                 insert = {
                     "order_quantity": v[3],
                     "order_box": v[4],
-                    "price_list_so": v[8],
+                    "price_so": v[8],
                     "note": note
                 }
 
@@ -928,13 +930,56 @@ def get_new_orderdetail_from_current(list_order):
     Order.objects.bulk_update(update_order_price_list, ['order_point', 'order_price'])
 
 
+def update_npp():
+    start_time = time.time()
+    chunk_size = 3000
+    max_num = count_table_items(old_data['tb_toa'])
+    end_num = max_num / chunk_size
+    for a in range(0, math.ceil(end_num)):
+        i = (chunk_size * a)
+        y = chunk_size + (chunk_size * a)
+        try:
+            app_log.info(f"Get data from: {i} - {y}")
+            data = table_data_2(old_data['tb_toa'], '*', {'start': i, 'end': y})
+            process_update_npp(data)
+        except Exception as e:
+            app_log.error(f"\nWhen get data from: {i} - {y}\n")
+            raise e
+    app_log.info(f"---------------------- FINISH ------------------------")
+    app_log.debug(f"Complete INSERT ORDER time: {time.time() - start_time} seconds")
+    app_log.info(f"Complete INSERT ORDER time: {time.time() - start_time} seconds")
+
+
+def process_update_npp(data):
+    try:
+        with transaction.atomic():
+            update_orders = list()
+            for k, v in enumerate(data):
+                if k < 5:
+                    print(f"Test npp id: {v[11]}")
+                order_id = v[0]
+                npp_id = v[11]
+                order = Order.objects.filter(id=order_id)
+                if order.exists():
+                    order = order.first()
+                    if order.npp_id in ['', None]:
+                        order.npp_id = npp_id
+                        update_orders.append(order)
+            Order.objects.bulk_update(update_orders, ['npp_id'])
+
+    except Exception as e:
+        raise e
+
+
 def add_new_order():
     with transaction.atomic():
         data, client_set = get_new_order_from_current()
         get_new_orderdetail_from_current(data)
         period = PeriodSeason.objects.filter(type='point', period='current').first()
         for user in client_set:
-            point, _ = PointOfSeason.objects.get_or_create(user=user, period=period)
+            point = PointOfSeason.objects.filter(user=user).first()
+            if not point:
+                point = PointOfSeason.objects.create(user=user, period=period)
             point.auto_point()
             point.save()
 
