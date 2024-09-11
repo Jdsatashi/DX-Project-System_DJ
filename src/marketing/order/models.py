@@ -188,7 +188,7 @@ def create_or_get_sale_stats_user(user: User, month, breaking=False) -> SaleStat
     next_month = month + relativedelta(months=1)
     last_month = month - relativedelta(months=1)
     if last_month < current_period.from_date:
-        last_month = current_period
+        last_month = current_period.from_date
         breaking = True
 
     filter_month = month
