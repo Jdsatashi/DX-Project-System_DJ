@@ -315,18 +315,18 @@ class ExportReport(APIView):
         if page <= 0:
             page = 1
         start_item = (page - 1) * limit
-        print(f"page: {type(page)} | limit {type(limit)}")
         end_item = page * limit
 
         if end_item > total_items:
             end_item = total_items - 1
 
         orders = orders[start_item:end_item]
-
+        start_time2 = time.time()
         workbook = generate_order_excel(orders)
         output = BytesIO()
         workbook.save(output)
         output.seek(0)
+        print(f"Time generate file: {time.time() - start_time2}")
 
         response = StreamingHttpResponse(
             output,
@@ -1043,7 +1043,6 @@ def generate_order_excel(orders: QuerySet[Order]):
     employee_profiles = {ep.employee_id_id: ep for ep in EmployeeProfile.objects.filter(employee_id__in=nvtt_ids)}
     print(f"__ Count order: {orders.count()}")
     for i, order in enumerate(orders):
-        print(i)
         # Get client data from query result
         client_data = client_profiles.get(order.client_id_id)
         # Handle change datetime format date_company_get
