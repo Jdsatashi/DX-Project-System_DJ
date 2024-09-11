@@ -1,13 +1,16 @@
 import datetime
 import math
 import os
+import random
 import time
 
 import pandas as pd
 from dateutil.relativedelta import relativedelta
+from django.conf import settings
 from django.core.paginator import Paginator
 from django.db import transaction
 from django.db.models import Q, Sum, Prefetch
+from openpyxl import Workbook
 
 from account.models import User
 from app.logs import app_log
@@ -264,6 +267,39 @@ def update_npp_order():
     app_log.info(f"Complete UPDATE ORDER time: {time.time() - start_time} seconds")
 
 
+def delete_order_client_none():
+    orders = Order.objects.filter(client_id__isnull=True).order_by('-id')
+    id_list = orders.values_list('id', flat=True)
+    print(f"Count: {orders.count()}")
+    print(f"Orders id: {list(id_list)}")
+    # Bước 3: Lưu id_list vào file Excel
+    # Tạo một workbook mới
+    wb = Workbook()
+    ws = wb.active
+    ws.title = "Deleted Orders"
+
+    # Thêm tiêu đề
+    ws.append(["Order ID"])
+
+    # Thêm các giá trị id vào Excel
+    for order_id in id_list:
+        ws.append([order_id])
+
+    # Bước 4: Lưu file vào thư mục dự án
+    # Lấy đường dẫn thư mục project từ settings
+    project_dir = settings.PROJECT_DIR  # Thư mục gốc của dự án
+
+    # Tạo đường dẫn đến file Excel
+    random_numbers = [random.randint(1, 10) for _ in range(5)]
+
+    file_path = os.path.join(project_dir, f'deleted_orders_{random_numbers}.xlsx')
+
+    # Lưu file Excel
+    wb.save(file_path)
+    orders.delete()
+    return f"File saved at {file_path}"
+
+
 def process_update_npp(orders):
     with transaction.atomic():
         list_orders_update = []
@@ -273,5 +309,5 @@ def process_update_npp(orders):
                 app_log.info(f"Test: {order.id} - {order.npp_id}")
 
                 list_orders_update.append(order)
-        Order.objects.bulk_update(list_orders_update, ['nvtt_id'])
+        Order.objects.bulk_update(list_orders_update, ['npp_id'])
 # from utils.truncate.order import get_all_kh
