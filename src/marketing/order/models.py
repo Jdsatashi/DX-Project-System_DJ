@@ -174,6 +174,7 @@ class OrderBackupDetail(models.Model):
 
 
 def create_or_get_sale_stats_user(user: User, month, breaking=False) -> SaleStatistic | None:
+    return None
     old_month = None
     if breaking:
         return None
