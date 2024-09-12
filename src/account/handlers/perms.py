@@ -130,25 +130,25 @@ def get_user_by_permname(perm_name):
 def export_users_has_perm(model: Model, pk: str):
     perm_name = get_perm_name(model)
     perm_name_pk = perm_name + f'_{pk}'
-    print(f"Test permname: {perm_name_pk}")
+    # print(f"Test permname: {perm_name_pk}")
     # Tìm các nhóm có quyền liên quan và không phải là admin
     group_perm_has_perm = GroupPermPerms.objects.filter(
         perm__name__iendswith=perm_name_pk
     ).values_list('group__name', flat=True).distinct()
     groups_with_perm = (GroupPerm.objects.filter(name__in=group_perm_has_perm)
                         .exclude(name='admin').distinct())
-    print(f"Check group with perm: {groups_with_perm}")
+    # print(f"Check group with perm: {groups_with_perm}")
     # Tìm các user có UserPerm phù hợp và không thuộc nhóm admin
     users_with_group_perm = User.objects.filter(
         usergroupperm__group__in=groups_with_perm,
         # usergroupperm__allow=True
     ).distinct()
-    print(f"Check user in group has perm: {users_with_group_perm}")
+    # print(f"Check user in group has perm: {users_with_group_perm}")
     users_with_direct_perm = User.objects.filter(
         userperm__perm__name__icontains=perm_name_pk,
         # userperm__allow=True
     ).distinct()
-    print(f"Check user has perm: {users_with_direct_perm}")
+    # print(f"Check user has perm: {users_with_direct_perm}")
 
     # Hợp nhất hai QuerySet
     users_with_perm = users_with_group_perm.union(users_with_direct_perm)
