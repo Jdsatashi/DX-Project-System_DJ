@@ -1,7 +1,7 @@
 from rest_framework_simplejwt.authentication import JWTAuthentication
 from rest_framework_simplejwt.tokens import AccessToken
 from rest_framework_simplejwt.token_blacklist.models import BlacklistedToken, OutstandingToken
-from rest_framework_simplejwt.exceptions import InvalidToken, TokenError
+from rest_framework_simplejwt.exceptions import InvalidToken, TokenError, AuthenticationFailed
 from django.http import JsonResponse
 from datetime import datetime
 from utils.constants import status as user_status
@@ -39,6 +39,8 @@ class CheckBlacklistMiddleware:
                 user, token = auth_result
         except InvalidToken:
             return JsonResponse({'detail': 'Invalid token', 'code': 'token_not_valid'}, status=401)
+        except AuthenticationFailed:
+            return JsonResponse({'detail': 'Header token not valid', 'code': 'authentication_failed'})
 
         if user and token:
             try:
