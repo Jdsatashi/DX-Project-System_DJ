@@ -44,6 +44,8 @@ class ProductReadSerializer(serializers.ModelSerializer):
 
     @staticmethod
     def get_product_type(obj):
+        if not obj.product_type:
+            return None
         return obj.product_type.name
 
 
