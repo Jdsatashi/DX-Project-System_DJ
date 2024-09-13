@@ -983,7 +983,8 @@ def generate_order_excel(orders: QuerySet[Order]):
         'Mã toa',
         'Loại bảng kê', 'Mã khách hàng', 'Tên Khách hàng', 'Khách hàng cấp 1', 'NVTT',
         'Ngày nhận toa', 'Người tạo toa', 'Ngày nhận hàng', 'Ngày gửi trễ', 'Ghi chú',
-        'Mã sản phẩm', 'Tên sản phẩm', 'Số lượng', 'Số thùng', 'Đơn giá', 'Thành tiền', 'Đơn giá KM'
+        'Mã sản phẩm', 'Tên sản phẩm', 'Số lượng', 'Số thùng', 'Đơn giá', 'Thành tiền',
+        'Đơn giá KM', 'Điểm đạt'
     ]
 
     column_widths = {
@@ -1004,7 +1005,8 @@ def generate_order_excel(orders: QuerySet[Order]):
         'Số thùng': 68,
         'Đơn giá': 80,
         'Thành tiền': 82,
-        'Đơn giá KM': 80
+        'Đơn giá KM': 80,
+        'Điểm đạt': 64
     }
 
     for col_num, column_title in enumerate(columns, 1):
@@ -1122,7 +1124,8 @@ def generate_order_excel(orders: QuerySet[Order]):
                 detail.order_box,
                 price,
                 detail.product_price,
-                price_so
+                price_so,
+                detail.point_get
             ]
             export_data = data_list + details_data
             sheet.append(export_data)
