@@ -322,12 +322,14 @@ def update_amis_point():
             start_date = datetime.datetime.strptime(start, '%Y-%m-%d').date()   # period.from_date
             end_date = datetime.datetime.strptime(end, '%Y-%m-%d').date() # period.to_date
             orders = Order.objects.filter(date_get__range=[start_date, end_date],
-                                          list_type__in=['amis', 'Amis']).values_list('id', flat=True)
+                                          list_type__in=['amis', 'Amis'])
+            order_users = orders.values_list('client_id__id', flat=True)
+            order_ids = orders.values_list('id', flat=True)
             main_pl: PriceList = PriceList.get_main_pl()
             products_price = ProductPrice.objects.filter(price_list=main_pl)
             product_price_dict = {item.product_id: item.point for item in products_price}
 
-            orders_detail = OrderDetail.objects.filter(order_id__in=orders, point_get=0)
+            orders_detail = OrderDetail.objects.filter(order_id__in=order_ids, point_get=0)
 
             # list of updated
             update_details = list()
@@ -349,12 +351,13 @@ def update_amis_point():
                 point = product_point
                 point_get = detail.order_box * point
                 detail.point_get = point_get
-                update_details.append(point)
+                update_details.append(detail)
                 success_list.append({'detail_id': detail.id, 'order': detail.order_id_id})
             print(f"Error list: \n{error_list}")
             print(f"product_unpoint: \n{product_unpoint}")
             print(f"Test main price list: {main_pl.id} - {main_pl.name}")
             print(f"Result: \n - Updated: {len(update_details)}\n - Failed: {len(error_list)}")
+            print(f"User: {order_users}")
             raise ValueError('break for testing')
             # OrderDetail.objects.bulk_update(update_details, ['point_get'])
     except Exception as e:
