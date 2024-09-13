@@ -1098,8 +1098,11 @@ def generate_order_excel(orders: QuerySet[Order]):
         ]
 
         for detail in order.order_detail.all():
-            if not detail.product_id:
-                continue
+            product_id = ''
+            product_name = ''
+            if detail.product_id:
+                product_id = detail.product_id.id
+                product_name = detail.product_id.name
             total_price = detail.product_price or 0
             price_so = detail.price_so if detail.price_so else ''
             # Get price from note
@@ -1118,8 +1121,8 @@ def generate_order_excel(orders: QuerySet[Order]):
             except ZeroDivisionError:
                 price = 0
             details_data = [
-                detail.product_id.id,
-                detail.product_id.name,
+                product_id,
+                product_name,
                 detail.order_quantity,
                 detail.order_box,
                 price,
