@@ -331,9 +331,9 @@ def update_amis_point():
             update_details = list()
             error_list = list()
             success_list = list()
-            for detail in orders_detail:
+            for i, detail in enumerate(orders_detail):
                 product = detail.product_id
-                product_point = product_price_dict.get(product, None)
+                product_point = product_price_dict.get(product.id, None)
                 if product_point is None:
                     error_detail = {'detail_id': detail.id, 'order': detail.order_id_id}
                     if product:
