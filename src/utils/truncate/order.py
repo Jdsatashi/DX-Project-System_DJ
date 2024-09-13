@@ -357,7 +357,7 @@ def update_amis_point():
             print(f"product_unpoint: \n{product_unpoint}")
             print(f"Test main price list: {main_pl.id} - {main_pl.name}")
             print(f"Result: \n - Updated: {len(update_details)}\n - Failed: {len(error_list)}")
-            print(f"User: {order_users}")
+            print(f"User: {order_users.count()} \n{list(order_users)}")
             raise ValueError('break for testing')
             # OrderDetail.objects.bulk_update(update_details, ['point_get'])
     except Exception as e:
