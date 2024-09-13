@@ -9,7 +9,7 @@ from dateutil.relativedelta import relativedelta
 from django.conf import settings
 from django.core.paginator import Paginator
 from django.db import transaction
-from django.db.models import Q, Sum, Prefetch
+from django.db.models import Q, Sum, Prefetch, QuerySet
 from openpyxl import Workbook
 
 from account.models import User
@@ -323,19 +323,19 @@ def update_amis_point():
             end_date = datetime.datetime.strptime(end, '%Y-%m-%d').date() # period.to_date
             orders = Order.objects.filter(date_get__range=[start_date, end_date]
                                           )
-            order_users = orders.values_list('client_id__id', flat=True)
             order_ids = orders.values_list('id', flat=True)
             main_pl: PriceList = PriceList.get_main_pl()
             products_price = ProductPrice.objects.filter(price_list=main_pl)
             product_price_dict = {item.product_id: item.point for item in products_price}
 
             orders_detail = OrderDetail.objects.filter(order_id__in=order_ids, point_get=0)
-
+            id_updated = set()
             # list of updated
             update_details = list()
             error_list = list()
             product_unpoint = set()
             success_list = list()
+
             for i, detail in enumerate(orders_detail):
                 product_id = detail.product_id_id
                 product_point = product_price_dict.get(product_id, None)
@@ -352,11 +352,14 @@ def update_amis_point():
                 point_get = detail.order_box * point
                 detail.point_get = point_get
                 update_details.append(detail)
+                id_updated.add(detail.order_id_id)
                 success_list.append({'detail_id': detail.id, 'order': detail.order_id_id})
             print(f"Error list: \n{error_list}")
             print(f"product_unpoint: \n{product_unpoint}")
             print(f"Test main price list: {main_pl.id} - {main_pl.name}")
             print(f"Result: \n - Updated: {len(update_details)}\n - Failed: {len(error_list)}")
+            order_users = orders.filter(id__in=id_updated).values_list('client_id__id', flat=True)
+
             print(f"User: {order_users.distinct().count()} \n{set(order_users)}")
             # raise ValueError('break for testing')
             OrderDetail.objects.bulk_update(update_details, ['point_get'])
@@ -366,6 +369,13 @@ def update_amis_point():
                 period=period
             )
             print(f"items: {points_of_season.count()}")
+            user_points_of_season = points_of_season.values_list('user_id', flat=True)
+            remain_user = set(order_users) - set(user_points_of_season)
+            print(f"Remain user: {remain_user}")
+            for user_id in remain_user:
+                point_user = PointOfSeason.objects.create(user_id=user_id, period=period)
+                point_user.auto_point()
+                point_user.save()
             with transaction.atomic():
                 update_user = list()
                 for point_user in points_of_season:
@@ -375,4 +385,5 @@ def update_amis_point():
 
     except Exception as e:
         raise e
+
 # from utils.truncate.order import get_all_kh
