@@ -321,8 +321,8 @@ def update_amis_point():
             end = '2024-12-09'
             start_date = datetime.datetime.strptime(start, '%Y-%m-%d').date()   # period.from_date
             end_date = datetime.datetime.strptime(end, '%Y-%m-%d').date() # period.to_date
-            orders = Order.objects.filter(date_get__range=[start_date, end_date],
-                                          list_type__in=['amis', 'Amis'])
+            orders = Order.objects.filter(date_get__range=[start_date, end_date]
+                                          )
             order_users = orders.values_list('client_id__id', flat=True)
             order_ids = orders.values_list('id', flat=True)
             main_pl: PriceList = PriceList.get_main_pl()
