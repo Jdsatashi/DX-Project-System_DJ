@@ -350,7 +350,7 @@ def update_amis_point():
                 update_details.append(point)
                 success_list.append({'detail_id': detail.id, 'order': detail.order_id_id})
             print(f"Error list: \n{error_list}")
-            print(f"Success list: \n{success_list}")
+            print(f"product_unpoint: \n{product_unpoint}")
             print(f"Test main price list: {main_pl.id} - {main_pl.name}")
 
             raise ValueError('break for testing')
