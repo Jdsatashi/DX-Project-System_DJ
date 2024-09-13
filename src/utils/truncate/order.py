@@ -321,7 +321,7 @@ def update_amis_point():
             end_date = period.to_date
             orders = Order.objects.filter(date_get__range=[start_date, end_date],
                                           list_type__in=['amis', 'Amis']).values_list('id', flat=True)
-            main_pl = PriceList.get_main_pl()
+            main_pl: PriceList = PriceList.get_main_pl()
             products_price = ProductPrice.objects.filter(price_list=main_pl)
             product_price_dict = {item.product_id: item.point for item in products_price}
 
@@ -347,6 +347,8 @@ def update_amis_point():
                 success_list.append({'detail_id': detail.id, 'order': detail.order_id_id})
             print(f"Error list: \n{error_list}")
             print(f"Success list: \n{success_list}")
+            print(f"Test main price list: {main_pl.id} - {main_pl.name}")
+
             raise ValueError('break for testing')
             # OrderDetail.objects.bulk_update(update_details, ['point_get'])
     except Exception as e:
