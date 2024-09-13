@@ -330,6 +330,7 @@ def update_amis_point():
             # list of updated
             update_details = list()
             error_list = list()
+            product_unpoint = set()
             success_list = list()
             for i, detail in enumerate(orders_detail):
                 product = detail.product_id
@@ -338,6 +339,7 @@ def update_amis_point():
                     error_detail = {'detail_id': detail.id, 'order': detail.order_id_id}
                     if product:
                         error_detail['product'] = product.id
+                        product_unpoint.add(product.id)
                     error_list.append(error_detail)
                     continue
                 point = product_point
