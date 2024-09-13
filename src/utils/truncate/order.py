@@ -360,6 +360,19 @@ def update_amis_point():
             print(f"User: {order_users.distinct().count()} \n{set(order_users)}")
             # raise ValueError('break for testing')
             OrderDetail.objects.bulk_update(update_details, ['point_get'])
+
+            points_of_season = PointOfSeason.objects.filter(
+                user__in=set(order_users),
+                period=period
+            )
+            print(f"items: {points_of_season.count()}")
+            with transaction.atomic():
+                update_user = list()
+                for point_user in points_of_season:
+                    point_user.auto_point()
+                    update_user.append(point_user)
+                PointOfSeason.objects.bulk_update(update_user, ['point', 'total_point'])
+
     except Exception as e:
         raise e
 # from utils.truncate.order import get_all_kh
