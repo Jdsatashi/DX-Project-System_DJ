@@ -358,8 +358,8 @@ def update_amis_point():
             print(f"Test main price list: {main_pl.id} - {main_pl.name}")
             print(f"Result: \n - Updated: {len(update_details)}\n - Failed: {len(error_list)}")
             print(f"User: {order_users.distinct().count()} \n{set(order_users)}")
-            raise ValueError('break for testing')
-            # OrderDetail.objects.bulk_update(update_details, ['point_get'])
+            # raise ValueError('break for testing')
+            OrderDetail.objects.bulk_update(update_details, ['point_get'])
     except Exception as e:
         raise e
 # from utils.truncate.order import get_all_kh
