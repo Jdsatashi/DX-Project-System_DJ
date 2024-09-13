@@ -323,7 +323,7 @@ def update_amis_point():
                                           list_type__in=['amis', 'Amis']).values_list('id', flat=True)
             main_pl = PriceList.get_main_pl()
             products_price = ProductPrice.objects.filter(price_list=main_pl)
-            product_price_dict = {item['product_id']: item['point'] for item in products_price}
+            product_price_dict = {item.product_id: item.point for item in products_price}
 
             orders_detail = OrderDetail.objects.filter(order_id__in=orders, point_get=0)
 
@@ -348,7 +348,7 @@ def update_amis_point():
             print(f"Error list: \n{error_list}")
             print(f"Success list: \n{success_list}")
             raise ValueError('break for testing')
-            OrderDetail.objects.bulk_update(update_details, ['point_get'])
+            # OrderDetail.objects.bulk_update(update_details, ['point_get'])
     except Exception as e:
         raise e
 # from utils.truncate.order import get_all_kh
