@@ -16,6 +16,7 @@ from account.models import User
 from app.logs import app_log
 from app.settings import PROJECT_DIR
 from marketing.order.models import Order, OrderDetail
+from marketing.price_list.models import PriceList, ProductPrice
 from marketing.sale_statistic.models import UserSaleStatistic, SaleTarget, UsedTurnover
 from system_func.models import PeriodSeason, PointOfSeason
 from user_system.client_profile.models import ClientProfile
@@ -310,4 +311,44 @@ def process_update_npp(orders):
 
                 list_orders_update.append(order)
         Order.objects.bulk_update(list_orders_update, ['npp_id'])
+
+
+def update_amis_point():
+    try:
+        with transaction.atomic():
+            period: PeriodSeason = PeriodSeason.get_period_by_date('point')
+            start_date = period.from_date
+            end_date = period.to_date
+            orders = Order.objects.filter(date_get__range=[start_date, end_date],
+                                          list_type__in=['amis', 'Amis']).values_list('id', flat=True)
+            main_pl = PriceList.get_main_pl()
+            products_price = ProductPrice.objects.filter(price_list=main_pl)
+            product_price_dict = {item['product_id']: item['point'] for item in products_price}
+
+            orders_detail = OrderDetail.objects.filter(order_id__in=orders, point_get=0)
+
+            # list of updated
+            update_details = list()
+            error_list = list()
+            success_list = list()
+            for detail in orders_detail:
+                product = detail.product_id
+                product_point = product_price_dict.get(product, None)
+                if product_point is None:
+                    error_detail = {'detail_id': detail.id, 'order': detail.order_id_id}
+                    if product:
+                        error_detail['product'] = product.id
+                    error_list.append(error_detail)
+                    continue
+                point = product_point
+                point_get = detail.order_box * point
+                detail.point_get = point_get
+                update_details.append(point)
+                success_list.append({'detail_id': detail.id, 'order': detail.order_id_id})
+            print(f"Error list: \n{error_list}")
+            print(f"Success list: \n{success_list}")
+            raise ValueError('break for testing')
+            OrderDetail.objects.bulk_update(update_details, ['point_get'])
+    except Exception as e:
+        raise e
 # from utils.truncate.order import get_all_kh
