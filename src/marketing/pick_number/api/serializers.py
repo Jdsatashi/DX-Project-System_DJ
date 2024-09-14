@@ -169,6 +169,7 @@ class UserJoinEventNumberSerializer(serializers.ModelSerializer):
             # list_user = instance.event.user_join_event.filter().exclude(user=instance.user)
             # app_log.info(f"{list_user}")
             chanel = f"event_{instance.event.id}"
+            app_log.info(f"Channel: {chanel}")
             pusher_client.trigger(chanel, pus_event, pus_data)
             # list_chanel = [f'user_{user.user.id}' for user in list_user if user is not None]
             # # for user in list_user:
