@@ -29,7 +29,7 @@ from rest_framework_simplejwt.tokens import AccessToken
 
 from account.handlers.perms import DataFKModel, get_perm_name
 from account.handlers.validate_perm import ValidatePermRest
-from account.models import User
+from account.models import User, Perm
 from app.logs import app_log
 from marketing.order.api.serializers import OrderSerializer, ProductStatisticsSerializer, SeasonalStatisticSerializer, \
     SeasonStatsUserPointSerializer, update_point, update_season_stats_user, update_user_turnover, OrderUpdateSerializer
@@ -1195,6 +1195,8 @@ def create_order(data):
 
     try:
         with transaction.atomic():
+            perms_pl = get_perm_name(PriceList)
+            pl_ids = Perm.objects.filter(name__icontains=perms_pl).values_list('object_id', flat=True).distinct()
             for order in data:
                 start_line += 1
                 # Split detail data
@@ -1238,7 +1240,10 @@ def create_order(data):
                 # Call save() to create Order
                 order_data.save()
 
-                main_pl = PriceList.get_main_pl()
+
+
+
+                main_pl = ''
                 detail_order = list()
                 turnover_minus = order.get('minus_turnover', None)
                 count_so = order.get('count_so', None)
@@ -1343,7 +1348,7 @@ def handle_after_order(user: User, point: float, price: int):
     point_obj, _ = PointOfSeason.objects.get_or_create(user=user, period=period)
 
 
-def get_excel_to_dict(file):
+def get_excel_to_dict2(file):
     # Đọc dữ liệu từ file Excel
     df = pd.read_excel(file, engine='openpyxl')
     # Định nghĩa mapping giữa tên cột Excel và key trong dict
@@ -1366,6 +1371,7 @@ def get_excel_to_dict(file):
         'Đơn giá': 'price',
         'Thành tiền': 'total_price',
         'Đơn giá KM': 'price_so',
+        'Điểm 1 thùng': 'point',
         'Tính doanh số': 'count_so',
         'Trừ doanh số': 'minus_turnover'
     }
@@ -1401,5 +1407,64 @@ def get_excel_to_dict(file):
         # Ghép dữ liệu chung và danh sách sản phẩm vào một dict
         common_data['order_detail'] = products
         result.append(common_data)
+
+    return result
+
+
+def get_excel_to_dict(file):
+    # Đọc dữ liệu từ file Excel
+    df = pd.read_excel(file, engine='openpyxl')
+
+    # Định nghĩa mapping giữa tên cột Excel và key trong dict
+    column_mapping = {
+        'Mã toa': 'group_order',
+        'Loại bảng kê': 'type_list',
+        'Mã khách hàng': 'client_id',
+        'Tên Khách hàng': 'client_name',
+        'Khách hàng cấp 1': 'client_lv1',
+        'NVTT': 'nvtt',
+        'Ngày nhận toa': 'date_company_get',
+        'Người tạo toa': 'created_by',
+        'Ngày nhận hàng': 'date_get',
+        'Ngày gửi trễ': 'date_delay',
+        'Ghi chú': 'note',
+        'Mã sản phẩm': 'product_id',
+        'Tên sản phẩm': 'product_name',
+        'Số lượng': 'quantity',
+        'Số thùng': 'box',
+        'Đơn giá': 'price',
+        'Thành tiền': 'total_price',
+        'Đơn giá KM': 'price_so',
+        'Điểm 1 thùng': 'point',
+        'Tính doanh số': 'count_so',
+        'Trừ doanh số': 'minus_turnover'
+    }
+
+    # Áp dụng việc đổi tên cột
+    df.rename(columns=column_mapping, inplace=True)
+
+    # Xử lý các giá trị NaN, +inf, -inf
+    df.replace({np.inf: None, -np.inf: None, pd.NA: None}, inplace=True)
+
+    # Tính toán ngày nhỏ nhất và lớn nhất cho mỗi client_id
+    client_dates = df.groupby('client_id')['date_get'].agg(min_date_get='min', max_date_get='max').reset_index()
+
+    # Gộp ngày vào df
+    df = df.merge(client_dates, on='client_id')
+
+    # Sắp xếp dữ liệu
+    df.sort_values(by=['client_id', 'date_get'], inplace=True)
+
+    # Cấu trúc lại dữ liệu theo yêu cầu
+    grouped = df.groupby('client_id')
+    result = []
+    for client_id, group in grouped:
+        client_data = {
+            'client_id': client_id,
+            'min_date_get': group['min_date_get'].iloc[0],
+            'max_date_get': group['max_date_get'].iloc[0],
+            'data': group.to_dict(orient='records')
+        }
+        result.append(client_data)
 
     return result
