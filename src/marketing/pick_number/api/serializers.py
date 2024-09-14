@@ -167,12 +167,21 @@ class UserJoinEventNumberSerializer(serializers.ModelSerializer):
             app_log.info(f"Event: {pus_event}")
             list_user = instance.event.user_join_event.filter().exclude(user=instance.user)
             app_log.info(f"{list_user}")
-            list_chanel = list()
-            for user in list_user:
-                chanel = f'user_{user.user.id}'
-                app_log.info(f"Chanel: {chanel}")
-                list_chanel.append(chanel)
-            pusher_client.trigger(list_chanel, pus_event, pus_data)
+            list_chanel = [f'user_{user.user.id}' for user in list_user if user is not None]
+            # for user in list_user:
+            #     chanel = f'user_{user.user.id}'
+            #     app_log.info(f"Chanel: {chanel}")
+            #     list_chanel.append(chanel)
+            temp = 20
+            total_chanel = len(list_chanel)
+            time_loop = total_chanel // temp
+            for i in range(time_loop + 1):
+                start = temp * i
+                end = temp * (1 + start)
+                if end > total_chanel:
+                    end = total_chanel
+
+                pusher_client.trigger(list_chanel[start:end], pus_event, pus_data)
 
         except Exception as e:
             app_log.info(f"Pusher error")
