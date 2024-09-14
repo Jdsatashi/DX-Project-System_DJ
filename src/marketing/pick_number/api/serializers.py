@@ -172,7 +172,7 @@ class UserJoinEventNumberSerializer(serializers.ModelSerializer):
             #     chanel = f'user_{user.user.id}'
             #     app_log.info(f"Chanel: {chanel}")
             #     list_chanel.append(chanel)
-            temp = 20
+            temp = 10
             total_chanel = len(list_chanel)
             time_loop = total_chanel // temp
             for i in range(time_loop + 1):
@@ -180,8 +180,9 @@ class UserJoinEventNumberSerializer(serializers.ModelSerializer):
                 end = temp * (1 + start)
                 if end > total_chanel:
                     end = total_chanel
-
                 pusher_client.trigger(list_chanel[start:end], pus_event, pus_data)
+
+            app_log.info(f"Chanel item: {len(list_chanel)}")
 
         except Exception as e:
             app_log.info(f"Pusher error")
