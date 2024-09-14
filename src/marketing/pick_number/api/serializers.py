@@ -172,7 +172,7 @@ class UserJoinEventNumberSerializer(serializers.ModelSerializer):
             #     chanel = f'user_{user.user.id}'
             #     app_log.info(f"Chanel: {chanel}")
             #     list_chanel.append(chanel)
-            temp = 10
+            temp = 5
             total_chanel = len(list_chanel)
             time_loop = total_chanel // temp
             for i in range(time_loop + 1):
