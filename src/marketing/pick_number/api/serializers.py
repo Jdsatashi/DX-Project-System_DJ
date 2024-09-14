@@ -172,7 +172,7 @@ class UserJoinEventNumberSerializer(serializers.ModelSerializer):
             #     chanel = f'user_{user.user.id}'
             #     app_log.info(f"Chanel: {chanel}")
             #     list_chanel.append(chanel)
-            max_item = 10
+            max_item = 100
             for i in range(0, len(list_chanel), max_item):
                 chunk = list_chanel[i:i+max_item]
                 app_log.info(f"Test chunk: {len(chunk)}")
