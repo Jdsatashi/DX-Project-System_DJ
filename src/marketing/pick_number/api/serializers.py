@@ -181,7 +181,7 @@ class UserJoinEventNumberSerializer(serializers.ModelSerializer):
                 if end > total_chanel:
                     end = total_chanel
                 chunk = list_chanel[start:end]
-                print(f"Test chunk: {len(chunk)}")
+                app_log.info(f"Test chunk: {len(chunk)}")
                 pusher_client.trigger(chunk, pus_event, pus_data)
 
             app_log.info(f"Chanel item: {len(list_chanel)}")
