@@ -159,14 +159,15 @@ class UserJoinEventNumberSerializer(serializers.ModelSerializer):
         data = {'number': number_picked, 'action': _type}
         self.add_action_log(instance.event, data, instance.user)
         start_time_2 = time.time()
-        pus_data = {'type': _type, 'number': int(number_picked), 'event_id': instance.event.id}
+        pus_data = {'type': _type, 'number': int(number_picked),
+                    'event_id': instance.event.id, 'user_id': instance.user.id}
         try:
             app_log.info(f"-- Test pusher --")
             pus_event = 'pick_number'
             app_log.info(f"Message: {pus_data}")
             app_log.info(f"Event: {pus_event}")
-            list_user = instance.event.user_join_event.filter().exclude(user=instance.user)
-            app_log.info(f"{list_user}")
+            # list_user = instance.event.user_join_event.filter().exclude(user=instance.user)
+            # app_log.info(f"{list_user}")
             chanel = f"event_{instance.event.id}"
             pusher_client.trigger(chanel, pus_event, pus_data)
             # list_chanel = [f'user_{user.user.id}' for user in list_user if user is not None]
