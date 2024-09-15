@@ -12,6 +12,6 @@ def update_repeat_count(event_number_id):
     for number_selected in numbers_selected_list:
         number_in_list = numbers_list.filter(number=number_selected).first()
         number_in_list.repeat_count = numbers_selected.filter(number__number=number_selected).count()
-        print(f"Test count: {number_in_list.repeat_count}")
+        print(f"Test count: {number_selected} - {number_in_list.repeat_count}")
         updated_count.append(number_in_list)
         # number_in_list.save()
