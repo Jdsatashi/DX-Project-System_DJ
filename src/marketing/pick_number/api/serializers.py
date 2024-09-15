@@ -153,7 +153,7 @@ class UserJoinEventNumberSerializer(serializers.ModelSerializer):
             app_log.info(f"TEst: repeat: \n{number_list.repeat_count}\n"
                          f"selected: {number_selected_count}\n"
                          f"event repeat: {instance.event.limit_repeat}")
-            if number_list.repeat_count > 0 and number_selected_count > instance.event.limit_repeat:
+            if number_list.repeat_count > 0 and number_selected_count <= instance.event.limit_repeat:
                 selecting_number = NumberSelected.objects.create(user_event=instance, number=number_list)
                 # Re-check to ensure
                 number_selected_count2 = NumberSelected.objects.filter(number=number_list).count()
