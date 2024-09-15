@@ -151,7 +151,7 @@ class UserJoinEventNumberSerializer(serializers.ModelSerializer):
             number_selected = NumberSelected.objects.filter(number=number_list)
             if not number_list:
                 raise ValidationError({'message': 'Số cung cấp không hợp lệ'})
-            if number_list.repeat_count > 0 and number_selected.count > 0:
+            if number_list.repeat_count > 0 and number_selected.count() > 0:
                 number_list.repeat_count -= 1
                 number_list.save()
                 NumberSelected.objects.create(user_event=instance, number=number_list)
