@@ -192,9 +192,7 @@ class UserJoinEventNumberSerializer(serializers.ModelSerializer):
         app_log.info(f"Time handle Pusher: {time.time() - start_time_2}")
         # Update turn_selected and used_point with new numbers
         instance.turn_selected = instance.number_selected.count()
-        # instance.turn_pick = instance.total_point // instance.event.point_exchange - instance.turn_selected
-        # instance.used_point = instance.turn_selected * instance.event.point_exchange
-        instance.save()
+        instance.save(update_fields=['turn_selected'])
 
         return instance
 
