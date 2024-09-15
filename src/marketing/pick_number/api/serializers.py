@@ -148,12 +148,14 @@ class UserJoinEventNumberSerializer(serializers.ModelSerializer):
             if instance.turn_pick <= instance.turn_selected:
                 raise ValidationError({'message': 'không đủ tem'})
             number_list = NumberList.objects.filter(number=number_picked, event=instance.event).first()
+            number_selected = NumberSelected.objects.filter(number=number_list)
             if not number_list:
                 raise ValidationError({'message': 'Số cung cấp không hợp lệ'})
-            if number_list.repeat_count > 0:
-                NumberSelected.objects.create(user_event=instance, number=number_list)
+            if number_list.repeat_count > 0 and number_selected.count > 0:
                 number_list.repeat_count -= 1
                 number_list.save()
+                NumberSelected.objects.create(user_event=instance, number=number_list)
+
             else:
                 raise ValidationError({'message': f'Tem số {number_picked} đã hết'})
         data = {'number': number_picked, 'action': _type}
