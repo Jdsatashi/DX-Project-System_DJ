@@ -142,9 +142,20 @@ class ApiPickNumberLog(viewsets.GenericViewSet, mixins.ListModelMixin):
     permission_classes = [partial(ValidatePermRest, model=PickNumberLog)]
 
     def list(self, request, *args, **kwargs):
+        queryset = self.get_queryset()
+        event = request.query_params.get('event', None)
+        numbers = request.query_params.get('numbers', None)
+
+        if event:
+            queryset = queryset.filter(event__id=event)
+        if numbers:
+            numbers_list = numbers.split(',')
+            queryset = queryset.filter(number__in=numbers_list)
+
         response = filter_data(self, request, ['event__name', 'event__id', 'user__id',
-                                               'user__username', 'user__clientprofile__register_name', 'action'
-                                                                                                       'phone__phone_number'],
+                                               'user__username',
+                                               'user__clientprofile__register_name', 'action', 'phone__phone_number'],
+                               queryset=queryset,
                                **kwargs)
         return Response(response, status.HTTP_200_OK)
 
