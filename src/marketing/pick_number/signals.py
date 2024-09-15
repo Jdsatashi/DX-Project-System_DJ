@@ -64,3 +64,7 @@ def update_selected_number(sender, instance: NumberSelected, **kwargs):
     selected_numbers = user_join_event.number_selected.all().count()
     user_join_event.turn_selected = selected_numbers
     user_join_event.save()
+    number_list = instance.number
+    number_selected = NumberSelected.objects.filter(number=number_list).count()
+    number_list.repeat_count = number_selected
+    number_list.save()
