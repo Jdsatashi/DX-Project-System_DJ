@@ -153,7 +153,7 @@ class UserJoinEventNumberSerializer(serializers.ModelSerializer):
             if number_list.repeat_count > 0 and number_selected_count > 0:
                 selecting_number = NumberSelected.objects.create(user_event=instance, number=number_list)
                 # Re-check to ensure
-                number_selected_count2 = NumberSelected.objects.filter(number=number_list)
+                number_selected_count2 = NumberSelected.objects.filter(number=number_list).count()
                 if number_selected_count2 > instance.event.limit_repeat:
                     selecting_number.delete()
                     raise ValidationError({'message': f'Tem số {number_picked} đã hết'})
