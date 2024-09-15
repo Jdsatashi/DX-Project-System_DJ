@@ -1317,6 +1317,8 @@ def create_order(data):
                                     product_price = product_price.first()
                                     point = product_price.point
                                     point = point if point else 0
+                                else:
+                                    point = 0
 
                             note = {
                                 'id': product.id,
