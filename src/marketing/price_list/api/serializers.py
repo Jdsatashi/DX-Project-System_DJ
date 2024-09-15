@@ -303,20 +303,14 @@ class SpecialOfferSerializer(BaseRestrictSerializer):
                     # Add product to SpecialOfferProduct
                     for product_data in products_data:
                         print(f"Adding")
-                        self.check_product_in_price_list(special_offer, product_data.get('product'))
-                        self.set_default_values(special_offer, product_data)
+                        product = product_data.get('product')
+                        print(f"Check product: {product.id}")
+                        if not Product.objects.filter(id=product.id).exists():
+                            raise serializers.ValidationError(
+                                {'message': f'Product {product.id} is not in the PriceList'})
                         app_log.info(f"Check product_data: {product_data}")
                         SpecialOfferProduct.objects.create(special_offer=special_offer, **product_data)
-                # if special_offer.for_nvtt:
-                #     users = perm_data.pop('allow_users', None)
-                #     if users is None:
-                #         raise ValidationError({'message': 'special offer cho nvtt yêu cầu allow_users'})
-                #     users = [user.upper() for user in users]
-                #     nvtt_ids = User.objects.filter(id__in=users).values_list('clientprofile__nvtt_id', flat=True).distinct()
-                #     print(f"Test READ ONLY USER: {list(nvtt_ids)}")
-                #     perm_data['read_only_users'] = list(nvtt_ids)
-                #     perm_data['hide_users'] = users
-                #     perm_data['allow_users'] = users + list(nvtt_ids)
+
                 if special_offer.type_list == so_type.manual:
                     user_actions = [perm_actions['view'], perm_actions['create']]
                     self.handle_restrict_import_users_id(import_users, perm_data, user_actions)
@@ -327,8 +321,8 @@ class SpecialOfferSerializer(BaseRestrictSerializer):
                 return special_offer
         except Exception as e:
             app_log.error(f"Error when create special offer: {e}")
-            raise serializers.ValidationError({'message': 'unexpected error when create special offer'})
-            # raise e
+            # raise serializers.ValidationError({'message': 'unexpected error when create special offer'})
+            raise e
 
     def update(self, instance: SpecialOffer, validated_data):
         # Split insert data
@@ -377,8 +371,6 @@ class SpecialOfferSerializer(BaseRestrictSerializer):
                             keep_products.append(product.id)
                         else:
                             print(f"Adding without id")
-                            self.check_product_in_price_list(instance, product_data['product'])
-                            self.set_default_values(instance, product_data)
                             product_data.pop('special_offer', None)  # Remove special_offer from product_data if exists
                             product = SpecialOfferProduct.objects.create(special_offer=instance, **product_data)
                             keep_products.append(product.id)
@@ -405,26 +397,17 @@ class SpecialOfferSerializer(BaseRestrictSerializer):
             raise serializers.ValidationError({'message': f'unexpected error when update special offer {instance.id}'})
             # raise e
 
-    @staticmethod
-    def set_default_values(special_offer, product_data):
-        """Set default values for price, point, and quantity_in_box from ProductPrice"""
-        app_log.info(f"set_default_values")
-        if 'price' not in product_data or product_data['price'] is None:
-            app_log.info(f"When not have price")
 
-            current_pl = PriceList.get_main_pl()
-            product_price = ProductPrice.objects.filter(price_list=current_pl,
-                                                        product=product_data.get('product')).first()
-            app_log.info(f"Test product price: {product_price}")
-            if product_price:
-                product_data['price'] = product_price.price
-                product_data['point'] = product_price.point
-                product_data['quantity_in_box'] = product_price.quantity_in_box
-
-    @staticmethod
-    def check_product_in_price_list(special_offer, product):
-        """Check if the product exists in the PriceList"""
-        current_pl = PriceList.get_main_pl()
-        print(f"Check price list: {current_pl}")
-        if not ProductPrice.objects.filter(price_list=current_pl, product=product).exists():
-            raise serializers.ValidationError({'message': f'Product {product.id} is not in the PriceList'})
+"""
+# create special offer for nvtt
+    if special_offer.for_nvtt:
+        users = perm_data.pop('allow_users', None)
+        if users is None:
+            raise ValidationError({'message': 'special offer cho nvtt yêu cầu allow_users'})
+        users = [user.upper() for user in users]
+        nvtt_ids = User.objects.filter(id__in=users).values_list('clientprofile__nvtt_id', flat=True).distinct()
+        print(f"Test READ ONLY USER: {list(nvtt_ids)}")
+        perm_data['read_only_users'] = list(nvtt_ids)
+        perm_data['hide_users'] = users
+        perm_data['allow_users'] = users + list(nvtt_ids)
+"""

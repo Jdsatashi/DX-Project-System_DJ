@@ -324,7 +324,7 @@ def update_amis_point():
             orders = Order.objects.filter(date_get__range=[start_date, end_date]
                                           )
             order_ids = orders.values_list('id', flat=True)
-            main_pl: PriceList = PriceList.get_main_pl()
+            main_pl: PriceList = PriceList.objects.get()
             products_price = ProductPrice.objects.filter(price_list=main_pl)
             product_price_dict = {item.product_id: item.point for item in products_price}
 
@@ -385,5 +385,14 @@ def update_amis_point():
 
     except Exception as e:
         raise e
+
+
+def update_point():
+    orders_user = Order.objects.filter(date_get__gte='2024-02-01', date_get__lt='2024-09-30').values_list('client_id', flat=True)
+    period: PeriodSeason = PeriodSeason.get_period_by_date('point')
+    for user in orders_user:
+        point_user = PointOfSeason.objects.create(user=user, period=period)
+        point_user.auto_point()
+        point_user.save()
 
 # from utils.truncate.order import get_all_kh

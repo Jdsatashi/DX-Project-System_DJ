@@ -9,6 +9,7 @@ from account.models import User
 from marketing.livestream.models import LiveStream
 from marketing.product.models import Product
 from system_func.models import PeriodSeason
+from utils.helpers import self_id
 
 
 # Create your models here.
@@ -19,8 +20,6 @@ class PriceList(models.Model):
     date_end = models.DateField(null=False, blank=False)
     note = models.CharField(max_length=255, null=True, blank=True)
     products = models.ManyToManyField(Product, through='ProductPrice')
-    type = models.CharField(max_length=64, null=False, default='sub',
-                            choices=(('main', 'main'), ('sub', 'sub')))
 
     status = models.CharField(null=True, max_length=24)
 
@@ -43,16 +42,6 @@ class PriceList(models.Model):
         if not self.status:
             self.status = 'active'
         return super().save(*args, **kwargs)
-
-    @staticmethod
-    def get_main_pl():
-        today = date.today()
-        price_list = PriceList.objects.filter(
-            date_start__lte=today,
-            date_end__gte=today,
-            type='main'
-        ).first()
-        return price_list
 
     def __str__(self):
         return f"{self.id} - {self.name}"
@@ -96,16 +85,7 @@ class SpecialOffer(models.Model):
 
     def save(self, *args, **kwargs):
         if not self.pk:
-            char_id = "SO"
-            current_year = datetime.utcnow().year
-            two_digit_year = str(current_year)[-2:]
-            i = 1
-            while SpecialOffer.objects.filter(id=f"{char_id}{two_digit_year}{i:04d}").exists():
-                i += 1
-            if i > 9999:
-                raise ValueError({'id': 'Out of index'})
-            _id = f"{char_id}{two_digit_year}{i:04d}"
-            self.id = _id
+            self.id = self_id('SO', SpecialOffer, 4, '%y%m')
         return super().save(*args, **kwargs)
 
 

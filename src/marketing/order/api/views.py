@@ -4,6 +4,7 @@ import time
 from datetime import datetime, timedelta
 from functools import partial
 from io import BytesIO
+from itertools import groupby
 
 import numpy as np
 import openpyxl
@@ -40,7 +41,7 @@ from marketing.sale_statistic.models import UserSaleStatistic
 from system_func.models import PeriodSeason, PointOfSeason
 from user_system.client_profile.models import ClientProfile
 from user_system.employee_profile.models import EmployeeProfile
-from utils.constants import maNhomND, so_type, data_status
+from utils.constants import maNhomND, so_type, data_status, perm_actions
 from utils.datetime_handle import convert_date_format
 from utils.model_filter_paginate import filter_data, get_query_parameters, build_absolute_uri_with_params
 
@@ -117,9 +118,10 @@ class ProductStatisticsView(APIView):
 
             start_date_time = datetime.strptime(start_date_1, '%d/%m/%Y')
             start_date_2 = request.query_params.get('start_date_2',
-                                            datetime.strftime(start_date_time - timedelta(days=365), '%d/%m/%Y'))
+                                                    datetime.strftime(start_date_time - timedelta(days=365),
+                                                                      '%d/%m/%Y'))
             end_date_2 = request.query_params.get('end_date_2',
-                                          datetime.strftime(start_date_time - timedelta(days=1), '%d/%m/%Y'))
+                                                  datetime.strftime(start_date_time - timedelta(days=1), '%d/%m/%Y'))
             # Get type to calculate
             type_statistic = request.data.get('type_statistic') or request.query_params.get('type_statistic', 'all')
             # Add date period compare to dict
@@ -359,16 +361,16 @@ class TotalStatisticsView(APIView):
             default_end_date = now
 
             start_date_1 = request.query_params.get('start_date_1',
-                                            datetime.strftime(default_start_date, '%d/%m/%Y'))
+                                                    datetime.strftime(default_start_date, '%d/%m/%Y'))
             end_date_1 = request.query_params.get('end_date_1', datetime.strftime(default_end_date, '%d/%m/%Y'))
 
             start_date_time = datetime.strptime(start_date_1, '%d/%m/%Y')
             start_date_2 = request.query_params.get('start_date_2',
-                                            datetime.strftime(start_date_time - timedelta(days=365),
-                                                              '%d/%m/%Y'))
+                                                    datetime.strftime(start_date_time - timedelta(days=365),
+                                                                      '%d/%m/%Y'))
             end_date_2 = request.query_params.get('end_date_2',
-                                          datetime.strftime(start_date_time - timedelta(days=1),
-                                                            '%d/%m/%Y'))
+                                                  datetime.strftime(start_date_time - timedelta(days=1),
+                                                                    '%d/%m/%Y'))
 
             type_statistic = request.data.get('type_statistic') or request.query_params.get('type_statistic', 'all')
 
@@ -625,7 +627,8 @@ class OrderReportView(APIView):
             for obj in page_obj]
         return data, paginator.num_pages, page, total_orders, page_obj, limit
 
-    def get_order_fields(self, obj: Order, model, get_type_list, client_profiles, employee_profiles, client_lv1_profiles):
+    def get_order_fields(self, obj: Order, model, get_type_list, client_profiles, employee_profiles,
+                         client_lv1_profiles):
         order_detail = OrderDetail.objects.filter(order_id=obj)
         client_data = client_profiles.get(obj.client_id_id)
         client_name = client_data.register_name if client_data else None
@@ -959,7 +962,8 @@ def generate_order_excel(orders: QuerySet[Order]):
     bold_font = Font(name='Times New Roman', bold=True)
 
     border_style = Side(style='medium')
-    full_border_style = Border(left=border_style, right=border_style, top=border_style, bottom=border_style, diagonal=border_style, diagonal_direction=0)
+    full_border_style = Border(left=border_style, right=border_style, top=border_style, bottom=border_style,
+                               diagonal=border_style, diagonal_direction=0)
 
     sheet.merge_cells('A1:N1')
     title_cell = sheet.cell(row=1, column=1)
@@ -1171,7 +1175,9 @@ class ApiImportOrder(APIView):
 
         if file_extension not in ['.xlsx']:
             return Response({'message': 'File must be .xlsx'}, status=status.HTTP_400_BAD_REQUEST)
-
+        # data = get_excel_to_dict(file)
+        # print(data)
+        # return Response({'data': data})
         try:
             data = get_excel_to_dict(file)
 
@@ -1191,12 +1197,199 @@ class ApiImportOrder(APIView):
 def create_order(data):
     error_data = list()
     update_list = list()
+
+    try:
+        with transaction.atomic():
+            for orders_data in data:
+                try:
+                    client_id = orders_data.get('client_id')
+                    # Trying query get user by client id
+                    client: User = User.objects.filter(id=client_id).first()
+                    data_lines = orders_data.get('lines_number', None)
+                    # When client not exist
+                    if not client:
+                        # Print data to errors
+                        data_error = {
+                            'error_lines': data_lines,
+                            'client_id': orders_data.get('client_id'),
+                            'message': f'user {orders_data.get("client_id")} không tồn tại'
+                        }
+                        error_data.append(data_error)
+                        # Skip this loop
+                        continue
+                    # Handle date
+                    min_date = orders_data.get('min_date_get')
+                    max_date = orders_data.get('max_date_get')
+
+                    # Get available price list
+                    price_lists = PriceList.objects.filter(
+                        Q(date_start__lte=min_date, date_end__gte=min_date) |
+                        Q(date_start__lte=max_date, date_end__gte=max_date)
+                    )
+                    price_lists_id = price_lists.values_list('id', flat=True).distinct()
+
+                    available_perm = [f'{perm_actions["create"]}_{get_perm_name(PriceList)}_{pl_id}' for pl_id in
+                                      price_lists_id]
+                    all_client_perm = client.get_all_user_perms()
+                    all_prl_perm = all_client_perm.filter(name__in=available_perm)
+                    prl_ids = list()
+                    if all_prl_perm.exists():
+                        prl_ids = all_prl_perm.values_list('object_id', flat=True).distinct()
+                    pl = price_lists.filter(id__in=prl_ids)
+
+                    for order in orders_data.get('orders', []):
+                        # Split detail data
+                        details_data = order.pop('order_details')
+                        # Get client id
+                        nvtt = User.objects.filter(clientprofile__register_name__icontains=order['nvtt'],
+                                                   group_user__name='nvtt')
+                        nvtt_id = ''
+                        if nvtt.exists():
+                            nvtt_id = nvtt.first().id
+                        # Create Order data
+                        order_data = Order(
+                            client_id=client,
+                            list_type=order['type_list'],
+                            date_get=order['date_get'],
+                            date_company_get=order['date_company_get'],
+                            date_delay=order['date_delay'],
+                            nvtt_id=nvtt_id,
+                            created_by=order['created_by'],
+                            status=data_status.active
+                        )
+                        noting = order['note']
+                        # Jsonify note
+                        note = json.dumps({'notes': noting})
+                        order_data.note = note
+
+                        # Call save() to create Order
+                        order_data.save()
+
+                        detail_order = list()
+                        turnover_minus = order.get('minus_turnover', None)
+                        count_so = order.get('count_so', None)
+                        count_turnover = False
+                        if count_so not in ['', 'nan', None]:
+                            count_turnover = True
+                        so_data = {
+                            'is_so': False,
+                            'minus': turnover_minus,
+                            'count': count_turnover
+                        }
+                        total_point = 0
+                        total_price = 0
+                        detail_error = False
+                        success_line = []
+                        # Loop to details_data
+                        for detail in details_data:
+                            if detail_error:
+                                break
+                            # Trying get product object
+                            product = Product.objects.filter(id=detail['product_id']).first()
+                            point = detail.get('point', None)
+                            # If product not found
+                            if not product:
+                                data_error = {
+                                    'error_line': detail.get('line_number'),
+                                    'group_order': order.get('group_order'),
+                                    'client_id': order.get('client_id'),
+                                    'message': f'quy cách {detail["product_id"]} không tồn tại',
+                                }
+                                error_data.append(data_error)
+                                # Skip this loop
+                                detail_error = True
+                                break
+
+                            if point is None:
+                                if pl.count() < 1:
+                                    data_error = {
+                                        'error_line': order.get('line_number'),
+                                        'group_order': order.get('group_order'),
+                                        'client_id': order.get('client_id'),
+                                        'message': f'user có {pl.count()} bảng giá, không lấy được điểm cho sản phẩm',
+                                    }
+                                    error_data.append(data_error)
+                                    # Skip this loop
+                                    detail_error = True
+                                    break
+                                product_price = ProductPrice.objects.filter(price_list=pl.first(), product=product)
+                                if product_price.exists():
+                                    product_price = product_price.first()
+                                    point = product_price.point
+
+                            note = {
+                                'id': product.id,
+                                'price': detail['price'],
+                                'point': point,
+                                'to_money': ''
+                            }
+                            note = json.dumps(note)
+                            points = point * detail['box']
+                            price = detail['total_price'] if detail['total_price'] else 0
+                            price_so = detail['price_so'] if detail['price_so'] not in ['', None, 'nan'] else None
+                            order_detail = OrderDetail(
+                                order_id=order_data,
+                                product_id=product,
+                                order_quantity=detail['quantity'],
+                                order_box=detail['box'],
+
+                                note=note,
+                                product_price=price,
+                                point_get=points,
+                                price_so=price_so
+                            )
+                            total_price += price
+                            total_point += points
+                            #     total_price += detail['price']
+                            detail_order.append(order_detail)
+                            if price_so and not so_data.get('is_so'):
+                                so_data['is_so'] = True
+                            success_line.append(detail.get('line_number'))
+                        if detail_error:
+                            continue
+                        order_data.order_point = total_point
+                        order_data.order_price = total_price
+                        if so_data.get('is_so'):
+                            order_data.is_so = so_data.get('is_so')
+                        order_data.save()
+                        # if has_nvtt and all(product_prices):
+                        # handle_after_order(client, total_point, total_price)
+                        update_list.append(
+                            {
+                                'success_line': success_line,
+                                'order_id': order_data.id,
+                                'client_id': orders_data.get('client_id'),
+                            }
+                        )
+                        OrderDetail.objects.bulk_create(detail_order)
+                        update_point(client)
+                        update_season_stats_user(client, order_data.date_get)
+                        is_so = order_data.is_so if order_data.is_so in [False, True] else False
+                        update_user_turnover(client, order_data, is_so, so_data=so_data)
+                except Exception as e:
+                    data_error = {
+                        'error_lines': data_lines,
+                        'client_id': orders_data.get('client_id'),
+                        'message': f'user {orders_data.get("client_id")} không tồn tại'
+                    }
+                    error_data.append(data_error)
+                    # Skip this loop
+                    continue
+    except Exception as e:
+        # raise serializers.ValidationError({'message': 'error when add file', 'error': error_data})
+        raise e
+    return update_list, error_data
+
+
+def create_order2(data):
+    error_data = list()
+    update_list = list()
     start_line = 1
 
     try:
         with transaction.atomic():
             perms_pl = get_perm_name(PriceList)
-            pl_ids = Perm.objects.filter(name__icontains=perms_pl).values_list('object_id', flat=True).distinct()
+            # pl_ids = Perm.objects.filter(name__icontains=perms_pl).values_list('object_id', flat=True).distinct()
             for order in data:
                 start_line += 1
                 # Split detail data
@@ -1217,7 +1410,8 @@ def create_order(data):
                     error_data.append(data_error)
                     # Skip this loop
                     continue
-                nvtt = User.objects.filter(clientprofile__register_name__icontains=order['nvtt'], group_user__name='nvtt')
+                nvtt = User.objects.filter(clientprofile__register_name__icontains=order['nvtt'],
+                                           group_user__name='nvtt')
                 nvtt_id = ''
                 if nvtt.exists():
                     nvtt_id = nvtt.first().id
@@ -1239,9 +1433,6 @@ def create_order(data):
 
                 # Call save() to create Order
                 order_data.save()
-
-
-
 
                 main_pl = ''
                 detail_order = list()
@@ -1333,7 +1524,8 @@ def create_order(data):
                 is_so = order_data.is_so if order_data.is_so in [False, True] else False
                 update_user_turnover(client, order_data, is_so, so_data=so_data)
     except Exception as e:
-        raise serializers.ValidationError({'message': 'error when add file', 'error': error_data})
+        # raise serializers.ValidationError({'message': 'error when add file', 'error': error_data})
+        raise e
     return update_list, error_data
 
 
@@ -1442,9 +1634,12 @@ def get_excel_to_dict(file):
 
     # Áp dụng việc đổi tên cột
     df.rename(columns=column_mapping, inplace=True)
-
+    df['line_number'] = df.index + 1
     # Xử lý các giá trị NaN, +inf, -inf
-    df.replace({np.inf: None, -np.inf: None, pd.NA: None}, inplace=True)
+    df.replace({np.inf: None, -np.inf: None, np.nan: None}, inplace=True)
+
+    df['date_company_get'] = df['date_company_get'].apply(convert_date_format)
+    df['date_get'] = df['date_get'].apply(convert_date_format)
 
     # Tính toán ngày nhỏ nhất và lớn nhất cho mỗi client_id
     client_dates = df.groupby('client_id')['date_get'].agg(min_date_get='min', max_date_get='max').reset_index()
@@ -1455,16 +1650,44 @@ def get_excel_to_dict(file):
     # Sắp xếp dữ liệu
     df.sort_values(by=['client_id', 'date_get'], inplace=True)
 
-    # Cấu trúc lại dữ liệu theo yêu cầu
-    grouped = df.groupby('client_id')
+    grouped = df.groupby(['client_id', 'group_order'])
     result = []
-    for client_id, group in grouped:
-        client_data = {
-            'client_id': client_id,
-            'min_date_get': group['min_date_get'].iloc[0],
-            'max_date_get': group['max_date_get'].iloc[0],
-            'data': group.to_dict(orient='records')
-        }
-        result.append(client_data)
+    for (client_id, group_order), group in grouped:
+        order_data = {
+            'group_order': group_order,
+            'type_list': group['type_list'].iloc[0],
+            'date_company_get': group['date_company_get'].iloc[0],
+            'created_by': group['created_by'].iloc[0],
+            'date_get': group['date_get'].iloc[0],
+            'date_delay': group['date_delay'].iloc[0],
+            'client_lv1': group['client_lv1'],
+            'nvtt': group['nvtt'],
+            'note': group['note'].iloc[0],
 
-    return result
+            'order_details': group[[
+                'product_id', 'product_name', 'quantity', 'box', 'price',
+                'total_price', 'price_so', 'point', 'count_so', 'minus_turnover', 'line_number'
+            ]].to_dict(orient='records')
+        }
+        result.append((client_id, order_data))
+
+    # Re-group by client_id to nest orders within clients
+    final_result = []
+    result.sort(key=lambda x: x[0])  # Ensure data is sorted by client_id before regrouping
+    for key, group in groupby(result, key=lambda x: x[0]):
+        client_orders = [item[1] for item in group]
+        client_info = df[df['client_id'] == key].iloc[0]
+        lines_number = [ln for order in client_orders for ln in
+                        [detail['line_number'] for detail in order['order_details']]]
+
+        client_group = {
+            'client_id': key,
+            'client_name': client_info['client_name'],
+            'min_date_get': client_info['min_date_get'],
+            'max_date_get': client_info['max_date_get'],
+            'lines_number': lines_number,
+            'orders': client_orders
+        }
+        final_result.append(client_group)
+
+    return final_result
