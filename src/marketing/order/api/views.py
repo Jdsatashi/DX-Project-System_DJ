@@ -1290,7 +1290,7 @@ def create_order(data):
                             # If product not found
                             if not product:
                                 data_error = {
-                                    'error_line': detail.get('line_number'),
+                                    'error_line': data_lines,
                                     'group_order': order.get('group_order'),
                                     'client_id': order.get('client_id'),
                                     'message': f'quy cách {detail["product_id"]} không tồn tại',
@@ -1316,6 +1316,7 @@ def create_order(data):
                                 if product_price.exists():
                                     product_price = product_price.first()
                                     point = product_price.point
+                                    point = point if point else 0
 
                             note = {
                                 'id': product.id,
@@ -1357,10 +1358,12 @@ def create_order(data):
                         update_list.append(
                             {
                                 'success_line': success_line,
-                                'order_id': order_data.id,
+                                'group_order': order.get('group_order'),
                                 'client_id': orders_data.get('client_id'),
+                                'order_id': order_data.id,
                             }
                         )
+                        data_lines = [number for number in data_lines if number not in success_line]
                         OrderDetail.objects.bulk_create(detail_order)
                         update_point(client)
                         update_season_stats_user(client, order_data.date_get)
