@@ -44,17 +44,17 @@ def update_user_join_event(sender, instance, created, **kwargs):
 #     print(user_event)
 
 
-@receiver(pre_delete, sender=UserJoinEvent)
-def update_repeat_count(sender, instance, **kwargs):
-    app_log.info(f"Auto update repeat_count")
-    number_selected = NumberSelected.objects.filter(user_event=instance)
-    app_log.info(f"Check number user was selected: {number_selected}")
-    for number_sel in number_selected:
-        app_log.info(f"Check number user re selected: {number_sel.number.number}")
-        number_list = number_sel.number
-        number_list.repeat_count += 1
-        number_list.save()
-    number_selected.delete()
+# @receiver(pre_delete, sender=UserJoinEvent)
+# def update_repeat_count(sender, instance, **kwargs):
+#     app_log.info(f"Auto update repeat_count")
+#     number_selected = NumberSelected.objects.filter(user_event=instance)
+#     app_log.info(f"Check number user was selected: {number_selected}")
+#     for number_sel in number_selected:
+#         app_log.info(f"Check number user re selected: {number_sel.number.number}")
+#         number_list = number_sel.number
+#         number_list.repeat_count += 1
+#         number_list.save()
+#     number_selected.delete()
 
 
 @receiver(post_save, sender=NumberSelected)
@@ -63,8 +63,8 @@ def update_selected_number(sender, instance: NumberSelected, **kwargs):
     user_join_event = instance.user_event
     selected_numbers = user_join_event.number_selected.all().count()
     user_join_event.turn_selected = selected_numbers
-    user_join_event.save()
+    user_join_event.save(update_fields=['turn_selected'])
     number_list = instance.number
     number_selected = NumberSelected.objects.filter(number=number_list).count()
     number_list.repeat_count = number_selected
-    number_list.save()
+    number_list.save(update_fields=['repeat_count'])
