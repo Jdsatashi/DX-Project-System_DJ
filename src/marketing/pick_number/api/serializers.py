@@ -131,7 +131,7 @@ class UserJoinEventNumberSerializer(serializers.ModelSerializer):
 
     def update(self, instance: UserJoinEvent, validated_data):
         number_picked = validated_data.pop('number_picked')
-
+        start_time = time.time()
         # Check if the number is already selected
         existing_selection = NumberSelected.objects.filter(user_event=instance, number__number=number_picked).first()
 
@@ -147,15 +147,21 @@ class UserJoinEventNumberSerializer(serializers.ModelSerializer):
             # Get current number pick from number list
             number_list = NumberList.objects.filter(number=number_picked, event=instance.event).first()
             # Get current selected to validate
-            number_selected = NumberSelected.objects.filter(number=number_list)
+            number_selected_count = NumberSelected.objects.filter(number=number_list).count()
             if not number_list:
                 raise ValidationError({'message': 'Số cung cấp không hợp lệ'})
-            if number_list.repeat_count > 0 and number_selected.count() > 0:
-                NumberSelected.objects.create(user_event=instance, number=number_list)
+            if number_list.repeat_count > 0 and number_selected_count > 0:
+                selecting_number = NumberSelected.objects.create(user_event=instance, number=number_list)
+                # Re-check to ensure
+                number_selected_count2 = NumberSelected.objects.filter(number=number_list)
+                if number_selected_count2 > instance.event.limit_repeat:
+                    selecting_number.delete()
+                    raise ValidationError({'message': f'Tem số {number_picked} đã hết'})
             else:
                 raise ValidationError({'message': f'Tem số {number_picked} đã hết'})
         data = {'number': number_picked, 'action': _type}
         self.add_action_log(instance.event, data, instance.user)
+        app_log.info(f"Handle action and logs number: {time.time() - start_time}")
         start_time_2 = time.time()
         pus_data = {'type': _type, 'number': int(number_picked),
                     'event_id': instance.event.id, 'user_id': instance.user.id}
