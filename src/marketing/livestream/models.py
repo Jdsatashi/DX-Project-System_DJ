@@ -13,6 +13,9 @@ class LiveStream(models.Model):
     time_start = models.TimeField()
     live_url = models.CharField(max_length=255)
 
+    allow_comment = models.BooleanField(default=True)
+    allow_order = models.BooleanField(default=True)
+
     status = models.CharField(null=True, max_length=24)
     note = models.CharField(null=True, max_length=255)
 
