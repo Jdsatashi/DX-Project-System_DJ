@@ -9,6 +9,6 @@ def update_repeat_count(event_number_id):
 
     for number_selected in numbers_selected_list:
         number_in_list = numbers_list.filter(number=number_selected).first()
-        number_in_list.repeat_count = numbers_selected.filter(number__number=number_selected).count()
+        number_in_list.repeat_count = evn.limit_repeat - numbers_selected.filter(number__number=number_selected).count()
         print(f"Test count: {number_selected} - {number_in_list.repeat_count}")
         number_in_list.save(update_fields=['repeat_count'])
