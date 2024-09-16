@@ -266,7 +266,7 @@ class ApiSpecialOffer(viewsets.GenericViewSet, mixins.ListModelMixin, mixins.Cre
                         )
                     except Exception as e:
                         error = {
-                            'so_id': item['so_id'],
+                            'line_id': item['so_id'],
                             'message': f'lỗi khi tạo ưu đãi {item["so_name"]}',
                             'error_line': data_lines
                         }
@@ -285,7 +285,7 @@ class ApiSpecialOffer(viewsets.GenericViewSet, mixins.ListModelMixin, mixins.Cre
 
                     except Exception as e:
                         error = {
-                            'so_id': item['so_id'],
+                            'line_id': item['so_id'],
                             'message': f'lỗi khi thêm user {client_id} vào ưu đãi {item["so_name"]}',
                             'error_line': data_lines
                         }
@@ -306,14 +306,14 @@ class ApiSpecialOffer(viewsets.GenericViewSet, mixins.ListModelMixin, mixins.Cre
                             products_offer.append(product_price)
                     except Product.DoesNotExist:
                         error = {
-                            'so_id': item['so_id'],
-                            'message': f'không tìm thấy quy cách {product["product"]}',
+                            'line_id': item['so_id'],
+                            'message': f'không tìm thấy quy cách {product_id}',
                             'error_line': data_lines
                         }
                         error_data.append(error)
                         continue
                     success = {
-                        'so_id': item['so_id'],
+                        'line_id': item['so_id'],
                         'new_id': so_obj.id,
                     }
                     update_products_offer.append(success)
