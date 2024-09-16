@@ -66,5 +66,6 @@ def update_selected_number(sender, instance: NumberSelected, **kwargs):
     user_join_event.save(update_fields=['turn_selected'])
     number_list = instance.number
     number_selected = NumberSelected.objects.filter(number=number_list).count()
+    app_log.info(f"Test number list: {number_list} - {number_list.number}")
     number_list.repeat_count = number_selected
     number_list.save(update_fields=['repeat_count'])
