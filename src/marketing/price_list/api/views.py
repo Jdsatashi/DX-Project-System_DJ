@@ -1,10 +1,13 @@
+import math
 import os
 from functools import partial
 
+import numpy as np
 import openpyxl
 import pandas
+import pandas as pd
 from django.db import transaction
-from django.db.models import F, Q
+from django.db.models import F
 from django.http import HttpResponse
 from django.utils import timezone
 from openpyxl.utils import get_column_letter
@@ -17,14 +20,16 @@ from rest_framework.views import APIView
 from rest_framework_simplejwt.authentication import JWTAuthentication
 
 from account.handlers.perms import perm_queryset, get_perm_name, export_users_has_perm
+from account.handlers.restrict_serializer import add_perm, create_full_perm, list_user_has_perm
 from account.handlers.validate_perm import ValidatePermRest
-from account.models import User, GroupPerm
+from account.models import User
 from app.logs import app_log
 from marketing.price_list.api.serializers import PriceListSerializer, SpecialOfferSerializer, PriceList2Serializer, \
     SpecialOfferProductSerializer
 from marketing.price_list.models import PriceList, SpecialOffer, ProductPrice, SpecialOfferProduct
 from marketing.product.models import Product
-from utils.constants import so_type
+from utils.constants import so_type, data_status, so_type_list, perm_actions
+from utils.datetime_handle import convert_date_format
 from utils.model_filter_paginate import filter_data
 
 
@@ -166,6 +171,165 @@ class ApiSpecialOffer(viewsets.GenericViewSet, mixins.ListModelMixin, mixins.Cre
         response = filter_data(self, request, ['id', 'name', 'status', 'type_list', 'priority'],
                                queryset=queryset, **kwargs)
         return Response(response, status.HTTP_200_OK)
+
+    def import_multi_so(self, request, *args, **kwargs):
+        try:
+            file = request.FILES.get('file_import', None)
+            if not file:
+                return Response({'message': f'file_import is required'})
+            file_extension = os.path.splitext(file.name)[1].lower()
+
+            if file_extension not in ['.xlsx']:
+                return Response({'message': 'File must be .xlsx'}, status=status.HTTP_400_BAD_REQUEST)
+
+            data = self.excel_to_dict(file)
+            success, error = self.handle_import_consider(data)
+            # Dùng hàm an toàn để convert data thành JSON
+            return Response({
+                'success': success,
+                'errors': error
+            })
+        except Exception as e:
+            raise e
+            # return Response({'error': str(e)}, status=500)
+
+    def excel_to_dict(self, file):
+        df = pd.read_excel(file, engine='openpyxl')
+        column_mapping = {
+            'Mã ưu đãi': 'so_id',
+            'Mã khách hàng': 'client_id',
+            'Tên ưu đãi': 'so_name',
+            'Ngày bắt đầu': 'so_start',
+            'Ngày kết thúc': 'so_end',
+            'Ghi chú': 'note',
+            'Tính doanh số': 'count_turnover',
+            'Trừ doanh số': 'target',
+            'Mã sản phẩm': 'product',
+            'Tên sản phẩm': 'product_name',
+            'Số lượng': 'quantity_in_box',
+            'Số thùng': 'max_order_box',
+            'Đơn giá': 'price',
+            'Điểm': 'point',
+            'Giá trị ưu đãi': 'cashback'
+        }
+        df.rename(columns=column_mapping, inplace=True)
+        df['line_number'] = df.index + 1
+
+        df.replace({np.inf: None, -np.inf: None, np.nan: None}, inplace=True)
+
+        # Chuyển đổi định dạng ngày nếu cần thiết
+        df['so_start'] = df['so_start'].apply(convert_date_format)
+        df['so_end'] = df['so_end'].apply(convert_date_format)
+
+        # Nhóm dữ liệu theo 'so_id' và chuyển đổi sang định dạng yêu cầu
+        grouped_data = df.groupby('so_id')
+
+        result = []
+        for so_id, group in grouped_data:
+            # Lấy các cột dữ liệu không liên quan đến sản phẩm
+            common_data = group.iloc[0][[
+                'so_id', 'client_id', 'so_name', 'so_start', 'so_end',
+                'note', 'count_turnover', 'target'
+            ]].to_dict()
+
+            # Lấy danh sách các sản phẩm
+            products = group[
+                ['product', 'product_name', 'quantity_in_box', 'max_order_box', 'price',
+                 'cashback', 'line_number']].to_dict(orient='records')
+
+            # Ghép dữ liệu chung và danh sách sản phẩm vào một dict
+            common_data['so_detail'] = products
+            result.append(common_data)
+
+        return result
+
+    def handle_import_consider(self, data):
+        try:
+            error_data = list()
+            update_products_offer = list()
+            with transaction.atomic():
+                for i, item in enumerate(data):
+                    data_lines = [detail['line_number'] for detail in item['so_detail']]
+
+                    try:
+                        count_turnover = True if item['count_turnover'] in ['x', 'X'] else False
+                        so_name = item['so_name'] if item['so_name'] not in ['', None] else f"Ưu đãi {item['so_id']}"
+                        so_obj = SpecialOffer.objects.create(
+                            name=so_name,
+                            time_start=item['so_start'],
+                            time_end=item['so_end'],
+                            target=item['target'],
+                            count_turnover=count_turnover,
+                            note=item['note'],
+                            type_list=so_type.consider_user,
+                            status=data_status.active
+                        )
+                    except Exception as e:
+                        error = {
+                            'so_id': item['so_id'],
+                            'message': f'lỗi khi tạo ưu đãi {item["so_name"]}',
+                            'error_line': data_lines
+                        }
+                        error_data.append(error)
+                        raise e
+
+                    try:
+                        client_id = item['client_id']
+                        actions = [perm_actions['view'], perm_actions['create']]
+                        list_perm = create_full_perm(SpecialOffer, so_obj.id, actions)
+
+                        # Get user has perm
+                        existed_user_allow = list_user_has_perm(list_perm, True)
+
+                        add_perm({'type': 'users', 'data': [client_id], 'existed': existed_user_allow}, list_perm, True)
+
+                    except Exception as e:
+                        error = {
+                            'so_id': item['so_id'],
+                            'message': f'lỗi khi thêm user {client_id} vào ưu đãi {item["so_name"]}',
+                            'error_line': data_lines
+                        }
+                        error_data.append(error)
+                        raise e
+                    products_offer = list()
+                    try:
+                        for product in item['so_detail']:
+                            product_name = product.pop('product_name', None)
+                            product_id = product.pop('product')
+                            line_number = product.pop('line_number')
+
+                            product_obj = Product.objects.get(id=product_id)
+
+                            product['special_offer'] = so_obj
+                            print(f"Test: {product}")
+                            product_price = SpecialOfferProduct(product=product_obj, **product)
+                            products_offer.append(product_price)
+                    except Product.DoesNotExist:
+                        error = {
+                            'so_id': item['so_id'],
+                            'message': f'không tìm thấy quy cách {product["product"]}',
+                            'error_line': data_lines
+                        }
+                        error_data.append(error)
+                        continue
+                    success = {
+                        'so_id': item['so_id'],
+                        'new_id': so_obj.id,
+                    }
+                    update_products_offer.append(success)
+                    SpecialOfferProduct.objects.bulk_create(products_offer)
+                    if i == 5:
+                        raise Exception("Break for testing")
+            return update_products_offer, error_data
+        except Exception as e:
+            raise e
+
+
+def handle_non_serializable(value):
+    if isinstance(value, float):
+        if math.isinf(value) or math.isnan(value):
+            return None  # Hoặc một giá trị phù hợp khác
+    return value
 
 
 class ApiSpecialOfferConsider(viewsets.GenericViewSet, mixins.ListModelMixin):

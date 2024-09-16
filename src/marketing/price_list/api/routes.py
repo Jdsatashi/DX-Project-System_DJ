@@ -28,6 +28,8 @@ urlpatterns = [
     path('special-offer/import/', ApiImportProductSO.as_view()),
     path('special-offer/products/', ApiSOProduct.as_view({'get': 'list'})),
 
+    path('special-offer/import-consider/', ApiSpecialOffer.as_view({'post': 'import_multi_so'})),
+
     path('<pk>/export-products/', GenericApiPriceList.as_view({'get': 'export_products'})),
     path('<pk>/export-users/', GenericApiPriceList.as_view({'get': 'export_users'})),
 ]
