@@ -67,5 +67,6 @@ def update_selected_number(sender, instance: NumberSelected, **kwargs):
     number_list = instance.number
     number_selected = NumberSelected.objects.filter(number=number_list).count()
     app_log.info(f"Test number list: {number_list} - {number_list.number}")
-    number_list.repeat_count = number_selected
-    number_list.save(update_fields=['repeat_count'])
+    number_list.repeat_count = instance.user_event.event.limit_repeat - number_selected
+    app_log.info(f"Repeat count: {number_list.repeat_count}")
+    number_list.save()
