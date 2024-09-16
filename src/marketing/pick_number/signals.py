@@ -1,4 +1,4 @@
-from django.db.models.signals import pre_delete, post_save
+from django.db.models.signals import pre_delete, post_save, post_delete
 from django.dispatch import receiver
 
 from app.logs import app_log
@@ -57,16 +57,32 @@ def update_user_join_event(sender, instance, created, **kwargs):
 #     number_selected.delete()
 
 
-@receiver(post_save, sender=NumberSelected)
-def update_selected_number(sender, instance: NumberSelected, **kwargs):
-    app_log.info(f"Auto update update_selected_number")
+def update_number_counts(instance):
+    # Log the action
+    app_log.info(f"Updating counts for NumberSelected: {instance.id}")
+
+    # Update selected numbers count
     user_join_event = instance.user_event
     selected_numbers = user_join_event.number_selected.all().count()
     user_join_event.turn_selected = selected_numbers
     user_join_event.save(update_fields=['turn_selected'])
+
+    # Update repeat counts
     number_list = instance.number
     number_selected = NumberSelected.objects.filter(number=number_list).count()
-    app_log.info(f"Test number list: {number_list} - {number_list.number}")
     number_list.repeat_count = instance.user_event.event.limit_repeat - number_selected
-    app_log.info(f"Repeat count: {number_list.repeat_count}")
-    number_list.save()
+    number_list.save(update_fields=['repeat_count'])
+
+    app_log.info(f"Updated repeat count: {number_list.repeat_count} for number_list: {number_list.id}")
+
+
+@receiver(post_save, sender=NumberSelected)
+def post_save_update(sender, instance, **kwargs):
+    app_log.info("Post save signal triggered")
+    update_number_counts(instance)
+
+
+@receiver(post_delete, sender=NumberSelected)
+def post_delete_update(sender, instance, **kwargs):
+    app_log.info("Post delete signal triggered")
+    update_number_counts(instance)
