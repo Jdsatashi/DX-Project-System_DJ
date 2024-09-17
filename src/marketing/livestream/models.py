@@ -39,6 +39,9 @@ class LiveStreamStatistic(models.Model):
     comments = models.IntegerField(default=0)
     order_times = models.IntegerField(default=0)
 
+    fake_viewer_number = models.IntegerField(default=0)
+    fake_order_number = models.IntegerField(default=0)
+
     note = models.CharField(null=True, max_length=255)
 
     created_at = models.DateTimeField(auto_now_add=True)
