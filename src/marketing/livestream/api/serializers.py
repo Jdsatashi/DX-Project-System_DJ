@@ -70,8 +70,15 @@ class ViewLiveStatistic(BaseRestrictSerializer):
         exclude = ['id', 'created_at', 'updated_at']
 
 
+class ReadPeekViewSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = LiveStreamPeekView
+        exclude = ['id', 'live_stream']
+
+
 class LiveStreamSerializer(BaseRestrictSerializer):
     import_users = serializers.FileField(write_only=True, required=False, allow_null=True)
+
     class Meta:
         model = LiveStream
         fields = '__all__'
@@ -94,6 +101,8 @@ class LiveStreamSerializer(BaseRestrictSerializer):
             #
         statistic = instance.livestreamstatistic_set.first()
         ret['statistic'] = ViewLiveStatistic(statistic).data
+        peakview = instance.livestreampeekview
+        ret['peakview'] = ReadPeekViewSerializer(peakview).data
         return ret
 
     def create(self, validated_data):
