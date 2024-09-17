@@ -63,6 +63,13 @@ class LiveStreamDetailCommentSerializer(serializers.ModelSerializer):
         read_only_fields = ('id', 'created_at', 'updated_at')
 
 
+class ViewLiveStatistic(BaseRestrictSerializer):
+    class Meta:
+        model = LiveStreamStatistic
+        # fields = '__all__'
+        exclude = ['id', 'created_at', 'updated_at']
+
+
 class LiveStreamSerializer(BaseRestrictSerializer):
     import_users = serializers.FileField(write_only=True, required=False, allow_null=True)
     class Meta:
@@ -85,8 +92,8 @@ class LiveStreamSerializer(BaseRestrictSerializer):
                                                                                      flat=True).distinct()
             ret['groups'] = list(groups_user)
             #
-            statistic = instance.livestreamstatistic_set.first()
-
+        statistic = instance.livestreamstatistic_set.first()
+        ret['statistic'] = ViewLiveStatistic(statistic).data
         return ret
 
     def create(self, validated_data):
