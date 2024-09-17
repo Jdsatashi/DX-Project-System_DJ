@@ -144,8 +144,13 @@ class ApiLiveTracking(viewsets.GenericViewSet, mixins.ListModelMixin, mixins.Cre
     # permission_classes = [partial(ValidatePermRest, model=LiveStreamTracking)]
 
     def list(self, request, *args, **kwargs):
+        queryset = self.get_queryset()
+
+        live_id = request.query_params.get('live_id', None)
+        if live_id:
+            queryset = queryset.filter(live_stream=live_id)
         response = filter_data(self, request, ['live_stream__title', 'phone__phone_number'],
-                               **kwargs)
+                               queryset=queryset, **kwargs)
         return Response(response, status.HTTP_200_OK)
 
 

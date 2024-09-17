@@ -70,7 +70,7 @@ class LiveStreamSerializer(BaseRestrictSerializer):
         fields = '__all__'
         read_only_fields = ('id', 'created_at', 'updated_at')
 
-    def to_representation(self, instance):
+    def to_representation(self, instance: LiveStream):
         ret = super().to_representation(instance)
         request = self.context.get('request')
         if (request and request.method == 'GET'
@@ -84,6 +84,9 @@ class LiveStreamSerializer(BaseRestrictSerializer):
             groups_user = GroupPerm.objects.filter(perm__name=perm_name).values_list('display_name',
                                                                                      flat=True).distinct()
             ret['groups'] = list(groups_user)
+            #
+            statistic = instance.livestreamstatistic_set.first()
+
         return ret
 
     def create(self, validated_data):
@@ -142,22 +145,25 @@ class LiveStatistic(BaseRestrictSerializer):
         read_only_fields = ['id', 'created_at', 'updated_at']
 
 
-class LiveTracking(BaseRestrictSerializer):
+class LiveTracking(serializers.ModelSerializer):
     class Meta:
         model = LiveStreamTracking
         fields = '__all__'
-        read_only_fields = ['id', 'phone', 'time_watch', 'created_at', 'updated_at']
+        read_only_fields = ['id', 'phone', 'time_watch', 'created_at']
+        extra_kwargs = {
+            'time_join': {'allow_null': True},
+            'time_leave': {'allow_null': True},
+            'note': {'required': False, 'allow_null': True, 'allow_blank': True}
+        }
 
     def create(self, validate_data):
-        data, perm_data = self.split_data(validate_data)
-
         request = self.context.get('request')
         user, phone = get_phone_from_token(request)
 
-        time_join = data.get('time_join', None)
-        live_stream = data.get('live_stream', None)
-        time_leave = data.get('time_leave', None)
-        note = data.get('note', None)
+        time_join = validate_data.get('time_join', None)
+        live_stream = validate_data.get('live_stream', None)
+        time_leave = validate_data.get('time_leave', None)
+        note = validate_data.get('note', None)
 
         # Create tracking
         tracking = LiveStreamTracking.objects.create(
@@ -168,25 +174,14 @@ class LiveTracking(BaseRestrictSerializer):
             note=note
         )
 
-        # Create permission
-        restrict = perm_data.get('restrict')
-        if restrict:
-            self.handle_restrict(perm_data, tracking.id, self.Meta.model)
-
         return tracking
 
     def update(self, instance, validate_data):
-        data, perm_data = self.split_data(validate_data)
-        data.pop('live_stream')
-        data.pop('phone')
-        for attr, value in data.items():
+        validate_data.pop('live_stream')
+        validate_data.pop('phone')
+        for attr, value in validate_data.items():
             setattr(instance, attr, value)
         instance.save()
-
-        restrict = perm_data.get('restrict')
-        if restrict:
-            self.handle_restrict(perm_data, instance.id, self.Meta.model)
-
         return instance
 
 
