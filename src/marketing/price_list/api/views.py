@@ -301,7 +301,7 @@ class ApiSpecialOffer(viewsets.GenericViewSet, mixins.ListModelMixin, mixins.Cre
                             product_obj = Product.objects.get(id=product_id)
 
                             product['special_offer'] = so_obj
-                            print(f"Test: {product}")
+                            app_log.info(f"Test: {product}")
                             product_price = SpecialOfferProduct(product=product_obj, **product)
                             products_offer.append(product_price)
                     except Product.DoesNotExist:
