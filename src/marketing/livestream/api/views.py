@@ -129,7 +129,11 @@ class ApiLiveStatistic(viewsets.GenericViewSet, mixins.ListModelMixin, mixins.Cr
     # permission_classes = [partial(ValidatePermRest, model=LiveStreamStatistic)]
 
     def list(self, request, *args, **kwargs):
-        response = filter_data(self, request, ['live_stream__title', 'id'],
+        live_id = request.query_params.get('live_id', None)
+        queryset = self.get_queryset()
+        if live_id:
+            queryset = queryset.filter(live_stream_id=live_id)
+        response = filter_data(self, request, ['live_stream__title', 'id'], queryset=queryset,
                                **kwargs)
         return Response(response, status.HTTP_200_OK)
 
