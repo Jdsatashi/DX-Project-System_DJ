@@ -67,7 +67,7 @@ class ViewLiveStatistic(BaseRestrictSerializer):
     class Meta:
         model = LiveStreamStatistic
         # fields = '__all__'
-        exclude = ['id', 'created_at', 'updated_at']
+        exclude = ['created_at', 'updated_at']
 
 
 class ReadPeekViewSerializer(serializers.ModelSerializer):
@@ -98,11 +98,10 @@ class LiveStreamSerializer(BaseRestrictSerializer):
             groups_user = GroupPerm.objects.filter(perm__name=perm_name).values_list('display_name',
                                                                                      flat=True).distinct()
             ret['groups'] = list(groups_user)
-            #
         statistic = instance.livestreamstatistic_set.first()
         ret['statistic'] = ViewLiveStatistic(statistic).data
-        peakview = instance.livestreampeekview
-        ret['peakview'] = ReadPeekViewSerializer(peakview).data
+        peekview = instance.livestreampeekview
+        ret['peekview'] = ReadPeekViewSerializer(peekview).data
         return ret
 
     def create(self, validated_data):

@@ -41,7 +41,7 @@
 #     statistic.comments = comment_count
 #     statistic.save()
 
-from django.db.models.signals import post_save, post_delete
+from django.db.models.signals import post_save, post_delete, pre_delete
 from django.dispatch import receiver
 from django.core.exceptions import ObjectDoesNotExist
 
@@ -64,7 +64,7 @@ def get_live_stream(instance):
 
 
 @receiver(post_save, sender=LiveStreamTracking)
-@receiver(post_delete, sender=LiveStreamTracking)
+@receiver(pre_delete, sender=LiveStreamTracking)
 def update_viewers(sender, instance, **kwargs):
     live_stream = get_live_stream(instance)
     if live_stream:
@@ -75,7 +75,7 @@ def update_viewers(sender, instance, **kwargs):
 
 
 @receiver(post_save, sender=LiveStreamOfferRegister)
-@receiver(post_delete, sender=LiveStreamOfferRegister)
+@receiver(pre_delete, sender=LiveStreamOfferRegister)
 def update_order_times(sender, instance, **kwargs):
     live_stream = get_live_stream(instance)
     if live_stream:
@@ -87,7 +87,7 @@ def update_order_times(sender, instance, **kwargs):
 
 
 @receiver(post_save, sender=LiveStreamComment)
-@receiver(post_delete, sender=LiveStreamComment)
+@receiver(pre_delete, sender=LiveStreamComment)
 def update_comments(sender, instance, **kwargs):
     live_stream = get_live_stream(instance)
     if live_stream:
