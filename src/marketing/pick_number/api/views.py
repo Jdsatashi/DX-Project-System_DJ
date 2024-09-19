@@ -3,12 +3,14 @@ import tempfile
 from functools import partial
 from io import BytesIO
 
+import pandas as pd
 from django.db import transaction
 from django.db.models import QuerySet, F
 from django.http import HttpResponse
 from django.template.loader import render_to_string
 from openpyxl import Workbook
 from openpyxl.styles import Font, Alignment, Border, Side
+from openpyxl.utils.dataframe import dataframe_to_rows
 from rest_framework import viewsets, mixins, status
 from rest_framework.authentication import BasicAuthentication, SessionAuthentication
 from rest_framework.response import Response
@@ -165,29 +167,44 @@ class ApiExportEventNumber(APIView):
         event_id = self.kwargs.get('pk')
         event = EventNumber.objects.filter(id=event_id).select_related('table_point').first()
         if event is None:
-            return Response({'message': 'event id is required'}, status=400)
+            return Response({'message': 'Event ID is required'}, status=400)
 
-        # Tạo workbook và worksheet
+        # Tạo workbook và các sheet
         wb = Workbook()
-        ws = wb.active
-        ws.title = "Báo cáo sự kiện"
+        ws1 = wb.active
+        ws1.title = "Báo cáo sự kiện"
+        ws2 = wb.create_sheet(title="Danh sách số")
 
+        # Xử lý và ghi dữ liệu vào sheet 1
+        self.process_event_data(event, ws1)
+
+        # Xử lý và ghi dữ liệu vào sheet 2
+        number_lists = event.number_list.all().order_by('number')
+        data = [
+            {'Tem số': nl.number, 'Tem dư': nl.repeat_count} for nl in number_lists
+        ]
+        df = pd.DataFrame(data)
+        for r in dataframe_to_rows(df, index=False, header=True):
+            ws2.append(r)
+
+        # Lưu workbook vào BytesIO stream và trả về response
+        output = BytesIO()
+        wb.save(output)
+        output.seek(0)
+        response = HttpResponse(
+            output,
+            content_type='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'
+        )
+        response['Content-Disposition'] = f'attachment; filename="report_{event_id}.xlsx"'
+
+        return response
+
+    def process_event_data(self, event, ws):
         # Định nghĩa font và border
-        title_font = Font(size=12, bold=True, underline="single")
-        header_font = Font(size=14, bold=True)
-        data_font = Font(size=12)
+        header_font = Font(size=13, bold=True)
         center_alignment = Alignment(horizontal="center", vertical="center")
         thin_border = Border(left=Side(style='thin'), right=Side(style='thin'),
                              top=Side(style='thin'), bottom=Side(style='thin'))
-
-        # Tạo tiêu đề cho báo cáo
-        ws.merge_cells('A1:F1')
-        title_cell = ws['A1']
-        title_cell.value = f"Báo cáo sự kiện {event.name}"
-        title_cell.font = title_font
-        # title_cell.alignment = center_alignment
-
-        ws.append([])  # Thêm dòng trống
 
         # Tạo header
         headers = ["Mã KH", "Số đã chọn"]
@@ -195,60 +212,20 @@ class ApiExportEventNumber(APIView):
 
         # Định dạng header
         for col_num, header in enumerate(headers, 1):
-            cell = ws.cell(row=3, column=col_num)
+            cell = ws.cell(row=1, column=col_num)
             cell.font = header_font
             cell.alignment = center_alignment
             cell.border = thin_border
-
-        ws.column_dimensions['A'].width = 12.73  # Đặt độ rộng cột "Mã KH"
-        ws.column_dimensions['B'].width = 12.73
-
-        # Lấy danh sách user_join_event với prefetch_related cho NumberSelected
+        ws.column_dimensions['B'].width = 13
+        # Thêm dữ liệu
         users_join_event = UserJoinEvent.objects.filter(event=event).select_related('user').prefetch_related(
             'number_selected__number')
 
-        row_num = 4  # Bắt đầu từ hàng thứ 4 do tiêu đề và header đã chiếm 3 hàng
         for user_join_event in users_join_event:
             user = user_join_event.user
             selected_numbers = user_join_event.number_selected.all().order_by('created_at')
-            turn_pick = user_join_event.turn_pick or 0
-            turn_not_pick = turn_pick - selected_numbers.count()
-
-            export_data = [user.id]
-
             for number_selected in selected_numbers:
-                print_data = export_data + [number_selected.number.number]
-                self._write_to_sheet(ws, row_num, print_data, data_font, center_alignment, thin_border)
-                row_num += 1
-
-            # Thêm các dòng trống nếu có số lần chưa chọn
-            for _ in range(turn_not_pick):
-                print_data = export_data + ['-']
-                self._write_to_sheet(ws, row_num, print_data, data_font, center_alignment, thin_border)
-                row_num += 1
-
-        output = BytesIO()
-        wb.save(output)
-        output.seek(0)
-
-        # Tạo HttpResponse để trả về file Excel
-        response = HttpResponse(
-            output,
-            content_type='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'
-        )
-        response['Content-Disposition'] = f'attachment; filename=tien_do_boc_so_{event_id}.xlsx'
-
-        return response
-
-    def _write_to_sheet(self, worksheet, row_num, data, font, alignment, border):
-        """Helper function to write a row of data to the worksheet with formatting."""
-        for col_num, value in enumerate(data, 1):
-            cell = worksheet.cell(row=row_num, column=col_num)
-            cell.value = value
-            cell.font = font
-            if col_num == 2:  # Căn giữa cột "Số đã chọn"
-                cell.alignment = alignment
-            cell.border = border
+                ws.append([user.id, number_selected.number.number])
 
 
 class ApiExportEventNumberUser(APIView):
