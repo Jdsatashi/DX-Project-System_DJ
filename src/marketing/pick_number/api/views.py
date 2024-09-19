@@ -525,6 +525,7 @@ def handle_selecting(user_event, rand_nums_obj):
     try:
         with transaction.atomic():
             numbers_selected = list()
+            saved_logs = list()
             for rand_num_obj in rand_nums_obj:
 
                 while rand_num_obj.repeat_count <= 0:
@@ -532,10 +533,14 @@ def handle_selecting(user_event, rand_nums_obj):
                     if rand_num_obj.repeat_count > 0:
                         break
                 new_added = NumberSelected(user_event=user_event, number=rand_num_obj)
+                add_log = PickNumberLog(event=user_event.event, user=user_event.user, number=rand_num_obj.number,
+                                        action='random')
+                saved_logs.append(add_log)
                 numbers_selected.append(new_added)
                 rand_num_obj.repeat_count -= 1
                 rand_num_obj.save()
             NumberSelected.objects.bulk_create(numbers_selected)
+            PickNumberLog.objects.bulk_create(saved_logs)
             selected_numbers = user_event.number_selected.filter().values_list(
                 'number__number', flat=True).count()
             print(f"Test: {user_event}")
