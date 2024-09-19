@@ -157,7 +157,7 @@ class LiveStatistic(BaseRestrictSerializer):
     class Meta:
         model = LiveStreamStatistic
         fields = '__all__'
-        read_only_fields = ['id', 'created_at', 'updated_at']
+        read_only_fields = ['id', 'viewers', 'comments', 'order_times', 'created_at', 'updated_at']
 
 
 class LiveTracking(serializers.ModelSerializer):
