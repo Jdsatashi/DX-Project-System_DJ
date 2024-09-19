@@ -309,7 +309,7 @@ def check_email(email):
 
 
 def local_time():
-    return timezone.localtime(timezone.now())
+    return timezone.now()
 
 
 if __name__ == '__main__':
