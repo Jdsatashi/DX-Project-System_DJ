@@ -1,3 +1,4 @@
+from rest_framework import status
 from rest_framework_simplejwt.authentication import JWTAuthentication
 from rest_framework_simplejwt.tokens import AccessToken
 from rest_framework_simplejwt.token_blacklist.models import BlacklistedToken, OutstandingToken
@@ -40,7 +41,7 @@ class CheckBlacklistMiddleware:
         except InvalidToken:
             return JsonResponse({'detail': 'Invalid token', 'code': 'token_not_valid'}, status=401)
         except AuthenticationFailed:
-            return JsonResponse({'detail': 'Header token not valid', 'code': 'authentication_failed'})
+            return JsonResponse({'detail': 'Header token not valid', 'code': 'authentication_failed'}, status=status.HTTP_401_UNAUTHORIZED)
 
         if user and token:
             try:
