@@ -450,7 +450,7 @@ def check_token(request):
             app_log.info(f"Access token of user {user.id}")
             # Get time to verify lifetime
             current_time = local_time()
-            expiration_time = datetime.datetime.fromtimestamp(token['exp'], pytz.UTC)
+            expiration_time = token['exp']
             # When in lifetime
             if current_time < expiration_time:
                 response_data = dict()
