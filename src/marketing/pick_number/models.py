@@ -233,6 +233,12 @@ class AwardNumber(models.Model):
 
     created_at = models.DateTimeField(auto_now_add=True)
 
+    class Meta:
+        constraints = [
+            models.UniqueConstraint(fields=['prize', 'number'], name='unique_prize_number'),
+            models.UniqueConstraint(fields=['prize', 'turn_roll'], name='unique_prize_turn_roll')
+        ]
+
 
 class PickNumberLog(models.Model):
     event = models.ForeignKey(EventNumber, on_delete=models.CASCADE, related_name='pick_number_log')

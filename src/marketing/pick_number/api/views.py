@@ -1,9 +1,14 @@
+import os
 import random
+import sys
 import tempfile
+import traceback
 from functools import partial
 from io import BytesIO
+from types import SimpleNamespace
 
 import pandas as pd
+from django.conf import settings
 from django.db import transaction
 from django.db.models import QuerySet, F
 from django.http import HttpResponse
@@ -21,6 +26,7 @@ from weasyprint import HTML
 from account.handlers.perms import perm_queryset
 from account.handlers.validate_perm import ValidatePermRest
 from account.models import User
+from app.logs import app_log
 from marketing.pick_number.api.serializers import UserJoinEventSerializer, EventNumberSerializer, NumberListSerializer, \
     UserJoinEventNumberSerializer, PrizeEventSerializer, PickNumberLogSerializer, \
     AwardUserSerializer
@@ -133,6 +139,88 @@ class ApiPrizeEvent(viewsets.GenericViewSet, mixins.ListModelMixin, mixins.Creat
         response = filter_data(self, request, ['event__name', 'event__id', 'prize_name', 'note', 'id'],
                                **kwargs)
         return Response(response, status.HTTP_200_OK)
+
+    def import_prize_number(self, request, *args, **kwargs):
+        file = request.FILES.get('file_import', None)
+        if not file:
+            return Response({'message': f'file_import is required'})
+        file_extension = os.path.splitext(file.name)[1].lower()
+
+        if file_extension not in ['.xlsx']:
+            return Response({'message': 'File must be .xlsx'}, status=status.HTTP_400_BAD_REQUEST)
+
+        try:
+            df = pd.read_excel(file, engine='openpyxl')
+        except Exception as e:
+            return Response({'message': f'Error reading the Excel file: {str(e)}'}, status=status.HTTP_400_BAD_REQUEST)
+
+        column_mapping = {
+            'idGiai': 'prize_id',
+            'soTrungGiai': 'number',
+            'luotQuay': 'turn_roll'
+        }
+        missing_columns = [col for col in column_mapping.keys() if col not in df.columns]
+        if missing_columns:
+            return Response({'message': f'lỗi file không chứa cột: {", ".join(missing_columns)}'},
+                            status=status.HTTP_400_BAD_REQUEST)
+
+        df.rename(columns=column_mapping, inplace=True)
+        df.replace({pd.NA: None, pd.NaT: None}, inplace=True)
+        df['line_number'] = df.index + 1
+        prize_number_data = df.to_dict(orient='records')
+
+        success, errors = self.handle_prize_number(prize_number_data)
+
+        return Response({'message': 'ok', 'success': success, 'errors': errors})
+
+    def handle_prize_number(self, prize_number_data):
+        success = list()
+        errors = list()
+        added = list()
+        try:
+            with transaction.atomic():
+                ids = {f"{prize_num['prize_id']}" for prize_num in prize_number_data}
+                available_prizes = PrizeEvent.objects.filter(id__in=ids)
+                prize_dict = {}
+                for prize in available_prizes:
+                    prize_data = dict()
+                    prize_data['award_numbers_count'] = prize.award_number.all().count()
+                    prize_data['reward_number'] = prize.reward_number
+                    prize_dict[prize.id] = prize_data
+                available_ids = available_prizes.values_list('id', flat=True).distinct()
+                for prize_num in prize_number_data:
+                    print(f"Test data: {prize_num}")
+                    line_number = prize_num.pop('line_number')
+                    if prize_num['prize_id'] not in available_ids:
+                        error_data = {
+                            "line": line_number,
+                            "message": f"{prize_num['prize_id']} id giải thưởng không tồn tại"
+                        }
+                        errors.append(error_data)
+                        continue
+                    prize = prize_dict.get(prize_num['prize_id'])
+                    if prize['award_numbers_count'] >= prize['reward_number']:
+                        error_data = {
+                            "line": line_number,
+                            "message": f"số lượng số trứng thưởng vượt quá giới hạn {prize['reward_number']}"
+                        }
+                        errors.append(error_data)
+                        continue
+                    new_prize_number = AwardNumber.objects.create(**prize_num)
+                    success.append({
+                        "line": line_number,
+                        "message": new_prize_number.id
+                    })
+                    added.append(new_prize_number)
+
+                return success, errors
+        except Exception as e:
+            if settings.DEBUG:
+                raise e
+            else:
+                error_trace = traceback.format_exc()
+                app_log.error(f"Error when handle import prize number: "
+                              f"{str(e)}\nDetails: {error_trace}")
 
 
 class ApiPickNumberLog(viewsets.GenericViewSet, mixins.ListModelMixin):
