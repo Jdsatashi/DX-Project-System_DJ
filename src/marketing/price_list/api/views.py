@@ -1,5 +1,6 @@
 import math
 import os
+from datetime import datetime
 from functools import partial
 
 import numpy as np
@@ -61,7 +62,7 @@ class GenericApiPriceList(viewsets.GenericViewSet, mixins.ListModelMixin, mixins
 
     @action(methods=['get'], detail=False, url_path='now', url_name='now')
     def now(self, request, *args, **kwargs):
-        today = timezone.localdate()
+        today = datetime.now().date()
         queryset = self.get_queryset()
         user_id = request.query_params.get('user', None)
         if user_id:
