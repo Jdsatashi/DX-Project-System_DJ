@@ -42,6 +42,7 @@ class EventNumber(models.Model):
                 if not is_new:
                     # Lưu giá trị limit_repeat cũ trước khi cập nhật
                     old_event = EventNumber.objects.get(id=self.id)
+                    old_range_number = old_event.range_number
                     old_limit_repeat = old_event.limit_repeat
                     # Validate before updating existing EventNumber
                     self.validate_update(old_limit_repeat)
@@ -51,7 +52,7 @@ class EventNumber(models.Model):
                 if is_new:
                     self.create_number_list()
                 else:
-                    self.update_number_list(old_limit_repeat)
+                    self.update_number_list(old_limit_repeat, old_range_number)
                 app_log.info(f"Time complete EventNumber: {time.time() - start_time}")
         except Exception as e:
             app_log.error(f"Error in saving EventNumber: {e}")
@@ -71,7 +72,9 @@ class EventNumber(models.Model):
         NumberList.objects.bulk_create(number_list)
         app_log.info(f"Time complete create new NumberList: {time.time() - start_time}")
 
-    def update_number_list(self, old_limit_repeat):
+    def update_number_list(self, old_limit_repeat, old_range_number):
+        if self.range_number == old_range_number and self.limit_repeat == old_limit_repeat:
+            return
         start_time = time.time()
         current_numbers = NumberList.objects.filter(event=self).values_list('number', 'id', 'repeat_count')
         new_numbers = set(range(1, self.range_number + 1))
