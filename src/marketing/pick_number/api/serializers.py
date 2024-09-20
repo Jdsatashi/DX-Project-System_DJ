@@ -453,10 +453,12 @@ class EventNumberSerializer(BaseRestrictSerializer):
 
     @staticmethod
     def _add_users_to_event(event: EventNumber, user_ids):
-        stats_users = SeasonalStatisticUser.objects.filter(season_stats__event_number=event)
+        stats_users = SeasonalStatisticUser.objects.filter(season_stats__event_number=event).order_by('id')
+        stats_user_ids = stats_users.values_list('user_id', flat=True).distinct()
+
         print(f"Check users: {stats_users}")
         added_id = list()
-
+        new_added = list()
         for stats_user in stats_users:
             print(f"Looping user join event: {stats_user}")
             turn_per_point = stats_user.turn_per_point
@@ -475,9 +477,10 @@ class EventNumberSerializer(BaseRestrictSerializer):
                 user_event = UserJoinEvent.objects.create(
                     user=stats_user.user, event=event, total_point=total_point, turn_pick=turn_pick,
                     turn_per_point=turn_per_point)
-
+                added_id.append(user_event.id)
             added_id.append(user_event.id)
         UserJoinEvent.objects.filter(event=event).exclude(id__in=added_id).delete()
+        print(new_added)
         return stats_users.values_list('user_id', flat=True).distinct()
 
     #     current_user_ids = set(UserJoinEvent.objects.filter(event=event).values_list('user_id', flat=True))
