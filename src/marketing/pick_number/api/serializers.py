@@ -480,7 +480,7 @@ class EventNumberSerializer(BaseRestrictSerializer):
                 added_id.append(user_event.id)
             added_id.append(user_event.id)
         UserJoinEvent.objects.filter(event=event).exclude(id__in=added_id).delete()
-        print(new_added)
+        print(f"\n\n\nAdd new user join event: {new_added}\n\n\n")
         return stats_users.values_list('user_id', flat=True).distinct()
 
     #     current_user_ids = set(UserJoinEvent.objects.filter(event=event).values_list('user_id', flat=True))
