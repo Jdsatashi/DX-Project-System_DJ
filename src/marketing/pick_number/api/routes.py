@@ -53,7 +53,7 @@ urlpatterns = [
     path('reward/<pk>', award_number_details, name='api_award_number_details'),
     path('pick-number-logs/', ApiPickNumberLog.as_view({'get': 'list'})),
     path('user-award/', ApiUserAward.as_view({'get': 'list'})),
-    path('<pk>/import-award/', ApiPrizeEvent.as_view({'post': 'import_prize_number'})),
+    path('import-award/', ApiPrizeEvent.as_view({'post': 'import_prize_number'})),
 
     path('<pk>/export-number/', ApiExportEventNumber.as_view()),
     path('<pk>/export-event/', ApiExportEventNumberUser.as_view()),
