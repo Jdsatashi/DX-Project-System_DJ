@@ -73,7 +73,7 @@ class BannerItemSerializer(serializers.ModelSerializer):
             #     file_instance = FileUpload.objects.create(file=file_upload_data)
             # validated_data['file'] = file_instance
             for attr, value in validated_data.items():
-                if attr in ['url', 'title', 'video_url', 'priority', 'note']:
+                if attr in ['url', 'title', 'video_url', 'priority', 'status', 'note']:
                     setattr(instance, attr, value)
             instance.save()
             return instance
