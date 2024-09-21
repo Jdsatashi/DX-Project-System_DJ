@@ -425,7 +425,8 @@ def handle_user(user, group_data, perm_data, profile_data):
         profile, created = ClientProfile.objects.update_or_create(client_id=user, defaults=profile_data)
         # Update profile with data
         profile.client_group_id = client_group
-        profile.nvtt_id = nvtt.id
+        if nvtt is None and user.user_type == 'client':
+            profile.nvtt_id = nvtt.id
         profile.save()
 
 
