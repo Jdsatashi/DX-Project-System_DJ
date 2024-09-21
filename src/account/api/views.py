@@ -1,7 +1,9 @@
 import datetime
 import json
+import os
 import time
 
+import pandas as pd
 import pytz
 from django.contrib.auth import get_user_model
 from django.contrib.auth.hashers import check_password
@@ -111,7 +113,92 @@ class ApiAccount(viewsets.GenericViewSet, mixins.ListModelMixin, mixins.CreateMo
         get_user = self.request.query_params.get('get_user', None)
         queryset = self.get_users_query(queryset, get_user)
 
-        queryset = queryset.distinct()
+        queryset = queryset.order_by('id').distinct()
+
+        data = []
+        for user in queryset:
+            phone_numbers = ', '.join(user.phone_numbers.all().values_list('phone_number', flat=True))
+            main_phone_number = user.phone_numbers.filter(type='main').first()
+            main_phone = main_phone_number.phone_number if main_phone_number else ''
+
+            if user.user_type == 'employee':
+                try:
+                    user_profile = [user.employeeprofile.register_name, '', '']
+                except Exception:
+                    user_profile = ['', '', '']
+            else:
+                try:
+                    user_profile = [user.clientprofile.register_name,
+                                    user.clientprofile.client_lv1_id,
+                                    user.clientprofile.nvtt_id]
+                except Exception:
+                    user_profile = ['', '', '']
+
+            print_data = [
+                user.id,
+                user.email,
+                main_phone,
+                phone_numbers,
+            ]
+            result_data = print_data + user_profile
+            data.append(result_data)
+
+        # Chuyển đổi danh sách thành DataFrame
+        df = pd.DataFrame(data, columns=['Mã KH', 'Email', 'SĐT chính', 'Danh sách SĐT', 'Tên đăng ký', 'Mã NPP', 'Mã NVTT'])
+
+        response = HttpResponse(content_type='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet')
+        response['Content-Disposition'] = 'attachment; filename="users.xlsx"'
+
+        with pd.ExcelWriter(response, engine='openpyxl') as writer:
+            df.to_excel(writer, index=False, sheet_name='Users')
+            workbook = writer.book
+            worksheet = writer.sheets['Users']
+
+            # Set column widths
+            widths = {'A': 15.6, 'B': 28, 'C': 11.6, 'D': 24, 'E': 30, 'F': 10.8, 'G': 11}
+            for col_num, width in widths.items():
+                worksheet.column_dimensions[col_num].width = width
+
+        return response
+
+    def import_users(self, request, *args, **kwargs):
+        file = request.FILES.get('file_import', None)
+        if not file:
+            return Response({'message': f'file_import is required'})
+        file_extension = os.path.splitext(file.name)[1].lower()
+
+        if file_extension not in ['.xlsx']:
+            return Response({'message': 'File must be .xlsx'}, status=status.HTTP_400_BAD_REQUEST)
+
+        try:
+            df = pd.read_excel(file, engine='openpyxl')
+        except Exception as e:
+            return Response({'message': f'Error reading the Excel file: {str(e)}'}, status=status.HTTP_400_BAD_REQUEST)
+
+        column_mapping = {
+            'maKH': 'id',
+            'email': 'email',
+            'sdtChinh': 'main_phone',
+            'sdtPhu': 'phone_number',
+            'tenDangKy': 'register_name',
+            'maNPP': 'client_lv1_id',
+            'maNVTT': 'nvtt_id'
+        }
+
+        missing_columns = [col for col in column_mapping.keys() if col not in df.columns]
+        if missing_columns:
+            return Response({'message': f'Missing columns in the file: {", ".join(missing_columns)}'},
+                            status=status.HTTP_400_BAD_REQUEST)
+
+        df.rename(columns=column_mapping, inplace=True)
+        df.replace({pd.NA: None, pd.NaT: None}, inplace=True)
+
+        users_data = df.to_dict(orient='records')
+
+        # Optionally, insert data into the database or process further
+        # Example: Create User objects, validate data, etc.
+
+        return Response({'data': users_data})
 
     def get_users_query(self, queryset, get_user):
         match get_user:
