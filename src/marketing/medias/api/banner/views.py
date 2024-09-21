@@ -112,7 +112,7 @@ class ApiBannerItem(viewsets.GenericViewSet, mixins.ListModelMixin, mixins.Creat
         if display_type:
             query_filter &= Q(**{f'banner__display_type{query_type}': display_type})
         app_log.info(f"TEST: {query_filter}")
-        filter_status = Q(status=get_status) if get_status == 'all' else Q()
+        filter_status = Q(status=get_status) if get_status != 'all' else Q()
         queryset = queryset.filter(query_filter).filter(filter_status)
 
         response = filter_data(self, request, ['id', 'title', 'note', 'banner__id', 'banner__name'], queryset=queryset, **kwargs)
