@@ -95,6 +95,8 @@ class ApiBannerItem(viewsets.GenericViewSet, mixins.ListModelMixin, mixins.Creat
         # Get query params
         banner_type = request.query_params.get('type', None)
         display_type = request.query_params.get('display_type', None)
+        get_status = request.query_params.get('get_status', 'active')
+
         # Get strict as boolean
         strict = request.data.get('strict') or request.query_params.get('strict', 0)
         strict = int(strict)
@@ -110,7 +112,7 @@ class ApiBannerItem(viewsets.GenericViewSet, mixins.ListModelMixin, mixins.Creat
         if display_type:
             query_filter &= Q(**{f'banner__display_type{query_type}': display_type})
         app_log.info(f"TEST: {query_filter}")
-        queryset = queryset.filter(query_filter).exclude(status='deactivate')
+        queryset = queryset.filter(query_filter).filter(status=get_status)
 
         response = filter_data(self, request, ['id', 'title', 'note', 'banner__id', 'banner__name'], queryset=queryset, **kwargs)
         return Response(response, status.HTTP_200_OK)
