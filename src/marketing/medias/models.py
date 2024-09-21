@@ -107,6 +107,7 @@ class BannerItem(models.Model):
     title = models.CharField(max_length=255, null=True)
     priority = models.IntegerField(null=True)
     note = models.TextField(null=True)
+    status = models.CharField(max_length=64, default='active')
     created_at = models.DateTimeField(auto_now_add=True)
 
     class Meta:
