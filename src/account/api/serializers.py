@@ -93,7 +93,7 @@ class UserListSerializer(serializers.ModelSerializer):
         return list(obj.phone_numbers.values_list('phone_number', flat=True))
 
     def get_profile(self, obj):
-        if obj.user_type == 'client':
+        if obj.user_type in ['client', 'farmer']:
             client_profile = getattr(obj, 'clientprofile', None)
             return ClientProfileList(client_profile).data if client_profile else None
         elif obj.user_type == 'employee':
@@ -251,8 +251,9 @@ class UserWithPerm(serializers.ModelSerializer):
             profile = EmployeeProfile.objects.filter(employee_id=instance).first()
             if profile:
                 representation['profile'] = EmployeeProfileUserSerializer(profile).data
-        elif instance.user_type == 'client' or instance.user_type == 'farmer':
+        else:
             profile = ClientProfile.objects.filter(client_id=instance).first()
+            print(f"HERE TEST: {profile}")
             if profile:
                 representation['profile'] = ClientProfileUserSerializer(profile).data
         # Add perm_user data to representation
