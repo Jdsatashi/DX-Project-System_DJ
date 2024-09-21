@@ -418,7 +418,7 @@ def handle_user(user, group_data, perm_data, profile_data):
             Q(group_user__name='nvtt') |
             (Q(id=nvtt_id) & Q(user_type='employee') & Q(employeeprofile__position__id='NVTT'))
         ).select_related('employeeprofile').prefetch_related('employeeprofile__position').distinct().first()
-        if nvtt is None:
+        if nvtt is None and user.user_type == 'client':
             raise serializers.ValidationError({'message': f'nvtt {nvtt_id} không tồn tại'})
         print(f"Check nvtt: {nvtt}")
         # Get profile was created with user
