@@ -401,7 +401,7 @@ def handle_user(user, group_data, perm_data, profile_data):
         profile.department.set(department_data)
         profile.position.set(position_data)
     # Handle if user is client
-    elif user.user_type == 'client':
+    elif user.user_type in ['client', 'farmer']:
         # Get client group id
         client_group_id = profile_data.pop('client_group_id', '')
         # Get client group object
