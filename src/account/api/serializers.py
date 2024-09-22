@@ -1,3 +1,5 @@
+import traceback
+
 import requests
 from django.contrib.auth.hashers import make_password
 from django.db import transaction, IntegrityError
@@ -308,7 +310,8 @@ class UserWithPerm(serializers.ModelSerializer):
 
         except Exception as e:
             # Log the exception if needed
-            app_log.error(f"Error creating user: {e}")
+            error_message = traceback.format_exc().splitlines()[-1]
+            app_log.error(f"Error creating user: \n{e}\n--- Details: {error_message}")
             # Rollback transaction and re-raise the exception
             raise ValidationError({'message': 'unexpected error when create user'})
 
@@ -368,7 +371,8 @@ class UserWithPerm(serializers.ModelSerializer):
 
         except Exception as e:
             # Log the exception if needed
-            app_log.error(f"Error updating user: {e}")
+            error_message = traceback.format_exc().splitlines()[-1]
+            app_log.error(f"Error update user: \n{e}\n--- Details: {error_message}")
             # Rollback transaction and re-raise the exception
             # raise ValidationError({'message': f'lỗi bật ngờ khi update user {instance.id}'})
             raise e
