@@ -96,9 +96,9 @@ class User(AbstractBaseUser, PermissionsMixin):
                     char = 'KH'
             self.id = self_id(char, User, 4)
         self.username = self.username if self.username and self.username != '' else self.id
-        if self.password is None or self.password == '':
-            self.password = self.id.lower()
-            self.password = make_password(self.password)
+        # if self.password is None or self.password == '':
+        #     self.password = self.id.lower()
+        #     self.password = make_password(self.password)
 
         if self.email == '':
             self.email = None
