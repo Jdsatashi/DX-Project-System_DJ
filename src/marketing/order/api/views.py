@@ -954,8 +954,8 @@ def handle_order(request) -> QuerySet[Order]:
     orders = orders.select_related('client_id').prefetch_related(
         Prefetch('order_detail', queryset=OrderDetail.objects.select_related('product_id'))
     ).distinct()
-    specific = orders.filter(id='MTN240901256').first()
-    app_log.info(f"Test EXPORT: {specific}")
+    # specific = orders.filter(id='MTN240901256').first()
+    # app_log.info(f"Test EXPORT: {specific}")
     return orders
 
 
@@ -1060,7 +1060,7 @@ def generate_order_excel(orders: QuerySet[Order]):
     app_log.info(f"__ Count order: {orders.count()}")
     for i, order in enumerate(orders):
         if order.id == 'MTN240901256':
-            app_log.info(f"Test EXPORT: {order}")
+            app_log.info(f"Test EXPORT 1: {order}")
         # Get client data from query result
         client_data = client_profiles.get(order.client_id_id)
         # Handle change datetime format date_company_get
@@ -1112,7 +1112,8 @@ def generate_order_excel(orders: QuerySet[Order]):
             order.date_delay if order.date_delay else 0,
             noting,
         ]
-
+        if order.id == 'MTN240901256':
+            app_log.info(f"Test EXPORT 2: {order}")
         for detail in order.order_detail.all():
             product_id = ''
             product_name = ''
@@ -1163,7 +1164,8 @@ def generate_order_excel(orders: QuerySet[Order]):
                     cell.font = bold_font
 
             row_num += 1
-
+        if order.id == 'MTN240901256':
+            app_log.info(f"Test EXPORT 3: {order}")
     return workbook
 
 
