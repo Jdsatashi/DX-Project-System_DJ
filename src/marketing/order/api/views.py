@@ -959,7 +959,7 @@ def handle_order(request) -> QuerySet[Order]:
     return orders
 
 
-def generate_order_excel(orders: QuerySet[Order]):
+def generate_order_excel(orders: list[Order]):
     workbook = openpyxl.Workbook()
     sheet = workbook.active
 
@@ -1112,65 +1112,68 @@ def generate_order_excel(orders: QuerySet[Order]):
             order.date_delay if order.date_delay else 0,
             noting,
         ]
+        if order.order_detail.all().count() > 0:
+            for detail in order.order_detail.all():
+                product_id = ''
+                product_name = ''
+                if detail.product_id:
+                    product_id = detail.product_id.id
+                    product_name = detail.product_id.name
+                total_price = detail.product_price or 0
+                price_so = detail.price_so if detail.price_so else ''
 
-        for detail in order.order_detail.all():
-            if order.id == 'MTN240901256':
-                app_log.info(f"Test EXPORT 2: {order}")
-            product_id = ''
-            product_name = ''
-            if detail.product_id:
-                product_id = detail.product_id.id
-                product_name = detail.product_id.name
-            total_price = detail.product_price or 0
-            price_so = detail.price_so if detail.price_so else ''
-            if order.id == 'MTN240901256':
-                app_log.info(f"Test EXPORT 3: {order}")
-            # Get price from note
-            # try:
-            #     note_price = json.loads(detail.note).get('price')
-            #     price = float(note_price) if note_price else None
-            # except (json.JSONDecodeError, TypeError, ValueError):
-            #     price = None
-            # if price is None:
-            #     if order.new_special_offer_id:
-            #         price = get_special_offer_price(detail.product_id, order.new_special_offer_id)
-            #     elif order.price_list_id_id:
-            #         price = get_product_price(detail.product_id, order.price_list_id_id)
-            try:
-                price = total_price / detail.order_quantity
-            except ZeroDivisionError:
-                price = 0
-            if order.id == 'MTN240901256':
-                app_log.info(f"Test EXPORT 4: {order}")
-            details_data = [
-                product_id,
-                product_name,
-                detail.order_quantity,
-                detail.order_box,
-                price,
-                detail.product_price,
-                price_so,
-                detail.point_get
-            ]
-            if order.id == 'MTN240901256':
-                app_log.info(f"Test EXPORT 5: {order}")
-            export_data = data_list + details_data
-            if order.id == 'MTN240901256':
-                app_log.info(f"Test EXPORT DATA: {export_data}")
-            sheet.append(export_data)
+                # Get price from note
+                # try:
+                #     note_price = json.loads(detail.note).get('price')
+                #     price = float(note_price) if note_price else None
+                # except (json.JSONDecodeError, TypeError, ValueError):
+                #     price = None
+                # if price is None:
+                #     if order.new_special_offer_id:
+                #         price = get_special_offer_price(detail.product_id, order.new_special_offer_id)
+                #     elif order.price_list_id_id:
+                #         price = get_product_price(detail.product_id, order.price_list_id_id)
+                try:
+                    price = total_price / detail.order_quantity
+                except ZeroDivisionError:
+                    price = 0
+                details_data = [
+                    product_id,
+                    product_name,
+                    detail.order_quantity,
+                    detail.order_box,
+                    price,
+                    detail.product_price,
+                    price_so,
+                    detail.point_get
+                ]
+                export_data = data_list + details_data
+                sheet.append(export_data)
 
-            for col, value in enumerate(export_data, 1):
-                cell = sheet.cell(row=row_num, column=col)
-                cell.font = note_font
-                if col in {7, 9}:
-                    cell.alignment = center_alignment
-                    cell.font = date_font
-                if col == 18:  # 'Đơn giá KM' column
+                for col, value in enumerate(export_data, 1):
                     cell = sheet.cell(row=row_num, column=col)
-                    cell.font = bold_font
-            if order.id == 'MTN240901256':
-                app_log.info(f"Test EXPORT 6: {order}")
-            row_num += 1
+                    cell.font = note_font
+                    if col in {7, 9}:
+                        cell.alignment = center_alignment
+                        cell.font = date_font
+                    if col == 18:  # 'Đơn giá KM' column
+                        cell = sheet.cell(row=row_num, column=col)
+                        cell.font = bold_font
+
+                row_num += 1
+        else:
+            details_data = [
+                '',
+                '',
+                0,
+                0,
+                order.order_price,
+                0,
+                0,
+                0
+            ]
+            export_data = data_list + details_data
+            sheet.append(export_data)
 
     return workbook
 
