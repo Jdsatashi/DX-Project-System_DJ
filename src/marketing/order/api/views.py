@@ -1338,11 +1338,14 @@ def create_order(data):
                                     # Skip this loop
                                     detail_error = True
                                     break
-                                product_price = ProductPrice.objects.filter(price_list=pl.first(), product=product)
-                                if product_price.exists():
-                                    product_price = product_price.first()
-                                    point = product_price.point
-                                    point = point if point else 0
+                                elif pl.count() == 1:
+                                    product_price = ProductPrice.objects.filter(price_list=pl.first(), product=product)
+                                    if product_price.exists():
+                                        product_price = product_price.first()
+                                        point = product_price.point
+                                        point = point if point else 0
+                                    else:
+                                        point = 0
                                 else:
                                     point = 0
 
