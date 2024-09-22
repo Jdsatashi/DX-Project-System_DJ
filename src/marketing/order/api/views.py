@@ -1327,7 +1327,7 @@ def create_order(data):
                                 break
 
                             if point is None:
-                                if pl.count() < 1:
+                                if pl.count() > 1:
                                     data_error = {
                                         'error_line': data_lines,
                                         'group_order': order.get('group_order'),
