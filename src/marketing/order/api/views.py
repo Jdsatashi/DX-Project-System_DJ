@@ -1262,7 +1262,7 @@ def create_order(data):
                     if all_prl_perm.exists():
                         prl_ids = all_prl_perm.values_list('object_id', flat=True).distinct()
                     pl = price_lists.filter(id__in=prl_ids)
-                    app_log.info(f"PL of user {client_id}: {pl.count()}")
+                    app_log.info(f"PL of user {client_id}: {pl.count()} - {pl.first()}")
                     for order in orders_data.get('orders', []):
                         # Split detail data
                         details_data = order.pop('order_details')
