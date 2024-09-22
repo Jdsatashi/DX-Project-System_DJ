@@ -303,7 +303,7 @@ class ExportReport(APIView):
     def get(self, request):
         start_time = time.time()
         orders = handle_order(request)
-        orders = orders.order_by('-date_get')
+        orders = orders.order_by('-date_get', '-id')
         total_items = orders.count()
         limit = request.query_params.get('limit', 20000)
         page = request.query_params.get('page', 1)
@@ -849,6 +849,15 @@ class OrderSOCount(APIView):
 
 def handle_order(request) -> QuerySet[Order]:
     query, strict_mode, limit, page, order_by, from_date, to_date, date_field = get_query_parameters(request)
+    app_log.info(f"Params: \n__query: {query}"
+                 f"\n__strict_mode: {strict_mode}"
+                 f"\n__limit: {limit}"
+                 f"\n__page: {page}"
+                 f"\n__order_by: {order_by}"
+                 f"\n__from_date: {from_date}"
+                 f"\n__to_date: {to_date}"
+                 f"\n__date_field: {date_field}"
+                 f"")
     nvtt_query = request.query_params.get('nvtt', '')
     npp_query = request.query_params.get('npp', '')
     daily_query = request.query_params.get('daily', '')
@@ -945,7 +954,8 @@ def handle_order(request) -> QuerySet[Order]:
     orders = orders.select_related('client_id').prefetch_related(
         Prefetch('order_detail', queryset=OrderDetail.objects.select_related('product_id'))
     ).distinct()
-
+    specific = orders.filter(id='MTN240901256').first()
+    app_log.info(f"Test EXPORT: {specific}")
     return orders
 
 
@@ -1041,14 +1051,16 @@ def generate_order_excel(orders: QuerySet[Order]):
 
     nvtt_ids = set()
     for o in orders:
-        if o.nvtt_id:
+        if o.nvtt_id and o.nvtt_id not in nvtt_ids:
             nvtt_ids.add(o.nvtt_id)
         elif o.client_id_id in client_profiles and client_profiles[o.client_id_id].nvtt_id:
             nvtt_ids.add(client_profiles[o.client_id_id].nvtt_id)
 
     employee_profiles = {ep.employee_id_id: ep for ep in EmployeeProfile.objects.filter(employee_id__in=nvtt_ids)}
-    print(f"__ Count order: {orders.count()}")
+    app_log.info(f"__ Count order: {orders.count()}")
     for i, order in enumerate(orders):
+        if order.id == 'MTN240901256':
+            app_log.info(f"Test EXPORT: {order}")
         # Get client data from query result
         client_data = client_profiles.get(order.client_id_id)
         # Handle change datetime format date_company_get
@@ -1134,7 +1146,10 @@ def generate_order_excel(orders: QuerySet[Order]):
                 price_so,
                 detail.point_get
             ]
+
             export_data = data_list + details_data
+            if order.id == 'MTN240901256':
+                app_log.info(f"Test EXPORT DATA: {export_data}")
             sheet.append(export_data)
 
             for col, value in enumerate(export_data, 1):
