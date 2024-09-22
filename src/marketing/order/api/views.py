@@ -1112,9 +1112,10 @@ def generate_order_excel(orders: QuerySet[Order]):
             order.date_delay if order.date_delay else 0,
             noting,
         ]
-        if order.id == 'MTN240901256':
-            app_log.info(f"Test EXPORT 2: {order}")
+
         for detail in order.order_detail.all():
+            if order.id == 'MTN240901256':
+                app_log.info(f"Test EXPORT 2: {order}")
             product_id = ''
             product_name = ''
             if detail.product_id:
@@ -1122,6 +1123,8 @@ def generate_order_excel(orders: QuerySet[Order]):
                 product_name = detail.product_id.name
             total_price = detail.product_price or 0
             price_so = detail.price_so if detail.price_so else ''
+            if order.id == 'MTN240901256':
+                app_log.info(f"Test EXPORT 3: {order}")
             # Get price from note
             # try:
             #     note_price = json.loads(detail.note).get('price')
@@ -1137,6 +1140,8 @@ def generate_order_excel(orders: QuerySet[Order]):
                 price = total_price / detail.order_quantity
             except ZeroDivisionError:
                 price = 0
+            if order.id == 'MTN240901256':
+                app_log.info(f"Test EXPORT 4: {order}")
             details_data = [
                 product_id,
                 product_name,
@@ -1147,7 +1152,8 @@ def generate_order_excel(orders: QuerySet[Order]):
                 price_so,
                 detail.point_get
             ]
-
+            if order.id == 'MTN240901256':
+                app_log.info(f"Test EXPORT 5: {order}")
             export_data = data_list + details_data
             if order.id == 'MTN240901256':
                 app_log.info(f"Test EXPORT DATA: {export_data}")
@@ -1162,10 +1168,10 @@ def generate_order_excel(orders: QuerySet[Order]):
                 if col == 18:  # 'Đơn giá KM' column
                     cell = sheet.cell(row=row_num, column=col)
                     cell.font = bold_font
-
+            if order.id == 'MTN240901256':
+                app_log.info(f"Test EXPORT 6: {order}")
             row_num += 1
-        if order.id == 'MTN240901256':
-            app_log.info(f"Test EXPORT 3: {order}")
+
     return workbook
 
 
