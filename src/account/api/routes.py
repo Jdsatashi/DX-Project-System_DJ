@@ -31,6 +31,9 @@ urlpatterns = [
     path('', account_view),
     path('<pk>', account_detail),
 
+    path('export/', ApiAccount.as_view({'get': 'export_users'})),
+    path('import/', ApiAccount.as_view({'post': 'import_users'})),
+
     path('group/', group_view),
     path('group/<pk>', group_detail),
 

@@ -1,8 +1,10 @@
 import datetime
 import json
 import os
+import re
 import time
 
+import numpy as np
 import pandas as pd
 import pytz
 from django.contrib.auth import get_user_model
@@ -34,9 +36,11 @@ from app.redis_db import redis_db, verify_deactivate_key
 from app.settings import pusher_client
 from marketing.price_list.models import PriceList
 from system_func.models import PeriodSeason, PointOfSeason
+from user_system.client_profile.models import ClientProfile
 from utils.constants import status as user_status, maNhomND, admin_role, phone_magic, magic_verify_code, perm_actions
 from utils.env import TOKEN_LT
 from utils.helpers import generate_digits_code, generate_id, phone_validate, local_time, check_email
+from utils.import_excel import file_data_to_dict
 from utils.insert_db.default_roles_perms import set_user_perm
 from utils.model_filter_paginate import filter_data, dynamic_q
 
@@ -170,11 +174,6 @@ class ApiAccount(viewsets.GenericViewSet, mixins.ListModelMixin, mixins.CreateMo
         if file_extension not in ['.xlsx']:
             return Response({'message': 'File must be .xlsx'}, status=status.HTTP_400_BAD_REQUEST)
 
-        try:
-            df = pd.read_excel(file, engine='openpyxl')
-        except Exception as e:
-            return Response({'message': f'Error reading the Excel file: {str(e)}'}, status=status.HTTP_400_BAD_REQUEST)
-
         column_mapping = {
             'maKH': 'id',
             'email': 'email',
@@ -182,23 +181,78 @@ class ApiAccount(viewsets.GenericViewSet, mixins.ListModelMixin, mixins.CreateMo
             'sdtPhu': 'phone_number',
             'tenDangKy': 'register_name',
             'maNPP': 'client_lv1_id',
-            'maNVTT': 'nvtt_id'
+            'maNVTT': 'nvtt_id',
+            'diaChi': 'address',
+            'loaiUser': 'type_user'
         }
 
-        missing_columns = [col for col in column_mapping.keys() if col not in df.columns]
-        if missing_columns:
-            return Response({'message': f'Missing columns in the file: {", ".join(missing_columns)}'},
-                            status=status.HTTP_400_BAD_REQUEST)
+        users_data = file_data_to_dict(file, column_mapping)
 
-        df.rename(columns=column_mapping, inplace=True)
-        df.replace({pd.NA: None, pd.NaT: None}, inplace=True)
-
-        users_data = df.to_dict(orient='records')
+        success, error = self.handle_create_users(users_data)
 
         # Optionally, insert data into the database or process further
         # Example: Create User objects, validate data, etc.
 
-        return Response({'data': users_data})
+        return Response({'message': 'ok', 'success': success, 'errors': error})
+
+    def handle_create_users(self, users_data):
+        success = list()
+        errors = list()
+        for user_data in users_data:
+            try:
+                with transaction.atomic():
+                    user_insert = {
+                        'id': user_data['id'].upper(),
+                        'username': user_data['id'],
+                        'email': user_data['email'],
+                        'user_type': 'client',
+                        'status': 'active'
+                    }
+                    try:
+                        user = User.objects.create(**user_insert)
+                    except Exception as e:
+                        raise ValidationError(f"error create user: {e}")
+                    user_profile = ClientProfile.objects.filter(client_id=user)
+                    if user_profile.exists():
+                        user_profile = user_profile.first()
+                    else:
+                        user_profile = user.create_profile()
+                    user_profile.register_name = user_data['register_name']
+                    user_profile.nvtt_id = user_data['nvtt_id']
+                    user_profile.address = user_data['address']
+                    user_profile.client_lv1_id = user_data['client_lv1_id']
+                    if user_data['client_lv1_id'] == 'npp':
+                        user_profile.is_npp = True
+                    user_profile.save()
+                    try:
+                        main_phone = PhoneNumber.objects.create(
+                            phone_number=user_data['main_phone'], user=user, type='main'
+                        )
+                    except Exception as e:
+                        raise ValidationError(f"error main phone: {e}")
+                    try:
+                        sub_phone = PhoneNumber.objects.create(phone_number=user_data['phone_number'], user=user)
+                    except Exception as e:
+                        raise ValidationError(f"error sub phone: {e}")
+                    success.append({
+                        'line': user_data['line_number'],
+                        'message': f"new user_id: {user.id}"
+                    })
+            except ValidationError as e:
+                error = str(e)
+                detail_message = error.split('\\n')[1]
+                error_data = {
+                    'line': user_data['line_number'],
+                    'message': f"{detail_message}"
+                }
+                errors.append(error_data)
+            except Exception as e:
+                error_data = {
+                    'line': user_data['line_number'],
+                    'message': f"unexpected error during import file: {e}"
+                }
+                errors.append(error_data)
+        return success, errors
 
     def get_users_query(self, queryset, get_user):
         match get_user:
@@ -231,6 +285,14 @@ class ApiAccount(viewsets.GenericViewSet, mixins.ListModelMixin, mixins.CreateMo
                 app_log.info(f"Case default")
                 pass
         return queryset
+
+
+def extract_detail_message(error_message):
+    # Tìm kiếm phần chi tiết từ thông điệp lỗi
+    match = re.search(r"DETAIL: ([^\n]+)", error_message)
+    if match:
+        return match.group(1)  # Trả về phần chi tiết
+    return "No detail found"
 
 
 class ApiUpdateUserProfile(viewsets.GenericViewSet, mixins.RetrieveModelMixin, mixins.UpdateModelMixin):

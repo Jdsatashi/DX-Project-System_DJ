@@ -19,7 +19,7 @@ def create_initial_permission(apps, schema_editor):
             tasks = perm_actions['fall']
             for task in tasks:
                 perm_name_ = f'{task}_{perm_name}'
-                app_log.info(f"Adding permission: {perm_name_}")
+                # app_log.info(f"Adding permission: {perm_name_}")
                 Perm.objects.create(name=perm_name_, note=f'{task.capitalize()} {content_type.model}',
                                     content_type=content_type)
 

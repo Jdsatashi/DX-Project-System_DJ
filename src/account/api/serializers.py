@@ -308,10 +308,11 @@ class UserWithPerm(serializers.ModelSerializer):
                             raise serializers.ValidationError(
                                 {'message': f'"{phone_number}" đã tồn tại'})
                 handle_user(user, group_data, perm_data, profile_data)
-
+        except serializers.ValidationError as ve:
+            raise ve
         except Exception as e:
             # Log the exception if needed
-            error_message = traceback.format_exc().splitlines()[-1]
+            error_message = traceback.format_exc()
             app_log.error(f"Error creating user: \n{e}\n--- Details: {error_message}")
             # Rollback transaction and re-raise the exception
             raise ValidationError({'message': 'unexpected error when create user'})
