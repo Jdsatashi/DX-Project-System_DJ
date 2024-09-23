@@ -1378,7 +1378,8 @@ def create_order(data):
                     update_user_turnover(client, order_data, is_so, so_data=so_data)
         except ValueError as e:
             error = str(e)
-            detail_message = error.split('\\n')[1]
+            detail_message = error.split("'")[0]
+            # print(f"Detail message: {detail_message}")
             error_ = {
                 'line': data_lines,
                 'message': f"{detail_message}"
