@@ -1224,194 +1224,173 @@ def create_order(data):
     error_data = list()
     update_list = list()
 
-    try:
-        with transaction.atomic():
-            for orders_data in data:
-                try:
-                    client_id = orders_data.get('client_id')
-                    # Trying query get user by client id
-                    client: User = User.objects.filter(id=client_id).first()
-                    data_lines = orders_data['lines_number']
-                    # When client not exist
-                    if not client:
-                        # Print data to errors
-                        data_error = {
-                            'error_lines': data_lines,
-                            'client_id': orders_data.get('client_id'),
-                            'message': f'user {orders_data.get("client_id")} không tồn tại'
-                        }
-                        error_data.append(data_error)
-                        # Skip this loop
-                        continue
-                    # Handle date
-                    min_date = orders_data.get('min_date_get')
-                    max_date = orders_data.get('max_date_get')
+    for orders_data in data:
+        data_lines = orders_data['lines_number']
+        try:
+            with transaction.atomic():
+                client_id = orders_data.get('client_id')
+                # Trying query get user by client id
+                client: User = User.objects.filter(id=client_id).first()
+                # When client not exist
+                if not client:
+                    # Print data to errors
+                    raise ValueError(f'user {orders_data.get("client_id")} không tồn tại')
+                # Handle date
+                min_date = orders_data.get('min_date_get')
+                max_date = orders_data.get('max_date_get')
 
-                    # Get available price list
-                    price_lists = PriceList.objects.filter(
-                        Q(date_start__lte=min_date, date_end__gte=min_date) |
-                        Q(date_start__lte=max_date, date_end__gte=max_date)
+                # Get available price list
+                price_lists = PriceList.objects.filter(
+                    Q(date_start__lte=min_date, date_end__gte=min_date) |
+                    Q(date_start__lte=max_date, date_end__gte=max_date)
+                )
+                price_lists_id = price_lists.values_list('id', flat=True).distinct()
+
+                available_perm = [f'{perm_actions["create"]}_{get_perm_name(PriceList)}_{pl_id}' for pl_id in
+                                  price_lists_id]
+                all_client_perm = client.get_all_user_perms()
+                all_prl_perm = all_client_perm.filter(name__in=available_perm)
+                prl_ids = list()
+                if all_prl_perm.exists():
+                    prl_ids = all_prl_perm.values_list('object_id', flat=True).distinct()
+                pl = price_lists.filter(id__in=prl_ids)
+                app_log.info(f"PL of user {client_id}: {pl.count()} - {pl.first()}")
+                for order in orders_data.get('orders', []):
+                    # Split detail data
+                    details_data = order.pop('order_details')
+                    # Get client id
+                    nvtt = User.objects.filter(clientprofile__register_name__icontains=order['nvtt'],
+                                               group_user__name='nvtt')
+                    nvtt_id = ''
+                    if nvtt.exists():
+                        nvtt_id = nvtt.first().id
+                    # Create Order data
+                    order_data = Order(
+                        client_id=client,
+                        list_type=order['type_list'],
+                        date_get=order['date_get'],
+                        date_company_get=order['date_company_get'],
+                        date_delay=order['date_delay'],
+                        nvtt_id=nvtt_id,
+                        created_by=order['created_by'],
+                        status=data_status.active
                     )
-                    price_lists_id = price_lists.values_list('id', flat=True).distinct()
+                    noting = order['note']
+                    # Jsonify note
+                    note = json.dumps({'notes': noting})
+                    order_data.note = note
 
-                    available_perm = [f'{perm_actions["create"]}_{get_perm_name(PriceList)}_{pl_id}' for pl_id in
-                                      price_lists_id]
-                    all_client_perm = client.get_all_user_perms()
-                    all_prl_perm = all_client_perm.filter(name__in=available_perm)
-                    prl_ids = list()
-                    if all_prl_perm.exists():
-                        prl_ids = all_prl_perm.values_list('object_id', flat=True).distinct()
-                    pl = price_lists.filter(id__in=prl_ids)
-                    app_log.info(f"PL of user {client_id}: {pl.count()} - {pl.first()}")
-                    for order in orders_data.get('orders', []):
-                        # Split detail data
-                        details_data = order.pop('order_details')
-                        # Get client id
-                        nvtt = User.objects.filter(clientprofile__register_name__icontains=order['nvtt'],
-                                                   group_user__name='nvtt')
-                        nvtt_id = ''
-                        if nvtt.exists():
-                            nvtt_id = nvtt.first().id
-                        # Create Order data
-                        order_data = Order(
-                            client_id=client,
-                            list_type=order['type_list'],
-                            date_get=order['date_get'],
-                            date_company_get=order['date_company_get'],
-                            date_delay=order['date_delay'],
-                            nvtt_id=nvtt_id,
-                            created_by=order['created_by'],
-                            status=data_status.active
-                        )
-                        noting = order['note']
-                        # Jsonify note
-                        note = json.dumps({'notes': noting})
-                        order_data.note = note
+                    # Call save() to create Order
+                    order_data.save()
 
-                        # Call save() to create Order
-                        order_data.save()
+                    detail_order = list()
+                    turnover_minus = order.get('minus_turnover', None)
+                    count_so = order.get('count_so', None)
+                    count_turnover = False
+                    if count_so not in ['', 'nan', None]:
+                        count_turnover = True
+                    so_data = {
+                        'is_so': False,
+                        'minus': turnover_minus,
+                        'count': count_turnover
+                    }
+                    total_point = 0
+                    total_price = 0
+                    detail_error = False
+                    success_line = []
+                    # Loop to details_data
+                    for detail in details_data:
+                        if detail_error:
+                            break
+                        # Trying get product object
+                        product = Product.objects.filter(id=detail['product_id']).first()
+                        point = detail.get('point', None)
+                        # If product not found
+                        if not product:
+                            raise ValueError(f'quy cách {detail["product_id"]} không tồn tại')
 
-                        detail_order = list()
-                        turnover_minus = order.get('minus_turnover', None)
-                        count_so = order.get('count_so', None)
-                        count_turnover = False
-                        if count_so not in ['', 'nan', None]:
-                            count_turnover = True
-                        so_data = {
-                            'is_so': False,
-                            'minus': turnover_minus,
-                            'count': count_turnover
-                        }
-                        total_point = 0
-                        total_price = 0
-                        detail_error = False
-                        success_line = []
-                        # Loop to details_data
-                        for detail in details_data:
-                            if detail_error:
-                                break
-                            # Trying get product object
-                            product = Product.objects.filter(id=detail['product_id']).first()
-                            point = detail.get('point', None)
-                            # If product not found
-                            if not product:
-                                data_error = {
-                                    'error_line': data_lines,
-                                    'group_order': order.get('group_order'),
-                                    'client_id': order.get('client_id'),
-                                    'message': f'quy cách {detail["product_id"]} không tồn tại',
-                                }
-                                error_data.append(data_error)
-                                # Skip this loop
-                                detail_error = True
-                                break
+                        if point is None:
+                            if pl.count() > 1:
+                                raise ValueError(f'user có {pl.count()} bảng giá, không lấy được điểm cho sản phẩm')
 
-                            if point is None:
-                                if pl.count() > 1:
-                                    data_error = {
-                                        'error_line': data_lines,
-                                        'group_order': order.get('group_order'),
-                                        'client_id': order.get('client_id'),
-                                        'message': f'user có {pl.count()} bảng giá, không lấy được điểm cho sản phẩm',
-                                    }
-                                    error_data.append(data_error)
-                                    # Skip this loop
-                                    detail_error = True
-                                    break
-                                elif pl.count() == 1:
-                                    product_price = ProductPrice.objects.filter(price_list=pl.first(), product=product)
-                                    if product_price.exists():
-                                        product_price = product_price.first()
-                                        point = product_price.point
-                                        point = point if point else 0
-                                    else:
-                                        point = 0
+                            elif pl.count() == 1:
+                                product_price = ProductPrice.objects.filter(price_list=pl.first(), product=product)
+                                if product_price.exists():
+                                    product_price = product_price.first()
+                                    point = product_price.point
+                                    point = point if point else 0
                                 else:
                                     point = 0
+                            else:
+                                point = 0
 
-                            note = {
-                                'id': product.id,
-                                'price': detail['price'],
-                                'point': point,
-                                'to_money': ''
-                            }
-                            note = json.dumps(note)
-                            points = point * detail['box']
-                            price = detail['total_price'] if detail['total_price'] else 0
-                            price_so = detail['price_so'] if detail['price_so'] not in ['', None, 'nan'] else None
-                            order_detail = OrderDetail(
-                                order_id=order_data,
-                                product_id=product,
-                                order_quantity=detail['quantity'],
-                                order_box=detail['box'],
+                        note = {
+                            'id': product.id,
+                            'price': detail['price'],
+                            'point': point,
+                            'to_money': ''
+                        }
+                        note = json.dumps(note)
+                        points = point * detail['box']
+                        price = detail['total_price'] if detail['total_price'] else 0
+                        price_so = detail['price_so'] if detail['price_so'] not in ['', None, 'nan'] else None
+                        order_detail = OrderDetail(
+                            order_id=order_data,
+                            product_id=product,
+                            order_quantity=detail['quantity'],
+                            order_box=detail['box'],
 
-                                note=note,
-                                product_price=price,
-                                point_get=points,
-                                price_so=price_so
-                            )
-                            total_price += price
-                            total_point += points
-                            #     total_price += detail['price']
-                            detail_order.append(order_detail)
-                            if price_so and not so_data.get('is_so'):
-                                so_data['is_so'] = True
-                            success_line.append(detail.get('line_number'))
-                        if detail_error:
-                            continue
-                        order_data.order_point = total_point
-                        order_data.order_price = total_price
-                        if so_data.get('is_so'):
-                            order_data.is_so = so_data.get('is_so')
-                        order_data.save()
-                        # if has_nvtt and all(product_prices):
-                        # handle_after_order(client, total_point, total_price)
-                        update_list.append(
-                            {
-                                'success_line': success_line,
-                                'group_order': order.get('group_order'),
-                                'client_id': orders_data.get('client_id'),
-                                'order_id': order_data.id,
-                            }
+                            note=note,
+                            product_price=price,
+                            point_get=points,
+                            price_so=price_so
                         )
-                        data_lines = [number for number in data_lines if number not in success_line]
-                        OrderDetail.objects.bulk_create(detail_order)
-                        update_point(client)
-                        update_season_stats_user(client, order_data.date_get)
-                        is_so = order_data.is_so if order_data.is_so in [False, True] else False
-                        update_user_turnover(client, order_data, is_so, so_data=so_data)
-                except Exception as e:
-                    data_error = {
-                        'error_lines': data_lines,
-                        'client_id': orders_data.get('client_id'),
-                        'message': f'user {orders_data.get("client_id")} không tồn tại'
-                    }
-                    error_data.append(data_error)
-                    # Skip this loop
-                    continue
-    except Exception as e:
-        # raise serializers.ValidationError({'message': 'error when add file', 'error': error_data})
-        raise e
+                        total_price += price
+                        total_point += points
+                        #     total_price += detail['price']
+                        detail_order.append(order_detail)
+                        if price_so and not so_data.get('is_so'):
+                            so_data['is_so'] = True
+                        success_line.append(detail.get('line_number'))
+                    if detail_error:
+                        order.delete()
+                        continue
+                    order_data.order_point = total_point
+                    order_data.order_price = total_price
+                    if so_data.get('is_so'):
+                        order_data.is_so = so_data.get('is_so')
+                    order_data.save()
+                    # if has_nvtt and all(product_prices):
+                    # handle_after_order(client, total_point, total_price)
+                    update_list.append(
+                        {
+                            'success_line': success_line,
+                            'group_order': order.get('group_order'),
+                            'client_id': orders_data.get('client_id'),
+                            'order_id': order_data.id,
+                        }
+                    )
+                    data_lines = [number for number in data_lines if number not in success_line]
+                    OrderDetail.objects.bulk_create(detail_order)
+                    update_point(client)
+                    update_season_stats_user(client, order_data.date_get)
+                    is_so = order_data.is_so if order_data.is_so in [False, True] else False
+                    update_user_turnover(client, order_data, is_so, so_data=so_data)
+        except ValueError as e:
+            error = str(e)
+            detail_message = error.split('\\n')[1]
+            error_ = {
+                'line': data_lines,
+                'message': f"{detail_message}"
+            }
+            error_data.append(error_)
+        except Exception as e:
+            data_error = {
+                'error_lines': data_lines,
+                'message': f'lỗi import: {e}'
+            }
+            error_data.append(data_error)
+
     return update_list, error_data
 
 
