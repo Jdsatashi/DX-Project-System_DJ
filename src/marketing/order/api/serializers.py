@@ -618,7 +618,7 @@ def update_user_turnover(user: User, order: Order, is_so: bool, old_order=None, 
         so_data = {}
     if order.nvtt_id == '' or order.nvtt_id is None:
         return
-
+    app_log.info(f"so_data: {so_data}")
     today = datetime.now().date()
     first_date_of_month = today.replace(day=1)
     last_date_of_month = first_date_of_month + relativedelta(months=1) - relativedelta(days=1)
@@ -635,15 +635,13 @@ def update_user_turnover(user: User, order: Order, is_so: bool, old_order=None, 
         total_box=Sum('order_box'),
         total_price=Sum('product_price')
     )
-    app_log.info(f"Total: {totals}")
     total_box = totals['total_box'] if totals['total_box'] is not None else 0
 
     total_price = totals['total_price'] if totals['total_price'] is not None else 0
 
     old_turnover = old_order.get('order_price', 0)
     old_status = old_order.get('status', 'active')
-    # so_data = kwargs.get('so_data', {})
-    app_log.info(f"so_data: {so_data}")
+
     if is_so:
         app_log.info("Is special offer")
         # order.new_special_offer.type_list != so_type.consider_user:
