@@ -611,11 +611,14 @@ def update_season_stats_user(user: User, date_get):
                                                   ['turn_per_point', 'turn_pick', 'redundant_point', 'total_point'])
 
 
-def update_user_turnover(user: User, order: Order, is_so: bool, old_order=None, *args, **kwargs):
+def update_user_turnover(user: User, order: Order, is_so: bool, old_order=None, so_data=None):
     if old_order is None:
+        old_order = {}
+    if so_data is None:
         old_order = {}
     if order.nvtt_id == '' or order.nvtt_id is None:
         return
+
     today = datetime.now().date()
     first_date_of_month = today.replace(day=1)
     last_date_of_month = first_date_of_month + relativedelta(months=1) - relativedelta(days=1)
@@ -639,7 +642,7 @@ def update_user_turnover(user: User, order: Order, is_so: bool, old_order=None, 
 
     old_turnover = old_order.get('order_price', 0)
     old_status = old_order.get('status', 'active')
-    so_data = kwargs.get('so_data', {})
+    # so_data = kwargs.get('so_data', {})
     app_log.info(f"so_data: {so_data.get('minus', None)}")
     app_log.info(f"so_data: {so_data.get('count', None)}")
     if is_so:

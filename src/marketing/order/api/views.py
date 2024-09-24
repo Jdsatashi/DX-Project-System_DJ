@@ -1376,7 +1376,7 @@ def create_order(data):
                     update_season_stats_user(client, order_data.date_get)
                     is_so = order_data.is_so if order_data.is_so in [False, True] else False
                     app_log.info(f"TEST so_data from import: {so_data}")
-                    update_user_turnover(client, order_data, is_so, so_data=so_data)
+                    update_user_turnover(client, order_data, is_so, so_data)
         except ValueError as e:
             error = str(e)
             detail_message = error.split("'")[0]
