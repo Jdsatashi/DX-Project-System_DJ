@@ -1287,8 +1287,10 @@ def create_order(data):
                     turnover_minus = order.get('minus_turnover', None)
                     count_so = order.get('count_so', None)
                     count_turnover = False
+                    app_log.info(f"__ CHECKING count_so: {count_so} | {count_so not in ['', 'nan', None]}")
                     if count_so not in ['', 'nan', None]:
                         count_turnover = True
+                    app_log.info(f"__ CHECKING count_so 2: {count_so}")
                     so_data = {
                         'is_so': False,
                         'minus': turnover_minus,
