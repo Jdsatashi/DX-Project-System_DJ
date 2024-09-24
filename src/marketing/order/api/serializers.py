@@ -4,6 +4,7 @@ from datetime import datetime
 
 import pandas as pd
 import pytz
+from dateutil.relativedelta import relativedelta
 from django.db import transaction
 from django.db.models import Sum, F
 from rest_framework import serializers
@@ -614,6 +615,11 @@ def update_user_turnover(user: User, order: Order, is_so: bool, old_order=None, 
     if old_order is None:
         old_order = {}
     if order.nvtt_id == '' or order.nvtt_id is None:
+        return
+    today = datetime.now().date()
+    first_date_of_month = today.replace(day=1)
+    last_date_of_month = first_date_of_month + relativedelta(months=1) - relativedelta(days=1)
+    if not (first_date_of_month <= order.date_get <= last_date_of_month):
         return
     user_sale_stats = UserSaleStatistic.objects.filter(user=user).first()
     if not user_sale_stats:
