@@ -3,7 +3,7 @@ from rest_framework.routers import DefaultRouter
 
 from account.api.views import ApiAccount, otp_verify, phone_login_2, logout, check_token, \
     ApiUpdateUserProfile, ApiPerm, ApiGroupPerm, admin_login, ApiUpdateDeviceCode, ApiGetManageUser, GetUserManager, \
-    otp_deactivate, verify_deactivate, ApiUpdateAccess
+    otp_deactivate, verify_deactivate, ApiUpdateAccess, ApiViewOtp
 
 app_name = 'api_account'
 
@@ -53,4 +53,6 @@ urlpatterns = [
     path('manager-list/', GetUserManager.as_view()),
     path('deactivate/otp/', otp_deactivate),
     path('deactivate/verify/', verify_deactivate),
+
+    path('otp-list/', ApiViewOtp.as_view({'get': 'list'}))
 ]

@@ -25,7 +25,7 @@ from rest_framework_simplejwt.exceptions import TokenError
 from rest_framework_simplejwt.tokens import RefreshToken as RestRefreshToken, AccessToken
 
 from account.api.serializers import UserSerializer, RegisterSerializer, response_verify_code, UserUpdateSerializer, \
-    UserWithPerm, PermSerializer, GroupPermSerializer, UserListSerializer, AllowanceOrder, send_sms
+    UserWithPerm, PermSerializer, GroupPermSerializer, UserListSerializer, AllowanceOrder, send_sms, ViewOtpSerializer
 from account.handlers.perms import get_full_permname, get_perm_name
 from account.handlers.token import deactivate_user_token, deactivate_user_phone_token
 from account.handlers.validate_perm import check_perm
@@ -1153,3 +1153,14 @@ def verify_deactivate(request, *args, **kwargs):
             return Response({'message': f'successfully deactivate user {user.id} - {phone_deactivate}'}, status=200)
     else:
         return Response({'message': 'No OTP data found for this phone number'}, status=404)
+
+
+class ApiViewOtp(viewsets.GenericViewSet, mixins.ListModelMixin):
+    serializer_class = ViewOtpSerializer
+    queryset = Verify.objects.all()
+
+    authentication_classes = [JWTAuthentication, BasicAuthentication, SessionAuthentication]
+
+    def list(self, request, *args, **kwargs):
+        response_data = filter_data(self, request, ['phone_verify__phone_number', 'user__id'], **kwargs)
+        return Response(response_data, status=status.HTTP_200_OK)

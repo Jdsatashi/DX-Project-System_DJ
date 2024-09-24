@@ -499,3 +499,9 @@ class GrantAccessSerializer(serializers.ModelSerializer):
         model = GrantAccess
         fields = ['manager', 'grant_user', 'active', 'allow']
         read_only_fields = ('manager', 'grant_user')
+
+
+class ViewOtpSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = Verify
+        fields = ['phone_verify', 'is_verify', 'verify_code', 'verify_time', 'created_at']
