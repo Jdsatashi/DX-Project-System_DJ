@@ -238,6 +238,8 @@ class ApiAccount(viewsets.GenericViewSet, mixins.ListModelMixin, mixins.CreateMo
                         'line': user_data['line_number'],
                         'message': f"new user_id: {user.id}"
                     })
+                    perm_name = ''
+                    group = GroupPerm.objects.filter()
             except ValidationError as e:
                 error = str(e)
                 detail_message = error.split('\\n')[1]
@@ -473,7 +475,7 @@ def phone_login_2(request):
                 response = response_verify_code(new_verify)
 
                 message = f"[DONG XANH] Ma xac thuc cua ban la {verify_code}, tai app Thuoc BVTV Dong Xanh co hieu luc trong 3 phut. Vi ly do bao mat tuyet doi khong cung cap cho bat ky ai."
-                # send_sms(phone_number, message)
+                send_sms(phone_number, message)
 
                 return Response(response, status.HTTP_200_OK)
     return Response({'message': f'phương thức {request.method} không hợp lệ'},
