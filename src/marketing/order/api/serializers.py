@@ -620,7 +620,7 @@ def update_user_turnover(user: User, order: Order, is_so: bool, old_order=None, 
     first_date_of_month = today.replace(day=1)
     last_date_of_month = first_date_of_month + relativedelta(months=1) - relativedelta(days=1)
     in_range = first_date_of_month <= order.date_get <= last_date_of_month
-    app_log.info(f"Check in range: {in_range}")
+    app_log.info(f"Check in range: {order.id} - {in_range}")
     if not in_range:
         app_log.info(f"Not in_range reutrn None")
         return
