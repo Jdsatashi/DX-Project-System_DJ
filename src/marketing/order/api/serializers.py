@@ -643,8 +643,7 @@ def update_user_turnover(user: User, order: Order, is_so: bool, old_order=None, 
     old_turnover = old_order.get('order_price', 0)
     old_status = old_order.get('status', 'active')
     # so_data = kwargs.get('so_data', {})
-    app_log.info(f"so_data: {so_data.get('minus', None)}")
-    app_log.info(f"so_data: {so_data.get('count', None)}")
+    app_log.info(f"so_data: {so_data}")
     if is_so:
         app_log.info("Is special offer")
         # order.new_special_offer.type_list != so_type.consider_user:
