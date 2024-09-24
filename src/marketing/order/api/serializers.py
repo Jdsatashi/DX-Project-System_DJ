@@ -615,7 +615,7 @@ def update_user_turnover(user: User, order: Order, is_so: bool, old_order=None, 
     if old_order is None:
         old_order = {}
     if so_data is None:
-        old_order = {}
+        so_data = {}
     if order.nvtt_id == '' or order.nvtt_id is None:
         return
 

@@ -1216,8 +1216,8 @@ class ApiImportOrder(APIView):
                 'errors': error
             }, status=status.HTTP_200_OK)
         except Exception as e:
-            return Response({'error': str(e)}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
-            # raise e
+            # return Response({'error': str(e)}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+            raise e
 
 
 def create_order(data):
@@ -1256,6 +1256,8 @@ def create_order(data):
                 pl = price_lists.filter(id__in=prl_ids)
                 app_log.info(f"PL of user {client_id}: {pl.count()} - {pl.first()}")
                 for order in orders_data.get('orders', []):
+                    # for key, value in order.items():
+                    #     print(f"Key: {key}, Value: {value}")
                     # Split detail data
                     details_data = order.pop('order_details')
                     # Get client id
@@ -1389,6 +1391,7 @@ def create_order(data):
             }
             error_data.append(error_)
         except Exception as e:
+            raise e
             data_error = {
                 'error_lines': data_lines,
                 'message': f'lỗi import: {e}'
@@ -1458,10 +1461,11 @@ def get_excel_to_dict(file):
             'client_lv1': group['client_lv1'],
             'nvtt': group['nvtt'],
             'note': group['note'].iloc[0],
-
+            'count_so': group['count_so'].iloc[0],
+            'minus_turnover': group['minus_turnover'].iloc[0],
             'order_details': group[[
                 'product_id', 'product_name', 'quantity', 'box', 'price',
-                'total_price', 'price_so', 'point', 'count_so', 'minus_turnover', 'line_number'
+                'total_price', 'price_so', 'point', 'line_number'
             ]].to_dict(orient='records')
         }
         result.append((client_id, order_data))
