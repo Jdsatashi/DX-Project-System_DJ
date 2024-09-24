@@ -632,7 +632,7 @@ def update_user_turnover(user: User, order: Order, is_so: bool, old_order=None, 
         total_box=Sum('order_box'),
         total_price=Sum('product_price')
     )
-    print(f"Total: {totals}")
+    app_log.info(f"Total: {totals}")
     total_box = totals['total_box'] if totals['total_box'] is not None else 0
 
     total_price = totals['total_price'] if totals['total_price'] is not None else 0
@@ -640,10 +640,10 @@ def update_user_turnover(user: User, order: Order, is_so: bool, old_order=None, 
     old_turnover = old_order.get('order_price', 0)
     old_status = old_order.get('status', 'active')
     so_data = kwargs.get('so_data', {})
-    print(f"so_data: {so_data.get('minus', None)}")
-    print(f"so_data: {so_data.get('count', None)}")
+    app_log.info(f"so_data: {so_data.get('minus', None)}")
+    app_log.info(f"so_data: {so_data.get('count', None)}")
     if is_so:
-        print("Is special offer")
+        app_log.info("Is special offer")
         # order.new_special_offer.type_list != so_type.consider_user:
         first_date = order.date_get.replace(day=1)
         sale_target, _ = SaleTarget.objects.get_or_create(month=first_date)
@@ -659,7 +659,7 @@ def update_user_turnover(user: User, order: Order, is_so: bool, old_order=None, 
                 target = sale_target.month_target
         # print(f"|__ Fix target: {target} | {so_target}")
         fix_price = (target * total_box)
-        print(f"|__ Fix price: {fix_price}")
+        app_log.info(f"|__ Fix price: {fix_price}")
 
         count_turnover = False
         if order.new_special_offer is not None:
@@ -680,7 +680,7 @@ def update_user_turnover(user: User, order: Order, is_so: bool, old_order=None, 
                 user_sale_stats.turnover += fix_price - total_price
             else:
                 user_sale_stats.turnover += total_price - fix_price
-        print(f"|__ Final turnover: {user_sale_stats.turnover}")
+        app_log.info(f"|__ Final turnover: {user_sale_stats.turnover}")
     else:
         if so_data.get('count', None) not in ['', 'nan', None]:
             if not so_data.get('count'):
@@ -689,14 +689,14 @@ def update_user_turnover(user: User, order: Order, is_so: bool, old_order=None, 
                 user_sale_stats.turnover += total_price
         else:
             if order.status == 'deactivate':
-                print(f"Test old turnover: {old_turnover}")
+                app_log.info(f"Test old turnover: {old_turnover}")
                 user_sale_stats.turnover -= old_turnover
             else:
                 if old_status == 'active':
                     user_sale_stats.turnover += (total_price - old_turnover)
                 if old_status == 'deactivate':
                     user_sale_stats.turnover += total_price
-    print(f"TEST DATA: {old_turnover} | {user_sale_stats.turnover}")
+    app_log.info(f"TEST DATA: {old_turnover} | {user_sale_stats.turnover}")
     user_sale_stats.save()
 
 
