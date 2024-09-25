@@ -55,7 +55,7 @@ def force_update_user():
                 phones = [user_data['phone_1'], user_data['phone_2'], user_data['phone_3']]
 
                 if main_phone_field:
-                    main_phone = str(int(main_phone_field))
+                    main_phone = main_phone_field
                     main_phone_field = main_phone
                     # Deactivate current main phone
                     current_main_phone = user.phone_numbers.filter(type='main').first()
@@ -80,7 +80,7 @@ def force_update_user():
                         success_data['main_phone'] = 'created'
 
                 # Handle sub phone
-                phone_numbers = {str(int(phone)) for phone in phones if phone not in ['', 'nan', None, main_phone_field]}
+                phone_numbers = {phone for phone in phones if phone not in ['', 'nan', None, main_phone_field]}
                 for i, phone_number in enumerate(phone_numbers):
                     # Query sub phone
                     phone_obj = PhoneNumber.objects.filter(phone_number=phone_number)
