@@ -1,5 +1,8 @@
+import numpy as np
+import pandas as pd
 from django.db import transaction
 from django.db.models import F
+from rest_framework.exceptions import ValidationError
 
 from account.models import GrantAccess, User, PhoneNumber
 from app.settings import PROJECT_DIR
@@ -17,28 +20,20 @@ def inactive_users():
 
 def force_update_user():
     file = PROJECT_DIR / 'test' / 'update_users.xlsx'
-    mapping = {
-        'maKH': 'user_id',
-        'tenKH': 'register_name',
-        'npp': 'npp',
-        'nvtt': 'nvtt',
-        'sdt1': 'phone_1',
-        'sdt2': 'phone_2',
-        'sdt3': 'phone_3',
-        'sdtChinh': 'main_phone',
-    }
-    datas = file_data_to_dict(file, mapping)
+
+    datas = file_data_to_dict2(file)
     success = list()
     errors = list()
-    nvtt_list = {data['nvtt'] for data in datas}
     npp_list = {data['npp'] for data in datas}
 
-    nvtt_user = User.objects.filter(id__in=nvtt_list)
     npp_user = User.objects.filter(
         clientprofile__register_name__in=npp_list, clientprofile__is_npp=True
     ).annotate(name=F('clientprofile__register_name')).values_list('name', 'id')
     npp_user_dict = dict(npp_user)
     for user_data in datas:
+        if user_data['user_id'] == 'KG040':
+            for key, value in user_data.items():
+                print(f"{key}: {value} - {type(value)}")
         try:
             with transaction.atomic():
                 print(f"Update user id: {user_data['user_id']}")
@@ -55,7 +50,7 @@ def force_update_user():
                 phones = [user_data['phone_1'], user_data['phone_2'], user_data['phone_3']]
 
                 if main_phone_field:
-                    main_phone = main_phone_field
+                    main_phone = str(main_phone_field)
                     main_phone_field = main_phone
                     # Deactivate current main phone
                     current_main_phone = user.phone_numbers.filter(type='main').first()
@@ -105,4 +100,41 @@ def force_update_user():
         except Exception as e:
             raise e
     return success, errors
+
+
+def file_data_to_dict2(file) -> list[dict]:
+    column_mapping = {
+        'maKH': 'user_id',
+        'tenKH': 'register_name',
+        'npp': 'npp',
+        'nvtt': 'nvtt',
+        'sdt1': 'phone_1',
+        'sdt2': 'phone_2',
+        'sdt3': 'phone_3',
+        'sdtChinh': 'main_phone',
+    }
+
+    dtype_spec = {
+        'sdt1': str,
+        'sdt2': str,
+        'sdt3': str,
+        'sdtChinh': str
+    }
+
+    try:
+        df = pd.read_excel(file, engine='openpyxl', dtype=dtype_spec)
+    except Exception as e:
+        raise ValidationError({'message': f'Error reading the Excel file: {str(e)}'})
+
+    missing_columns = [col for col in column_mapping.keys() if col not in df.columns]
+    if missing_columns:
+        raise ValidationError({'message': f'Missing columns in the file: {", ".join(missing_columns)}'})
+
+    df.rename(columns=column_mapping, inplace=True)
+    df['line_number'] = df.index + 2
+    df.replace({np.inf: None, -np.inf: None, np.nan: None}, inplace=True)
+    data = df.to_dict(orient='records')
+    return data
+
+
 # from utils.truncate.users import force_update_user
