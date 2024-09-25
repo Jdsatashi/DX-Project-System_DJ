@@ -32,17 +32,14 @@ def force_update_user():
     nvtt_list = {data['nvtt'] for data in datas}
     npp_list = {data['npp'] for data in datas}
     lista = list()
-    for nvtt_name in nvtt_list:
-        nvtt_user = User.objects.filter(employeeprofile__register_name__icontains=nvtt_name)
-        if nvtt_user.exists():
-            lista.append(nvtt_user)
+    nvtt_user = User.objects.filter(id__in=nvtt_list)
     npp_user = User.objects.filter(clientprofile__register_name__in=npp_list, clientprofile__is_npp=True)
     for user_data in datas:
         try:
             pass
         except Exception as e:
             raise e
-    print(f"Test nvtt: {len(nvtt_list)} - {len(lista)}")
+    print(f"Test nvtt: {len(nvtt_list)} - {len(nvtt_user)}")
     print(f"Test npp: {len(npp_list)} - {len(npp_user)}")
     a = npp_list.copy()
     for npp in npp_user:
