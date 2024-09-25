@@ -127,16 +127,18 @@ class ApiAccount(viewsets.GenericViewSet, mixins.ListModelMixin, mixins.CreateMo
 
             if user.user_type == 'employee':
                 try:
-                    user_profile = [user.employeeprofile.register_name, '', '']
+                    user_profile = [user.employeeprofile.register_name, '', '', user.employeeprofile.address]
                 except Exception:
-                    user_profile = ['', '', '']
+                    user_profile = ['', '', '', '']
             else:
                 try:
                     user_profile = [user.clientprofile.register_name,
                                     user.clientprofile.client_lv1_id,
-                                    user.clientprofile.nvtt_id]
+                                    user.clientprofile.nvtt_id,
+                                    user.clientprofile.address
+                                ]
                 except Exception:
-                    user_profile = ['', '', '']
+                    user_profile = ['', '', '', '']
 
             print_data = [
                 user.id,
@@ -148,7 +150,7 @@ class ApiAccount(viewsets.GenericViewSet, mixins.ListModelMixin, mixins.CreateMo
             data.append(result_data)
 
         # Chuyển đổi danh sách thành DataFrame
-        df = pd.DataFrame(data, columns=['Mã KH', 'Email', 'SĐT chính', 'Danh sách SĐT', 'Tên đăng ký', 'Mã NPP', 'Mã NVTT'])
+        df = pd.DataFrame(data, columns=['Mã KH', 'Email', 'SĐT chính', 'Danh sách SĐT', 'Tên đăng ký', 'Mã NPP', 'Mã NVTT', 'Địa chỉ'])
 
         response = HttpResponse(content_type='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet')
         response['Content-Disposition'] = 'attachment; filename="users.xlsx"'
@@ -159,7 +161,7 @@ class ApiAccount(viewsets.GenericViewSet, mixins.ListModelMixin, mixins.CreateMo
             worksheet = writer.sheets['Users']
 
             # Set column widths
-            widths = {'A': 15.6, 'B': 28, 'C': 11.6, 'D': 24, 'E': 30, 'F': 10.8, 'G': 11}
+            widths = {'A': 14, 'B': 24, 'C': 11.6, 'D': 28, 'E': 30, 'F': 10.8, 'G': 12, 'H': 36}
             for col_num, width in widths.items():
                 worksheet.column_dimensions[col_num].width = width
 
