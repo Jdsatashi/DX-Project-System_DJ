@@ -102,7 +102,7 @@ class User(AbstractBaseUser, PermissionsMixin):
 
         if self.email == '':
             self.email = None
-        if self.email not in ['', None] and User.objects.filter(email=self.email).exists():
+        if self.email not in ['', None] and User.objects.filter(email=self.email).exclude(id=self.id).exists():
             raise ValidationError(f"email {self.email} already existed")
 
         self.status_user(self.status)
