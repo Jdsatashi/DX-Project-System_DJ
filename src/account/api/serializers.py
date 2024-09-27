@@ -89,7 +89,7 @@ class UserListSerializer(serializers.ModelSerializer):
 
     class Meta:
         model = User
-        fields = ['id', 'email', 'status', 'user_type', 'phone', 'main_phone', 'group_user', 'profile']
+        fields = ['id', 'email', 'status', 'note', 'user_type', 'phone', 'main_phone', 'group_user', 'profile']
 
     def get_phone(self, obj):
         return list(obj.phone_numbers.values_list('phone_number', flat=True))
@@ -128,7 +128,7 @@ class UserUpdateSerializer(serializers.ModelSerializer):
 
     class Meta:
         model = User
-        fields = ['id', 'username', 'email', 'region', 'user_type', 'profile']
+        fields = ['id', 'username', 'email', 'note', 'region', 'user_type', 'profile']
         read_only_fields = ['id', 'username', 'user_type']
 
     @staticmethod
