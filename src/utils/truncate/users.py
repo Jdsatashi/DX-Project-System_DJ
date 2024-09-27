@@ -144,7 +144,7 @@ def force_update_user2():
                     & Q(employeeprofile__register_name__endswith=firstname)
                 ))
         nvtt = nvtt.first()
-        nvtt_user_dict[nvtt.employeeprofile.register_name] = nvtt.id
+        nvtt_user_dict[nvtt_char] = nvtt.id
         # print(nvtt)
     print(f"Length dict: nvtt:{len(nvtt_user_dict)} - npp:{len(npp_user_dict)}")
 
