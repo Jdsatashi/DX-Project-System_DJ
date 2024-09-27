@@ -17,6 +17,8 @@ from utils.constants import perm_actions, admin_role
 from utils.env import APP_SERVER
 from firebase_admin import messaging
 
+from utils.import_excel import get_user_list
+
 
 def send_firebase_notification3(title, body, registration_tokens, data):
     """
@@ -52,6 +54,7 @@ class NotificationSerializer(serializers.ModelSerializer):
     users = serializers.ListField(child=serializers.CharField(), write_only=True, allow_null=True, required=False)
     groups = serializers.ListField(child=serializers.CharField(), write_only=True, allow_null=True, required=False)
     files = serializers.ListField(child=serializers.FileField(), write_only=True, allow_null=True, required=False)
+    import_users = serializers.FileField(required=False)
 
     class Meta:
         model = Notification
@@ -87,6 +90,7 @@ class NotificationSerializer(serializers.ModelSerializer):
         users = validated_data.pop('users', [])
         groups = validated_data.pop('groups', [])
         files = validated_data.pop('files', [])
+        import_users = validated_data.pop('import_users', None)
         app_log.info(f"Number of files: {len(files)}")
         try:
             with transaction.atomic():
@@ -101,18 +105,23 @@ class NotificationSerializer(serializers.ModelSerializer):
                 add_perm({'type': 'users', 'data': users, 'existed': existed_user_allow}, list_perm, True)
                 add_perm({'type': 'group', 'data': groups, 'existed': existed_group_allow}, list_perm, True)
 
-                # Get all user from group
-                user_in_group = User.objects.filter(group_user__name__in=groups).exclude(is_superuser=True).distinct()
+                # Get user from file except of choosing
+                if import_users:
+                    users = get_user_list(import_users)
+                    distinct_users = User.objects.filter(id__in=users).distinct()
+                else:
+                    # Get all user from group
+                    user_in_group = User.objects.filter(group_user__name__in=groups).exclude(is_superuser=True).distinct()
 
-                # Get user from list users id
-                users_from_ids = User.objects.filter(id__in=users).distinct()
+                    # Get user from list users id
+                    users_from_ids = User.objects.filter(id__in=users).distinct()
 
-                # Merge 2 Queryset
-                combined_users = user_in_group | users_from_ids
+                    # Merge 2 Queryset
+                    combined_users = user_in_group | users_from_ids
 
-                # Get distinct user
-                distinct_users = combined_users.distinct()
-
+                    # Get distinct user
+                    distinct_users = combined_users.distinct()
+                app_log.info(f"Count users: {distinct_users.count()}")
                 # Add user to notification
                 notify_users = [NotificationUser(notify=notify, user=user) for user in distinct_users]
                 # Create notification of user
@@ -134,7 +143,7 @@ class NotificationSerializer(serializers.ModelSerializer):
 
                 time_now = timezone.now()
                 alert_datetime = datetime.combine(notify.alert_date, notify.alert_time)
-                alert_datetime = timezone.make_aware(alert_datetime, timezone.get_current_timezone())
+                # alert_datetime = timezone.make_aware(alert_datetime, timezone.get_current_timezone())
 
                 delay = (alert_datetime - time_now).total_seconds()
 
