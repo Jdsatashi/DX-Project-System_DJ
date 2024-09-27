@@ -277,6 +277,7 @@ def extract_last_upper_case(s):
 
     remaining = s[last_upper_index + 1:]
     remaining = last_upper + remaining
+    print(start_upper, remaining)
     return start_upper, remaining
 
 
