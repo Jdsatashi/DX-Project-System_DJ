@@ -121,6 +121,7 @@ def force_update_user2():
 
     nvtt_user_dict = dict()
     for nvtt_char in nvtt_list:
+        print(f"f{nvtt_char}")
         lastname, firstname = extract_last_upper_case(nvtt_char)
         query_first_char = Q(employeeprofile__register_name__startswith=lastname[0])
         query_first_name = Q(employeeprofile__register_name__endswith=firstname)
