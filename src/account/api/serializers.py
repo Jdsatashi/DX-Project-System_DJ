@@ -425,14 +425,14 @@ def handle_user(user, group_data, perm_data, profile_data):
             Q(group_user__name='nvtt') |
             (Q(id=nvtt_id) & Q(user_type='employee') & Q(employeeprofile__position__id='NVTT'))
         ).select_related('employeeprofile').prefetch_related('employeeprofile__position').distinct().first()
-        if nvtt is None and user.user_type == 'client':
-            raise serializers.ValidationError({'message': f'nvtt {nvtt_id} không tồn tại'})
+        # if nvtt is None and user.user_type == 'client':
+        #     raise serializers.ValidationError({'message': f'nvtt {nvtt_id} không tồn tại'})
         print(f"Check nvtt: {nvtt}")
         # Get profile was created with user
         profile, created = ClientProfile.objects.update_or_create(client_id=user, defaults=profile_data)
         # Update profile with data
         profile.client_group_id = client_group
-        if nvtt is None and user.user_type == 'client':
+        if nvtt and user.user_type == 'client':
             profile.nvtt_id = nvtt.id
         profile.save()
 
