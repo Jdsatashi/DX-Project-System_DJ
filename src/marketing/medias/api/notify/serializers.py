@@ -153,12 +153,11 @@ class NotificationSerializer(serializers.ModelSerializer):
                     'short_description': notify.short_description,
                 }
 
-                #
-                # if delay < 10:
-                #     # Gửi thông báo ngay lập tức
-                #     send_scheduled_notification.apply_async((notify.id, send_notify, registration_tokens), countdown=10)
-                # else:
-                #     send_scheduled_notification.apply_async((notify.id, send_notify, registration_tokens), countdown=delay)
+                if delay < 10:
+                    # Gửi thông báo ngay lập tức
+                    send_scheduled_notification.apply_async((notify.id, send_notify, registration_tokens), countdown=10)
+                else:
+                    send_scheduled_notification.apply_async((notify.id, send_notify, registration_tokens), countdown=delay)
 
                 # send_firebase_notification3(notify.title, notify.short_description, registration_tokens, my_data)
                 # schedule_notification(notify)
