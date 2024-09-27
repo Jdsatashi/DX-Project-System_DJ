@@ -167,14 +167,12 @@ def force_update_user2():
                 main_phone_field = user_data.get('main_phone', None)
                 phones = [user_data['phone_1'], user_data['phone_2'], user_data['phone_3']]
 
+                current_main_phone = user.phone_numbers.filter().delete()
+
                 if main_phone_field:
                     main_phone = str(main_phone_field)
                     main_phone_field = main_phone
                     # Deactivate current main phone
-                    current_main_phone = user.phone_numbers.filter(type='main').first()
-                    if current_main_phone:
-                        current_main_phone.type = 'sub'
-                        current_main_phone.save()
 
                     # Query main phone
                     main_phone_q = PhoneNumber.objects.filter(phone_number=main_phone)
