@@ -121,7 +121,7 @@ def force_update_user2():
 
     nvtt_user_dict = dict()
     for nvtt_char in nvtt_list:
-        print(f"f{nvtt_char}")
+        print(f"{nvtt_char}")
         lastname, firstname = extract_last_upper_case(nvtt_char)
         query_first_char = Q(employeeprofile__register_name__startswith=lastname[0])
         query_first_name = Q(employeeprofile__register_name__endswith=firstname)
@@ -161,7 +161,7 @@ def force_update_user2():
                 user = User.objects.get(id=user_data['user_id'])
                 profile = user.clientprofile if user.clientprofile else user.create_profile()
                 profile.client_lv1_id = npp_user_dict[user_data.get('npp')]
-                profile.nvtt = user_data.get('nvtt')
+                profile.nvtt = nvtt_user_dict[user_data.get('nvtt')]
                 success_data['profile'] = 'updated'
                 # Get phone data
                 main_phone_field = user_data.get('main_phone', None)
