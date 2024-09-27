@@ -153,11 +153,11 @@ class NotificationSerializer(serializers.ModelSerializer):
                     'short_description': notify.short_description,
                 }
 
-                # if delay < 10:
-                #     # Gửi thông báo ngay lập tức
-                #     send_scheduled_notification.apply_async((notify.id, send_notify, registration_tokens), countdown=10)
-                # else:
-                #     send_scheduled_notification.apply_async((notify.id, send_notify, registration_tokens), countdown=delay)
+                if delay < 10:
+                    # Gửi thông báo ngay lập tức
+                    send_scheduled_notification.apply_async((notify.id, send_notify, registration_tokens), countdown=10)
+                else:
+                    send_scheduled_notification.apply_async((notify.id, send_notify, registration_tokens), countdown=delay)
 
                 # send_firebase_notification3(notify.title, notify.short_description, registration_tokens, my_data)
                 # schedule_notification(notify)
@@ -166,81 +166,64 @@ class NotificationSerializer(serializers.ModelSerializer):
             raise e
 
     def update(self, instance, validated_data):
-        users = validated_data.pop('users', [])
-        groups = validated_data.pop('groups', [])
-        files = validated_data.pop('files', [])
-        app_log.info(f"Number of files: {len(files)}")
+        users = validated_data.pop('users', None)
+        groups = validated_data.pop('groups', None)
+        files = validated_data.pop('files', None)
+        import_users = validated_data.pop('import_users', None)
+        app_log.info(f"Number of files to update: {len(files)}")
+
         try:
             with transaction.atomic():
-                notify = super().update(instance, validated_data)
-                # Create specific permission
-                list_perm = create_full_perm(Notification, instance.id, perm_actions['view'])
+                # Cập nhật thông tin cơ bản của thông báo
+                for attr, value in validated_data.items():
+                    setattr(instance, attr, value)
+                instance.save()
 
-                # Get user has perm
+                # Update permissions
+                list_perm = create_full_perm(Notification, instance.id, perm_actions['view'])
                 existed_user_allow = list_user_has_perm(list_perm, True)
                 existed_group_allow = list_group_has_perm(list_perm, True)
-                # Processing add perm
+
+                # Update permissions
                 add_perm({'type': 'users', 'data': users, 'existed': existed_user_allow}, list_perm, True)
                 add_perm({'type': 'group', 'data': groups, 'existed': existed_group_allow}, list_perm, True)
 
-                # Get all user from group
-                user_in_group = User.objects.filter(group_user__name__in=groups).exclude(is_superuser=True).distinct()
+                # Xử lý người dùng từ tệp nếu có
+                if import_users:
+                    users = get_user_list(import_users)
+                    distinct_users = User.objects.filter(id__in=users).distinct()
+                else:
+                    if groups:
+                        # Get all user from group and specified user ids
+                        user_in_group = User.objects.filter(group_user__name__in=groups).exclude(
+                            is_superuser=True).distinct()
+                    else:
+                        user_in_group = []
+                    if users:
+                        users_from_ids = User.objects.filter(id__in=users).distinct()
+                    else:
+                        users_from_ids = []
+                    combined_users = user_in_group | users_from_ids
+                    distinct_users = combined_users.distinct()
 
-                # Get user from list users id
-                users_from_ids = User.objects.filter(id__in=users).distinct()
+                app_log.info(f"Count updated users: {distinct_users.count()}")
 
-                # Merge 2 Queryset
-                combined_users = user_in_group | users_from_ids
+                if distinct_users:
+                    # Update notification users
+                    NotificationUser.objects.filter(notify=instance).delete()
+                    notify_users = [NotificationUser(notify=instance, user=user) for user in distinct_users]
+                    NotificationUser.objects.bulk_create(notify_users)
 
-                # Get distinct user
-                distinct_users = combined_users.distinct()
-
-                # Remove users no longer associated with the notification
-                current_notify_users = set(NotificationUser.objects.filter(notify=instance).values_list('user_id', flat=True))
-                new_notify_users = set(distinct_users.values_list('id', flat=True))
-
-                users_to_remove = current_notify_users - new_notify_users
-                users_to_add = new_notify_users - current_notify_users
-
-                # Remove users from notification
-                if users_to_remove:
-                    NotificationUser.objects.filter(notify=instance, user_id__in=users_to_remove).delete()
-
-                # Add new users to notification
-                if users_to_add:
-                    new_notify_users_objs = [NotificationUser(notify=instance, user_id=user_id) for user_id in users_to_add]
-                    NotificationUser.objects.bulk_create(new_notify_users_objs)
-
-                # Handle files
-                current_files = set(NotificationFile.objects.filter(notify=instance).values_list('file__file', flat=True))
-                new_files = set(file.name for file in files)
-
-                files_to_add = new_files - current_files
-                files_to_keep = current_files & new_files
-
-                # Delete files that are no longer associated with the notification
-                NotificationFile.objects.filter(notify=instance).exclude(file__file__in=files_to_keep).delete()
-
-                # Add new files
-                for file in files:
-                    if file.name in files_to_add:
+                # Handle files associated with the notification
+                if files:
+                    NotificationFile.objects.filter(notify=instance).delete()
+                    for file in files:
                         file_upload = FileUpload.objects.create(file=file)
                         NotificationFile.objects.create(notify=instance, file=file_upload)
 
-                # Get registration tokens for FCM
-                registration_tokens = list(PhoneNumber.objects.filter(user_id__in=distinct_users).values_list('device_code', flat=True))
-                registration_tokens = [token for token in registration_tokens if token]
-
-                # Send Firebase notification
-                my_data = {
-                    "notification_id": str(notify.id),
-                    "click_action": "click_action"
-                }
-                # send_firebase_notification3(notify.title, notify.short_description, registration_tokens, my_data)
-                # schedule_notification(notify)
-                return notify
+                return instance
         except Exception as e:
-            raise e
+            raise serializers.ValidationError({'message': str(e)})
 
 
 class NotifyReadSerializer(serializers.ModelSerializer):
