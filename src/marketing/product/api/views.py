@@ -1,5 +1,7 @@
 from functools import partial
 
+import pandas as pd
+from django.http import HttpResponse
 from rest_framework import viewsets, mixins, status
 from rest_framework.authentication import BasicAuthentication
 from rest_framework.response import Response
@@ -101,6 +103,34 @@ class GenericApiProduct(viewsets.GenericViewSet, mixins.ListModelMixin, mixins.C
         response_data = filter_data(self, request, ['id', 'name', 'category__id', 'category__name'], **kwargs)
         return Response(response_data, status=status.HTTP_200_OK)
 
+    def export_products(self, reuqest, *args, **kwargs):
+        products = Product.objects.filter().order_by('id')
+        data = list()
+        for product in products:
+            print_data = [
+                product.id,
+                product.name,
+                product.category_id,
+                # product.note
+            ]
+            data.append(print_data)
+        df = pd.DataFrame(data, columns=['Mã sản phẩm', 'Tên sản phẩm', 'Mã thuốc',
+                                         # 'Ghi chú'
+                                         ])
+
+        response = HttpResponse(content_type='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet')
+        response['Content-Disposition'] = 'attachment; filename="sanphamdx.xlsx"'
+
+        with pd.ExcelWriter(response, engine='openpyxl') as writer:
+            df.to_excel(writer, index=False, sheet_name='SanPham')
+            worksheet = writer.sheets['SanPham']
+
+            # Set column widths
+            widths = {'A': 14, 'B': 32, 'C': 12, 'D': 28}
+            for col_num, width in widths.items():
+                worksheet.column_dimensions[col_num].width = width
+
+        return response
 
 class ApiProductId(viewsets.GenericViewSet, mixins.ListModelMixin):
     serializer_class = ProductIdSerializer

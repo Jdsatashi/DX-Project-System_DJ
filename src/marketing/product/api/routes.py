@@ -57,6 +57,7 @@ urlpatterns = [
     # Product urls
     path('', prod_view),
     path('<pk>', prod_detail),
+    path('export/', GenericApiProduct.as_view({'get': 'export_products'})),
 
     path('categories/use-object/', use_object_view),
     path('categories/use-object/<pk>', use_object_detail),
