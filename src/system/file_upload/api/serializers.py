@@ -136,7 +136,9 @@ class FileProductSerializer(serializers.ModelSerializer):
         read_only_fields = ('id', 'created_at', 'updated_at')
 
     def create(self, validated_data):
-        file_data = validated_data.pop('file')
+        file_data = validated_data.pop('file', None)
+        if file_data is None:
+            raise serializers.ValidationError({"message": 'dữ liệu file là bắt buộc'})
         file_instance = FileUpload.objects.create(**file_data)
         product_file_instance = ProductFile.objects.create(file=file_instance, **validated_data)
         return product_file_instance
