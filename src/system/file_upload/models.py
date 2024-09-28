@@ -90,6 +90,8 @@ class ProductFile(models.Model):
     file = models.ForeignKey(FileUpload, null=True, on_delete=models.SET_NULL, related_name='product_files')
     product = models.ForeignKey(Product, null=True, on_delete=models.SET_NULL, related_name='product_files')
     priority = models.IntegerField(default=1)
+    docs_type = models.CharField(null=True, choices=(('gdk', 'GDK'), ('cbhq', 'CBHQ'), ('image', 'Hình ảnh')))
+
     note = models.CharField(max_length=255, null=True, blank=True)
     created_by = models.CharField(max_length=255, null=True, blank=True)
     created_at = models.DateTimeField(auto_now_add=True)

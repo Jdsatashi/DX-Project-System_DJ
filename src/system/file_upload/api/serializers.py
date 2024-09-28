@@ -107,8 +107,27 @@ class FileProductCateViewSerializer(serializers.ModelSerializer):
         return None
 
 
+class FileProductViewSerializer(serializers.ModelSerializer):
+    document = serializers.SerializerMethodField()
+    image = serializers.SerializerMethodField()
+
+    class Meta:
+        model = ProductCateFile
+        fields = ['id', 'priority', 'docs_type', 'document', 'image']
+
+    def get_document(self, obj):
+        if obj.file and obj.file.type == 'document':
+            return FileShortViewSerializer(obj.file, context=self.context).data
+        return None
+
+    def get_image(self, obj):
+        if obj.file and obj.file.type == 'image':
+            return FileShortViewSerializer(obj.file, context=self.context).data
+        return None
+
+
 class FileProductSerializer(serializers.ModelSerializer):
-    file = FileUploadSerializer(write_only=True)
+    file = FileUploadSerializer(write_only=True, required=False)
     file_data = FileViewSerializer(source='file', read_only=True)
 
     class Meta:

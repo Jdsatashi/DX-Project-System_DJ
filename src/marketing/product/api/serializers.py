@@ -5,7 +5,7 @@ from app.logs import app_log
 from marketing.company.models import Company
 from marketing.product.models import ProductCategory, RegistrationUnit, Producer, RegistrationCert, ProductType, \
     Product, CategoryDetail, UseObject, UseFor
-from system.file_upload.api.serializers import FileProductCateViewSerializer
+from system.file_upload.api.serializers import FileProductCateViewSerializer, FileProductViewSerializer
 
 from utils.helpers import normalize_vietnamese as norm_vn
 
@@ -262,6 +262,13 @@ class ProductSerializer(BaseRestrictSerializer):
         model = Product
         fields = '__all__'
 
+    def to_representation(self, instance: Product):
+        representation = super().to_representation(instance)
+        request = self.context.get('request')
+        files = instance.product_files.all()
+        files_fields_details(request, files, representation)
+        return representation
+
 
 class ProductIdSerializer(serializers.ModelSerializer):
     class Meta:
@@ -273,6 +280,26 @@ class ProductIdSerializer(serializers.ModelSerializer):
 def files_fields_details(request, files, representation):
     # Get file add to serializer
     file_serializer = FileProductCateViewSerializer(files, many=True, context={'request': request})
+    # Split files to document and image
+    documents = []
+    images = []
+    for file_data in file_serializer.data:
+        if file_data['document'] is not None:
+            file_data['document'].update({'priority': file_data['priority'], 'docs_type': file_data['docs_type']})
+
+            documents.append(file_data['document'])
+        if file_data['image'] is not None:
+            file_data['image'].update({'priority': file_data['priority'], 'docs_type': file_data['docs_type']})
+            images.append(file_data['image'])
+    representation['files'] = {
+        'documents': documents,
+        'images': images
+    }
+
+
+def files_product_fields_details(request, files, representation):
+    # Get file add to serializer
+    file_serializer = FileProductViewSerializer(files, many=True, context={'request': request})
     # Split files to document and image
     documents = []
     images = []
