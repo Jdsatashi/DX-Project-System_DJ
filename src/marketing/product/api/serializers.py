@@ -275,6 +275,13 @@ class ProductIdSerializer(serializers.ModelSerializer):
         model = Product
         fields = ['id', 'name', 'category']
 
+    def to_representation(self, instance: Product):
+        representation = super().to_representation(instance)
+        request = self.context.get('request')
+        files = instance.product_files.all()
+        files_fields_details(request, files, representation)
+        return representation
+
 
 # Support functions
 def files_fields_details(request, files, representation):
