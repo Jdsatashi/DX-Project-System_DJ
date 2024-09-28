@@ -127,7 +127,9 @@ class FileProductViewSerializer(serializers.ModelSerializer):
 
 
 class FileProductSerializer(serializers.ModelSerializer):
-    file = FileUploadSerializer(write_only=True, required=False)
+    # file = FileUploadSerializer(write_only=True, required=False)
+    file = serializers.FileField(write_only=True, required=False)
+    file_note = serializers.FileField(write_only=True, required=False)
     file_data = FileViewSerializer(source='file', read_only=True)
 
     class Meta:
@@ -137,19 +139,15 @@ class FileProductSerializer(serializers.ModelSerializer):
 
     def create(self, validated_data):
         file_data = validated_data.pop('file', None)
-        if file_data is None:
-            raise serializers.ValidationError({"message": 'dữ liệu file là bắt buộc'})
-        file_instance = FileUpload.objects.create(**file_data)
+        file_note = validated_data.pop('file_note', None)
+        # if file_data is None:
+        #     raise serializers.ValidationError({"message": 'dữ liệu file là bắt buộc'})
+        file_instance = FileUpload.objects.create(file=file_data, note=file_note)
         product_file_instance = ProductFile.objects.create(file=file_instance, **validated_data)
         return product_file_instance
 
     def update(self, instance, validated_data):
         file_data = validated_data.pop('file', None)
-
-        if file_data is not None:
-            file_serializer = FileUploadSerializer(instance.file, data=file_data, partial=True)
-            if file_serializer.is_valid():
-                file_serializer.save()
 
         for attr, value in validated_data.items():
             setattr(instance, attr, value)
