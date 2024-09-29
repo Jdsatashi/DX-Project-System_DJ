@@ -21,7 +21,9 @@ from marketing.order.models import Order, OrderDetail, SeasonalStatistic, Season
     update_season_stats_users, create_or_get_sale_stats_user
 from marketing.pick_number.models import UserJoinEvent
 from marketing.price_list.models import ProductPrice, SpecialOfferProduct, SpecialOffer
+from marketing.product.models import Product
 from marketing.sale_statistic.models import SaleTarget, SaleStatistic, UserSaleStatistic
+from system.file_upload.api.serializers import FileProductViewSerializer
 from system_func.models import PeriodSeason, PointOfSeason
 from user_system.client_profile.models import ClientProfile
 from user_system.employee_profile.models import EmployeeProfile
@@ -366,6 +368,29 @@ class ProductStatisticsSerializer(serializers.Serializer):
     current = serializers.DictField(required=False)
     one_year_ago = serializers.DictField(required=False)
     total_cashback = serializers.IntegerField(required=False)
+    product_files = serializers.SerializerMethodField()
+
+    def get_product_files(self, obj):
+        request = self.context.get('request')
+        product = Product.objects.get(id=obj.get('product_id'))
+        files = product.product_files.all()
+        print(f"TEST count file: {files.count()}")
+        file_serializer = FileProductViewSerializer(files, many=True, context={'request': request})
+        # Split files to document and image
+        documents = []
+        images = []
+        for file_data in file_serializer.data:
+            if file_data['document'] is not None:
+                file_data['document'].update({'priority': file_data['priority'], 'docs_type': file_data['docs_type']})
+
+                documents.append(file_data['document'])
+            if file_data['image'] is not None:
+                file_data['image'].update({'priority': file_data['priority'], 'docs_type': file_data['docs_type']})
+                images.append(file_data['image'])
+        return {
+            'documents': documents,
+            'images': images
+        }
 
 
 class SeasonStatsUserPointSerializer(serializers.ModelSerializer):

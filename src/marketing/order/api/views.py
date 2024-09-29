@@ -387,13 +387,13 @@ class TotalStatisticsView(APIView):
                                        key=lambda x: x[1].get('current', {}).get(order_by_field, 0),
                                        reverse=True)
             statistics_list = [{"product_id": k, **v} for k, v in sorted_statistics]
-
+            print(f"Test statistic list: {statistics_list[0]}")
             # Get pagination parameters
             limit = int(request.query_params.get('limit', 10))
             page = int(request.query_params.get('page', 1))
 
             if limit == 0:
-                serializer = ProductStatisticsSerializer(statistics_list, many=True)
+                serializer = ProductStatisticsSerializer(statistics_list, many=True, context={'request': request})
                 response_data = {
                     'total_statistic': total_statistic,
                     'products_statistics': serializer.data,
@@ -405,7 +405,7 @@ class TotalStatisticsView(APIView):
 
             paginator = Paginator(statistics_list, limit)
             page_obj = paginator.get_page(page)
-            serializer = ProductStatisticsSerializer(page_obj, many=True)
+            serializer = ProductStatisticsSerializer(page_obj, many=True, context={'request': request})
 
             response_data = {
                 'total_statistic': total_statistic,
@@ -516,7 +516,6 @@ class TotalStatisticsView(APIView):
             product_id = detail['order_detail__product_id']
             product_name = detail['order_detail__product_id__name']
             total_products_type2.append(product_id)
-
             if product_id not in combined_results:
                 combined_results[product_id] = {
                     "product_name": product_name,
