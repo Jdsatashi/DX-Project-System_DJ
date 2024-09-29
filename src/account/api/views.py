@@ -7,6 +7,7 @@ import time
 import numpy as np
 import pandas as pd
 import pytz
+from django.conf import settings
 from django.contrib.auth import get_user_model
 from django.contrib.auth.hashers import check_password
 from django.db import transaction
@@ -475,7 +476,7 @@ def phone_login_2(request):
                 new_verify = Verify.objects.create(user=user, phone_verify=phone, verify_code=verify_code,
                                                    verify_type="SMS OTP")
                 response = response_verify_code(new_verify)
-                if not user.group_user.filter(name='test').exists():
+                if not user.group_user.filter(name='test').exists() and not settings.DEBUG:
                     app_log.info(f"Send SMS for test users")
                     message = f"[DONG XANH] Ma xac thuc cua ban la {verify_code}, tai app Thuoc BVTV Dong Xanh co hieu luc trong 3 phut. Vi ly do bao mat tuyet doi khong cung cap cho bat ky ai."
                     send_sms(phone_number, message)
@@ -956,12 +957,35 @@ class ApiUpdateAccess(APIView):
         except GrantAccess.DoesNotExist:
             return Response({'message': f'không tìm thấy user {grant_user_id} uỷ quyền cho {manager_id}'},
                             status=status.HTTP_404_NOT_FOUND)
+
+        period = PeriodSeason.objects.filter(type='point', period='current').first()
+        point, _ = PointOfSeason.objects.get_or_create(user=grant_access.grant_user, period=period)
+        point.auto_point()
+        point.save()
+
         # Update active and saving
         grant_access.active = True
         grant_access.save()
 
+        user_data = format_user_data([grant_access.grant_user], manage_user_obj)
+
+        try:
+            name = manage_user_obj.clientprofile.register_name
+        except AttributeError:
+            name = manage_user_obj.employeeprofile.register_name
+        except Exception as e:
+            name = ''
+
+        response_data = {
+            'message': 'ok',
+            'user_id': manage_user_obj.id,
+            'name': name,
+            'user_type': manage_user_obj.user_type,
+            'group_manage': user_data
+        }
+
         # Return ok
-        return Response({'message': 'ok'}, status=status.HTTP_200_OK)
+        return Response(response_data, status=status.HTTP_200_OK)
 
 
 class GetUserManager(APIView):
