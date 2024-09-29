@@ -387,7 +387,6 @@ class TotalStatisticsView(APIView):
                                        key=lambda x: x[1].get('current', {}).get(order_by_field, 0),
                                        reverse=True)
             statistics_list = [{"product_id": k, **v} for k, v in sorted_statistics]
-            print(f"Test statistic list: {statistics_list[0]}")
             # Get pagination parameters
             limit = int(request.query_params.get('limit', 10))
             page = int(request.query_params.get('page', 1))
