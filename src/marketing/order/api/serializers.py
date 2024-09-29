@@ -368,26 +368,24 @@ class ProductStatisticsSerializer(serializers.Serializer):
     current = serializers.DictField(required=False)
     one_year_ago = serializers.DictField(required=False)
     total_cashback = serializers.IntegerField(required=False)
-    product_files = serializers.SerializerMethodField()
+    product_image = serializers.SerializerMethodField()
 
-    def get_product_files(self, obj):
+    def get_product_image(self, obj):
         product = Product.objects.get(id=obj.get('product_id'))
         product_file = product.product_files.filter(file__type='image').order_by('priority').first()
-        response = {
-            'images': []
-        }
+        response = {}
 
         if product_file:
             # Split files to document and image
             images = FileShortViewSerializer(product_file.file, context=self.context).data
-            response['images'] = images
+            response = images
 
-        if not len(response['images']) > 0:
+        if not len(response) > 0:
             product_cate_file = product.category.product_cate_files.filter(file__type='image').order_by('priority').first()
             print(f"Test product cate file: {product_cate_file}")
             if product_cate_file:
                 images = FileShortViewSerializer(product_cate_file.file, context=self.context).data
-                response['images'] = images
+                response = images
 
         return response
 
