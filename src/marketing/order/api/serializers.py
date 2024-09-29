@@ -23,7 +23,7 @@ from marketing.pick_number.models import UserJoinEvent
 from marketing.price_list.models import ProductPrice, SpecialOfferProduct, SpecialOffer
 from marketing.product.models import Product
 from marketing.sale_statistic.models import SaleTarget, SaleStatistic, UserSaleStatistic
-from system.file_upload.api.serializers import FileProductViewSerializer
+from system.file_upload.api.serializers import FileProductViewSerializer, FileShortViewSerializer
 from system_func.models import PeriodSeason, PointOfSeason
 from user_system.client_profile.models import ClientProfile
 from user_system.employee_profile.models import EmployeeProfile
@@ -371,26 +371,25 @@ class ProductStatisticsSerializer(serializers.Serializer):
     product_files = serializers.SerializerMethodField()
 
     def get_product_files(self, obj):
-        request = self.context.get('request')
         product = Product.objects.get(id=obj.get('product_id'))
-        files = product.product_files.all()
-        print(f"TEST count file: {files.count()}")
-        file_serializer = FileProductViewSerializer(files, many=True, context={'request': request})
-        # Split files to document and image
-        documents = []
-        images = []
-        for file_data in file_serializer.data:
-            if file_data['document'] is not None:
-                file_data['document'].update({'priority': file_data['priority'], 'docs_type': file_data['docs_type']})
-
-                documents.append(file_data['document'])
-            if file_data['image'] is not None:
-                file_data['image'].update({'priority': file_data['priority'], 'docs_type': file_data['docs_type']})
-                images.append(file_data['image'])
-        return {
-            'documents': documents,
-            'images': images
+        product_file = product.product_files.filter(file__type='image').order_by('priority').first()
+        response = {
+            'images': []
         }
+
+        if product_file:
+            # Split files to document and image
+            images = FileShortViewSerializer(product_file.file, context=self.context).data
+            response['images'] = images
+
+        if not len(response['images']) > 0:
+            product_cate_file = product.category.product_cate_files.filter(file__type='image').order_by('priority').first()
+            print(f"Test product cate file: {product_cate_file}")
+            if product_cate_file:
+                images = FileShortViewSerializer(product_cate_file.file, context=self.context).data
+                response['images'] = images
+
+        return response
 
 
 class SeasonStatsUserPointSerializer(serializers.ModelSerializer):

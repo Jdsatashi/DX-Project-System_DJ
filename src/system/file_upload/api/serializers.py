@@ -2,6 +2,7 @@ from django.contrib.contenttypes.models import ContentType
 from rest_framework import serializers
 
 from system.file_upload.models import FileUpload, ContentFile, ProductCateFile, ProductFile
+from utils.env import APP_SERVER
 
 
 class ContentFileSerialier(serializers.ModelSerializer):
@@ -30,6 +31,15 @@ class FileViewSerializer(serializers.ModelSerializer):
         model = FileUpload
         fields = ['id', 'file', 'file_name', 'file_ext', 'type']
         read_only_fields = ('id', 'file_name', 'file_ext', 'type')
+        extra_kwargs = {
+            'file': {'write_only': True}
+        }
+
+    def to_representation(self, instance: FileUpload):
+        ret = super().to_representation(instance)
+        file_url = APP_SERVER + instance.file.url if instance.file.url else None
+        ret['file'] = file_url
+        return ret
 
 
 class FileShortViewSerializer(serializers.ModelSerializer):
@@ -112,7 +122,7 @@ class FileProductViewSerializer(serializers.ModelSerializer):
     image = serializers.SerializerMethodField()
 
     class Meta:
-        model = ProductCateFile
+        model = ProductFile
         fields = ['id', 'priority', 'docs_type', 'document', 'image']
 
     def get_document(self, obj):
@@ -129,7 +139,7 @@ class FileProductViewSerializer(serializers.ModelSerializer):
 class FileProductSerializer(serializers.ModelSerializer):
     # file = FileUploadSerializer(write_only=True, required=False)
     file = serializers.FileField(write_only=True, required=False)
-    file_note = serializers.FileField(write_only=True, required=False)
+    file_note = serializers.CharField(write_only=True, required=False)
     file_data = FileViewSerializer(source='file', read_only=True)
 
     class Meta:
