@@ -476,7 +476,7 @@ def phone_login_2(request):
                 new_verify = Verify.objects.create(user=user, phone_verify=phone, verify_code=verify_code,
                                                    verify_type="SMS OTP")
                 response = response_verify_code(new_verify)
-                if not user.group_user.filter(name='test').exists() and not settings.DEBUG:
+                if not user.group_user.filter(name='test').exists():
                     app_log.info(f"Send SMS for test users")
                     message = f"[DONG XANH] Ma xac thuc cua ban la {verify_code}, tai app Thuoc BVTV Dong Xanh co hieu luc trong 3 phut. Vi ly do bao mat tuyet doi khong cung cap cho bat ky ai."
                     send_sms(phone_number, message)
