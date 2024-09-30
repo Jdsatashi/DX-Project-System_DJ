@@ -6,7 +6,7 @@ dotenv.load_dotenv()
 
 # App environment variable
 APP_SERVER = os.environ.get('APP_SERVER')
-APP_DEBUG = os.environ.get('DEBUG', True)
+APP_DEBUG = os.environ.get('DEBUG', 'true')
 APP_SECRET = os.environ.get('SECRET_KEY')
 
 # SMS connection

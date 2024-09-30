@@ -44,7 +44,7 @@ PROJECT_DIR = BASE_DIR.parent
 SECRET_KEY = APP_SECRET
 
 # SECURITY WARNING: don't run with debug turned on in production!
-DEBUG = APP_DEBUG
+DEBUG = APP_DEBUG.lower() == 'true'
 
 # Add acceptable host and CSRF
 with open(os.path.join(PROJECT_DIR, 'exception.json')) as config_file:
