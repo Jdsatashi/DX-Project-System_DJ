@@ -810,7 +810,7 @@ class ApiGetManageUser(APIView):
             user_name = user.clientprofile.register_name
         else:
             return Response({'data': []}, status=status.HTTP_200_OK)
-
+        users_list = users_list.exclude(status='deactivate')
         query = request.query_params.get('query', '')
         if query != '':
             users_list = search_users(query, users_list)
