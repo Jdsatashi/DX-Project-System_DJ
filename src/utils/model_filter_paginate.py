@@ -194,16 +194,17 @@ def filter_data(self, request, query_fields, **kwargs):
 
     # Check when limit is 0, return all data
     if limit == 0:
-        serializer = serializer_classes(queryset, many=True)
-        response_data = {
-            'data': serializer.data,
-            'total_page': 1,
-            'current_page': 1,
-            'total_count': total_count,
-            'next_page': None,
-            'prev_page': None
-        }
-        return response_data
+        limit = total_count
+        # serializer = serializer_classes(queryset, many=True)
+        # response_data = {
+        #     'data': serializer.data,
+        #     'total_page': 1,
+        #     'current_page': 1,
+        #     'total_count': total_count,
+        #     'next_page': None,
+        #     'prev_page': None
+        # }
+        # return response_data
     # Paginate queryset
     paginator = Paginator(queryset, limit)
     # Get page object
