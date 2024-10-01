@@ -1,5 +1,3 @@
-import time
-
 from rest_framework import serializers
 
 from account.handlers.restrict_serializer import BaseRestrictSerializer
@@ -120,12 +118,10 @@ class ProductCateSerializer(BaseRestrictSerializer):
             self.fields['id'].required = False
 
     def to_representation(self, instance):
-        start_time = time.time()
         representation = super().to_representation(instance)
         request = self.context.get('request')
         files = instance.product_cate_files.all()
         files_fields_details(request, files, representation)
-        app_log.info(f"Represent ProductCategory: {time.time() - start_time}")
         return representation
 
     def create(self, validated_data):
