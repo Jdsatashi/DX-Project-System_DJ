@@ -25,7 +25,7 @@ class Order(models.Model):
     client_id = models.ForeignKey(User, null=True, on_delete=models.SET_NULL)
     date_delay = models.IntegerField(default=0)
     list_type = models.CharField(max_length=24, null=True)
-    price_list_id = models.ForeignKey(PriceList, null=True, on_delete=models.CASCADE, related_name="order_price_list")
+    price_list_id = models.ForeignKey(PriceList, null=True, on_delete=models.SET_NULL, related_name="order_price_list")
 
     # SO mean Special Offer
     is_so = models.BooleanField(null=True, default=False)
