@@ -32,7 +32,7 @@ class Order(models.Model):
     id_so = models.CharField(null=True, max_length=255, default=None)
     id_offer_consider = models.CharField(null=True, max_length=255, default=None)
 
-    new_special_offer = models.ForeignKey(SpecialOffer, null=True, on_delete=models.CASCADE, related_name='orders')
+    new_special_offer = models.ForeignKey(SpecialOffer, null=True, on_delete=models.SET_NULL, related_name='orders')
 
     order_point = models.FloatField(null=True)
     order_price = models.FloatField(null=True, default=0)  # Default value to ensure it's not None
@@ -110,7 +110,7 @@ class Order(models.Model):
 
 class OrderDetail(models.Model):
     order_id = models.ForeignKey(Order, null=True, on_delete=models.CASCADE, related_name="order_detail")
-    product_id = models.ForeignKey(Product, null=True, on_delete=models.CASCADE, related_name="order_product")
+    product_id = models.ForeignKey(Product, null=True, on_delete=models.SET_NULL, related_name="order_product")
     order_quantity = models.IntegerField(null=False, default=1)
     order_box = models.FloatField(null=False, default=0)
     price_so = models.FloatField(null=True)
