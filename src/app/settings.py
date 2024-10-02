@@ -23,7 +23,7 @@ CELERY_TIMEZONE = 'Asia/Ho_Chi_Minh'
 CELERY_BEAT_SCHEDULE = {
     'send-daily-email-task': {
         'task': 'app.celery.send_daily_email_task',
-        'schedule': crontab(hour="5", minute="00"),
+        'schedule': crontab(hour="10", minute="00"),
         'args': (),
     },
 }
