@@ -106,7 +106,7 @@ INSTALLED_APPS = [
                      'rest_framework_simplejwt.token_blacklist',
                      'drf_spectacular',
                      # Cors header
-                     # 'corsheaders',
+                     'corsheaders',
                      # System applications
                      'system.file_upload',
                      'system.status_group',
@@ -243,9 +243,9 @@ SIMPLE_JWT = {
 }
 
 MIDDLEWARE = [
-    # 'corsheaders.middleware.CorsMiddleware',
     'django.middleware.security.SecurityMiddleware',
     'django.contrib.sessions.middleware.SessionMiddleware',
+    'corsheaders.middleware.CorsMiddleware',
     'django.middleware.common.CommonMiddleware',
     'django.middleware.csrf.CsrfViewMiddleware',
     'django.contrib.auth.middleware.AuthenticationMiddleware',
@@ -268,8 +268,8 @@ REST_FRAMEWORK = {
 #     "http://127.0.0.1:8000",
 # ]
 
-# CORS_ORIGIN_ALLOW_ALL = True
-# CORS_ALLOW_CREDENTIALS = True
+CORS_ORIGIN_ALLOW_ALL = True
+CORS_ALLOW_CREDENTIALS = True
 
 ROOT_URLCONF = 'app.urls'
 
