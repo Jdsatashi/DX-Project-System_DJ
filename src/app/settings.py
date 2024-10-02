@@ -263,9 +263,12 @@ REST_FRAMEWORK = {
     'DEFAULT_SCHEMA_CLASS': 'drf_spectacular.openapi.AutoSchema',
 }
 
-CORS_ALLOWED_ORIGINS = config.get('CSRF_TRUSTED_ORIGINS', [])
+# CORS_ALLOWED_ORIGINS = [
+#     "http://localhost:8000",
+#     "http://127.0.0.1:8000",
+# ]
 
-# CORS_ORIGIN_ALLOW_ALL = True
+CORS_ORIGIN_ALLOW_ALL = True
 CORS_ALLOW_CREDENTIALS = True
 
 ROOT_URLCONF = 'app.urls'
