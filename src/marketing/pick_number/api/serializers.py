@@ -15,6 +15,7 @@ from app.settings import pusher_client
 from marketing.order.models import SeasonalStatisticUser
 from marketing.pick_number.models import UserJoinEvent, NumberList, EventNumber, NumberSelected, \
     PrizeEvent, AwardNumber, PickNumberLog
+from marketing.pick_number.tasks import trigger_pusher
 from utils.constants import perm_actions
 
 
@@ -178,7 +179,8 @@ class UserJoinEventNumberSerializer(serializers.ModelSerializer):
             # app_log.info(f"{list_user}")
             chanel = f"event_{instance.event.id}"
             app_log.info(f"Channel: {chanel}")
-            pusher_client.trigger(chanel, pus_event, pus_data)
+            # pusher_client.trigger(chanel, pus_event, pus_data)
+            trigger_pusher.apply_async(args=[chanel, pus_event, pus_data], countdown=0.01)  # Delay in seconds
             # list_chanel = [f'user_{user.user.id}' for user in list_user if user is not None]
             # # for user in list_user:
             # #     chanel = f'user_{user.user.id}'
