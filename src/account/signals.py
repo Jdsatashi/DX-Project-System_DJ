@@ -1,8 +1,10 @@
+from django.apps import apps
 from django.db import transaction
-from django.db.models.signals import post_save, m2m_changed
+from django.db.models.signals import post_save, m2m_changed, pre_delete
 from django.dispatch import receiver
 
-from account.models import User, UserGroupPerm, GroupPerm, UserPerm, GrantAccess
+from account.handlers.perms import get_perm_name
+from account.models import User, UserGroupPerm, GroupPerm, UserPerm, GrantAccess, Perm
 from account.queries import get_all_user_perms_sql
 from app.logs import app_log
 from utils.insert_db.default_roles_perms import set_user_perm
@@ -68,7 +70,7 @@ def handle_grant_perm(grant_user_obj: GrantAccess):
     # Get current grant_user perms
     user_current_perms = get_all_user_perms_sql(grant_user_obj.grant_user.id)
     # Get newest grant_user perms
-    #user_perms = grant_user_obj.grant_user.perm_user.all()
+    # user_perms = grant_user_obj.grant_user.perm_user.all()
     user_perms = grant_user_obj.grant_user.get_all_user_perms()
     # user_group_perms = grant_user_obj.grant_user.usergroupperm_set.all()
     # Get grant perms of manager
@@ -93,3 +95,22 @@ def handle_grant_perm(grant_user_obj: GrantAccess):
         # Error when use 'perm_user.remove(perm)'
         UserPerm.objects.filter(perm=perm, user=grant_user_obj.manager).delete()
         # grant_user_obj.manager.perm_user.remove(perm)
+
+
+def handle_pre_delete(sender, instance, **kwargs):
+    try:
+        perm_name = get_perm_name(instance)
+        perm_name_id = f"{perm_name}_{instance.pk}"
+        perms = Perm.objects.filter(name__endswith=perm_name_id)
+        for perm in perms:
+            print(f"handle_pre_delete: {perm.pk}")
+        perms.delete()
+    except Exception as e:
+        app_log.error(f"Error signal pre_delete: {instance.pk}\n{e}")
+
+# Lấy tất cả các models
+all_models = apps.get_models()
+
+# Đăng ký signal cho mọi model
+for model in all_models:
+    pre_delete.connect(handle_pre_delete, sender=model)

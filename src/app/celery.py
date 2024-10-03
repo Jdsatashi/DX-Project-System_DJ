@@ -5,6 +5,7 @@ import django
 from celery import Celery, shared_task
 from django.conf import settings
 
+from app.logs import app_log
 
 os.environ.setdefault('DJANGO_SETTINGS_MODULE', 'app.settings')
 django.setup()
@@ -26,6 +27,6 @@ def send_daily_email_task():
     from app.tasks.report_mail import send_daily_email
 
     last_date = datetime.combine(datetime.today(), time.min) - timedelta(days=1)
-
+    app_log.info(f"Date analysis: {last_date}")
     # - timedelta(days=1)
     send_daily_email(last_date)

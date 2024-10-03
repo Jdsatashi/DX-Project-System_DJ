@@ -2,7 +2,7 @@ from datetime import datetime, time
 
 from django.apps import apps
 from django.db import models
-from django.db.models import Sum
+from django.db.models import Sum, Q
 from rest_framework.exceptions import ValidationError
 
 from account.models import User
@@ -45,11 +45,12 @@ class PointOfSeason(models.Model):
         OrderDetail = apps.get_model('order', 'OrderDetail')
         current_period = PeriodSeason.objects.filter(type='point', period='current').first()
         start_date = current_period.from_date
-        end_date = datetime.combine(current_period.to_date, time(23, 59, 59))
+        end_date = current_period.to_date
 
         user_orders = (Order.objects.filter(client_id=self.user, date_get__range=(start_date, end_date))
                        .exclude(status='deactivate'))
-
+        user_orders = (Order.objects.filter(Q(Q(client_id=self.user) & Q(date_get__range=(start_date, end_date))))
+                       .exclude(status='deactivate'))
         order_details = OrderDetail.objects.filter(order_id__in=user_orders)
 
         total_points = order_details.aggregate(total_point=Sum('point_get'))['total_point'] or 0

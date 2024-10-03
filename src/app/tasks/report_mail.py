@@ -1,4 +1,4 @@
-from datetime import datetime
+from datetime import datetime, timedelta
 from io import BytesIO
 
 from django.conf import settings
@@ -15,7 +15,10 @@ def send_daily_email(date_get):
 
     user_get_mails = UserGetMail.objects.filter(email_detail=email_detail)
 
-    orders = Order.objects.filter(date_company_get=date_get).exclude(status='deactivate').order_by('-date_get')
+    # orders = Order.objects.filter(date_company_get=date_get).exclude(status='deactivate').order_by('-date_get')
+    next_date_get = date_get + timedelta(days=1)
+    orders = (Order.objects.filter(date_company_get__gte=date_get, date_company_get__lt=next_date_get)
+              .exclude(status='deactivate').order_by('-date_get'))
 
     workbook = generate_order_excel(orders)
 
