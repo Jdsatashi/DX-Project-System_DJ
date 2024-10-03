@@ -983,6 +983,7 @@ def generate_order_excel(orders: list[Order]):
 
     total_price = OrderDetail.objects.filter(order_id__in=orders).aggregate(
         total_price=Sum('product_price'))['total_price']
+    total_price = "{:,.0f}".format(total_price)
     sheet.merge_cells('A2:N2')
     note_cell = sheet.cell(row=2, column=1)
     note = f'Ngày thống kê: {datetime.now().strftime("%d/%m/%Y")}   ||   Tổng doanh thu: {total_price}   ||   Số lượng bản kê: {orders.count()}'
@@ -1135,13 +1136,15 @@ def generate_order_excel(orders: list[Order]):
                     price = total_price / detail.order_quantity
                 except ZeroDivisionError:
                     price = 0
+                formatted_price = "{:,.0f}".format(price)
+                formatted_total_price = "{:,.0f}".format(detail.product_price)
                 details_data = [
                     product_id,
                     product_name,
                     detail.order_quantity,
                     detail.order_box,
-                    price,
-                    detail.product_price,
+                    formatted_price,
+                    formatted_total_price,
                     price_so,
                     detail.point_get
                 ]

@@ -43,6 +43,10 @@ def send_daily_email(date_get):
 
 
 def send_bulk_email(emails, context, date_get, excel_data):
+    try:
+        date_get = date_get.date()
+    except Exception:
+        date_get = ''
     email = EmailMessage(
         subject=context['subject'],
         body=context['body_message'],
