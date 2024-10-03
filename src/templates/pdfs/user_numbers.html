@@ -96,7 +96,8 @@
     {% load static %}
 </head>
 <body>
-<img src="{{ request.scheme }}://{{ request.get_host }}{% static 'assets/hinhdx.png' %}" alt="" class="logo">
+{#<img src="{{ request.scheme }}://{{ request.get_host }}{% static 'assets/hinhdx.png' %}" alt="" class="logo">#}
+<img src="https://api.greenfieldvn.com/static/assets/hinhdx.png" alt="" class="logo">
 {#<img src="../../static/assets/hinhdx.png" alt="" class="logo">#}
 <div class="w-auto" style="margin-top: -2rem;">
     <h2 class="text-center text-4xl text-red">{{ data.event_name }}</h2>
