@@ -29,14 +29,14 @@ class ApiNotification(viewsets.GenericViewSet, mixins.ListModelMixin, mixins.Cre
 
     def list(self, request, *args, **kwargs):
         queryset = self.get_queryset()
-        user: User = request.user
-        if user.is_authenticated:
-            if user.is_superuser or user.group_user.filter(name=admin_role):
-                return queryset.objects.all()
-            else:
-                queryset = queryset.exclude(status='deactivate')
-        else:
-            queryset = queryset.exclude(status='deactivate')
+        # user: User = request.user
+        # if user.is_authenticated:
+        #     if user.is_superuser or user.group_user.filter(name=admin_role):
+        #         return queryset.objects.all()
+        #     else:
+        #         queryset = queryset.exclude(status='deactivate')
+        # else:
+        #     queryset = queryset.exclude(status='deactivate')
         print(f"queryset: {queryset}")
         response = filter_data(self, request, ['id', 'title'], queryset=queryset,
                                **kwargs)
