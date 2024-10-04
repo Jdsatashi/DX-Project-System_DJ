@@ -513,6 +513,7 @@ class SeasonalStatisticSerializer(serializers.ModelSerializer):
         print(f"Test: {user_ids}")
         exclude_user_ids = list()
         for user_id in user_ids:
+            app_log.info(f"Test user_id: {user_id}")
             if isinstance(user_id, str):
                 # Validate user exists
                 user = User.objects.filter(id=user_id)
