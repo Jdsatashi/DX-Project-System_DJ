@@ -532,6 +532,7 @@ class SeasonalStatisticSerializer(serializers.ModelSerializer):
                     update_stats_users.append(upd_stats_user)
                 exclude_user_ids.append(user_id)
             elif isinstance(user_id, dict):
+                app_log.info(f"Case dict")
                 # Get user id from dict user data
                 user_data = user_id
                 my_user_id = list(user_data.keys())[0]
@@ -561,8 +562,10 @@ class SeasonalStatisticSerializer(serializers.ModelSerializer):
                     # Update turn_pick and turn_per_point
                     stats_user.turn_pick = turn_pick
                     stats_user.turn_per_point = turn_per_point
+                    app_log.info(f"StatsUser: {stats_user.turn_pick} | {stats_user.turn_per_point}")
                     # Update total point and redundant point
                     upd_stats_user = update_season_stats_users(stats_user)
+                    app_log.info(f"StatsUser: {stats_user.turn_pick} | {stats_user.turn_per_point}")
                     # Add stats object to update bulk list
                     update_stats_users.append(upd_stats_user)
                 exclude_user_ids.append(my_user_id)
