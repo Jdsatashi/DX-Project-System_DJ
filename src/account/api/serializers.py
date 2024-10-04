@@ -504,4 +504,4 @@ class GrantAccessSerializer(serializers.ModelSerializer):
 class ViewOtpSerializer(serializers.ModelSerializer):
     class Meta:
         model = Verify
-        fields = ['phone_verify', 'is_verify', 'verify_code', 'verify_time', 'created_at']
+        fields = ['phone_verify', 'is_verify', 'verify_code', 'verify_time', 'created_at', 'updated_at']
