@@ -350,10 +350,10 @@ def update_season_stats_users(season_stats_user: SeasonalStatisticUser):
         turn_pick = season_stats_user.turn_pick or total_point // turn_per_point
     except ZeroDivisionError:
         turn_pick = None
-    if turn_pick:
-        pickable = total_point // turn_per_point
-        if not pickable + 1 > turn_pick > pickable - 1:
-            turn_pick = pickable
+    # if turn_pick:
+    #     pickable = total_point // turn_per_point
+    #     if not pickable + 1 > turn_pick > pickable - 1:
+    #         turn_pick = pickable
 
     # turn_pick = season_stats_user.turn_pick or 0
     season_stats_user.turn_pick = turn_pick
