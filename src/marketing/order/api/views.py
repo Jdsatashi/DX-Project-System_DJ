@@ -983,6 +983,7 @@ def generate_order_excel(orders: list[Order]):
 
     total_price = OrderDetail.objects.filter(order_id__in=orders).aggregate(
         total_price=Sum('product_price'))['total_price']
+    total_price = total_price or 0
     total_price = "{:,.0f}".format(total_price)
     sheet.merge_cells('A2:N2')
     note_cell = sheet.cell(row=2, column=1)
