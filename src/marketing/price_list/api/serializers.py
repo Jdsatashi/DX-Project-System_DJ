@@ -161,28 +161,28 @@ class PriceListSerializer(BaseRestrictSerializer):
                     setattr(instance, attr, value)
                 instance.save()
 
-                if products_data:
-                    # Update products within the price list
-                    current_product_ids = {product.product.id for product in instance.productprice_set.all()}
-                    new_product_ids = {item['product_id'] for item in products_data}
-
-                    # Delete products that are not in the new data
-                    instance.productprice_set.filter(
-                        product_id__in=list(current_product_ids - new_product_ids)).delete()
-
-                    # Update existing products and create new ones
-                    for product_data in products_data:
-                        product_id = product_data.pop('product_id')
-                        product, _ = Product.objects.get_or_create(id=str(product_id))
-                        ProductPrice.objects.update_or_create(
-                            price_list=instance,
-                            product=product,
-                            defaults={
-                                'price': product_data.get('price'),
-                                'quantity_in_box': product_data.get('quantity_in_box'),
-                                'point': product_data.get('point'),
-                            }
-                        )
+                # if products_data:
+                #     # Update products within the price list
+                #     current_product_ids = {product.product.id for product in instance.productprice_set.all()}
+                #     new_product_ids = {item['product_id'] for item in products_data}
+                #
+                #     # Delete products that are not in the new data
+                #     instance.productprice_set.filter(
+                #         product_id__in=list(current_product_ids - new_product_ids)).delete()
+                #
+                #     # Update existing products and create new ones
+                #     for product_data in products_data:
+                #         product_id = product_data.pop('product_id')
+                #         product, _ = Product.objects.get_or_create(id=str(product_id))
+                #         ProductPrice.objects.update_or_create(
+                #             price_list=instance,
+                #             product=product,
+                #             defaults={
+                #                 'price': product_data.get('price'),
+                #                 'quantity_in_box': product_data.get('quantity_in_box'),
+                #                 'point': product_data.get('point'),
+                #             }
+                #         )
 
                 user_actions = [perm_actions['view'], perm_actions['create']]
                 self.handle_restrict_import_users_id(import_users, perm_data, user_actions)
