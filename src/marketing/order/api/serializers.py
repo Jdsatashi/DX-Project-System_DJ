@@ -321,6 +321,9 @@ def calculate_total_price_and_point(order, order_details_data):
         detail_data['product_price'] = prices
         detail_data['point_get'] = point
         detail_data['order_box'] = float(box)
+        app_log.info(f"Cashing: \n__Prices: {detail_data['product_price']}"
+                     f"\n__Points: {detail_data['point_get']}"
+                     f"\n__Boxes: {detail_data['order_box']}")
         if order.is_so:
             so_obj = SpecialOfferProduct.objects.get(special_offer=order.new_special_offer, product=product_id)
             detail_data['price_so'] = so_obj.cashback
