@@ -435,7 +435,7 @@ class EventNumberSerializer(BaseRestrictSerializer):
         prize_events = data.pop('prize_event', [])
         with transaction.atomic():
             event_number = super().update(instance, data)
-            instance.prize_event.all().delete()
+            # instance.prize_event.all().delete()
             # self._manage_prize_events(event_number, prize_events)
             add_user = self._add_users_to_event(event_number, users)
             if perm_data['restrict']:
