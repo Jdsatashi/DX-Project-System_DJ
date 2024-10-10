@@ -358,27 +358,27 @@ class SpecialOfferSerializer(BaseRestrictSerializer):
 
                 # Update SpecialOfferProduct details
                 keep_products = []
-                if products_data:
-                    for product_data in products_data:
-                        print(f"Adding")
-                        if "id" in product_data:
-                            print(f"Adding with id")
-                            product = SpecialOfferProduct.objects.get(id=product_data["id"], special_offer=instance)
-                            for attr, value in product_data.items():
-                                if attr != 'special_offer':  # Avoid setting special_offer attribute again
-                                    setattr(product, attr, value)
-                            product.save()
-                            keep_products.append(product.id)
-                        else:
-                            print(f"Adding without id")
-                            product_data.pop('special_offer', None)  # Remove special_offer from product_data if exists
-                            product = SpecialOfferProduct.objects.create(special_offer=instance, **product_data)
-                            keep_products.append(product.id)
-
-                    # Remove products not included in the update
-                    for product in instance.special_offers.all():
-                        if product.id not in keep_products:
-                            product.delete()
+                # if products_data:
+                #     for product_data in products_data:
+                #         print(f"Adding")
+                #         if "id" in product_data:
+                #             print(f"Adding with id")
+                #             product = SpecialOfferProduct.objects.get(id=product_data["id"], special_offer=instance)
+                #             for attr, value in product_data.items():
+                #                 if attr != 'special_offer':  # Avoid setting special_offer attribute again
+                #                     setattr(product, attr, value)
+                #             product.save()
+                #             keep_products.append(product.id)
+                #         else:
+                #             print(f"Adding without id")
+                #             product_data.pop('special_offer', None)  # Remove special_offer from product_data if exists
+                #             product = SpecialOfferProduct.objects.create(special_offer=instance, **product_data)
+                #             keep_products.append(product.id)
+                #
+                #     # Remove products not included in the update
+                #     for product in instance.special_offers.all():
+                #         if product.id not in keep_products:
+                #             product.delete()
                 # if instance.for_nvtt:
                 # perm_data['groups'] = ['nvtt']
                 if instance.type_list == so_type.manual:
@@ -391,7 +391,9 @@ class SpecialOfferSerializer(BaseRestrictSerializer):
                 if restrict or Perm.objects.filter(name__endswith=perm_name).exists():
                     self.handle_restrict(perm_data, instance.id, self.Meta.model)
                 return instance
-
+        except ValidationError as ve:
+            app_log.error(f"Error when update special offer: {ve}")
+            raise ve
         except Exception as e:
             app_log.error(f"Error when update special offer: {e}")
             raise serializers.ValidationError({'message': f'unexpected error when update special offer {instance.id}'})
