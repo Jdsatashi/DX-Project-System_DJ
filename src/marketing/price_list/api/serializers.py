@@ -22,6 +22,32 @@ class ProductPriceSerializer(serializers.ModelSerializer):
         fields = '__all__'
         read_only_fields = ('id',)
 
+    def create(self, validated_data):
+        try:
+            with transaction.atomic():
+                product_price = ProductPrice.objects.create(**validated_data)
+                return product_price
+        except Exception as e:
+            app_log.error(f"Error when create product price: {e}")
+            if settings.DEBUG:
+                raise e
+            else:
+                raise serializers.ValidationError({'message': f'unexpected error when create product price: {e}'})
+
+    def update(self, instance, validated_data):
+        try:
+            with transaction.atomic():
+                for attr, value in validated_data.items():
+                    setattr(instance, attr, value)
+                instance.save()
+                return instance
+        except Exception as e:
+            app_log.error(f"Error when create product price: {e}")
+            if settings.DEBUG:
+                raise e
+            else:
+                raise serializers.ValidationError({'message': f'unexpected error when create product price: {e}'})
+
 
 class ProductReadSerializer(serializers.ModelSerializer):
     product_type = serializers.SerializerMethodField()
@@ -117,7 +143,7 @@ class PriceListSerializer(BaseRestrictSerializer):
             if settings.DEBUG:
                 raise e
             else:
-                raise serializers.ValidationError({'message': 'unexpected error'})
+                raise serializers.ValidationError({'message': f'unexpected error: {e}'})
 
     def update(self, instance, validated_data):
         data, perm_data = self.split_data(validated_data)
@@ -143,7 +169,7 @@ class PriceListSerializer(BaseRestrictSerializer):
             if settings.DEBUG:
                 raise e
             else:
-                raise serializers.ValidationError({'message': 'unexpected error'})
+                raise serializers.ValidationError({'message': f'unexpected error: {e}'})
 
     def check_user_or_group_perm(self, allow_users, allow_nhom, date_start, date_end, price_list_type):
         if price_list_type != 'sub':
@@ -207,8 +233,37 @@ class SpecialOfferProductSerializer(serializers.ModelSerializer):
         fields = '__all__'
         read_only_fields = ['id']
 
+    def create(self, validated_data):
+        try:
+            with transaction.atomic():
+                product_price = SpecialOfferProduct.objects.create(**validated_data)
+                return product_price
+        except Exception as e:
+            app_log.error(f"Error when create product price: {e}")
+            if settings.DEBUG:
+                raise e
+            else:
+                raise serializers.ValidationError(
+                    {'message': f'unexpected error when create product special offer: {e}'})
+
+    def update(self, instance, validated_data):
+        try:
+            with transaction.atomic():
+                for attr, value in validated_data.items():
+                    setattr(instance, attr, value)
+                instance.save()
+                return instance
+        except Exception as e:
+            app_log.error(f"Error when update special offer product: {e}")
+            if settings.DEBUG:
+                raise e
+            else:
+                raise serializers.ValidationError(
+                    {'message': f'unexpected error when update product special offer: {e}'})
+
 
 class SpecialOfferSerializer(BaseRestrictSerializer):
+    special_offers = SpecialOfferProductSerializer(many=True, read_only=True)
     import_users = serializers.FileField(required=False, allow_null=True)
 
     class Meta:
@@ -259,7 +314,7 @@ class SpecialOfferSerializer(BaseRestrictSerializer):
             if settings.DEBUG:
                 raise e
             else:
-                raise serializers.ValidationError({'message': 'unexpected error when create special offer'})
+                raise serializers.ValidationError({'message': f'unexpected error when create special offer: {e}'})
 
     def update(self, instance: SpecialOffer, validated_data):
         # Split insert data
@@ -312,8 +367,8 @@ class SpecialOfferSerializer(BaseRestrictSerializer):
             if settings.DEBUG:
                 raise e
             else:
-                raise serializers.ValidationError({'message': f'unexpected error when update special offer {instance.id}'})
-            # raise e
+                raise serializers.ValidationError(
+                    {'message': f'unexpected error when update special offer {instance.id}: {e}'})
 
 
 """
