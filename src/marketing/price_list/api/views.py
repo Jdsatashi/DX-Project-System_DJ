@@ -26,7 +26,7 @@ from account.handlers.validate_perm import ValidatePermRest
 from account.models import User
 from app.logs import app_log
 from marketing.price_list.api.serializers import PriceListSerializer, SpecialOfferSerializer, PriceList2Serializer, \
-    SpecialOfferProductSerializer
+    SpecialOfferProductSerializer, ProductPriceSerializer
 from marketing.price_list.models import PriceList, SpecialOffer, ProductPrice, SpecialOfferProduct
 from marketing.product.models import Product
 from utils.constants import so_type, data_status, so_type_list, perm_actions
@@ -147,6 +147,31 @@ class GenericApiPriceList(viewsets.GenericViewSet, mixins.ListModelMixin, mixins
             app_log.error(f"Error in price_list export_users: {e}")
             # return Response({'message': f'Error occurred: {str(e)}'}, status=500)
             raise e
+
+
+class ApiPLProduct(viewsets.GenericViewSet, mixins.ListModelMixin, mixins.CreateModelMixin,
+                   mixins.RetrieveModelMixin, mixins.UpdateModelMixin, mixins.DestroyModelMixin):
+    serializer_class = ProductPriceSerializer
+    queryset = ProductPrice.objects.all()
+    authentication_classes = [JWTAuthentication, BasicAuthentication, SessionAuthentication]
+    # permission_classes = [partial(ValidatePermRest, model=PriceList)]
+
+    def list(self, request, *args, **kwargs):
+        queryset = self.get_queryset().annotate(
+            price_list_created_at=F('price_list__created_at')
+        ).order_by('-price_list_created_at')
+        pl_id = request.query_params.get('price_list', '')
+        pl_obj = PriceList.objects.filter(id=pl_id)
+        print(f"Check pl: {pl_id}")
+        if pl_obj.exists():
+            queryset = queryset.filter(price_list__id=pl_id)
+        response = filter_data(self, request,
+                               ['price_list_id', 'price_list__name',
+                                'product__name', 'product__id'],
+                               queryset=queryset, order_by_required=False,
+                               **kwargs)
+
+        return Response(response, status.HTTP_200_OK)
 
 
 class ApiSpecialOffer(viewsets.GenericViewSet, mixins.ListModelMixin, mixins.CreateModelMixin,
@@ -525,7 +550,8 @@ class ApiImportProductSO(APIView):
             raise e
 
 
-class ApiSOProduct(viewsets.GenericViewSet, mixins.ListModelMixin):
+class ApiSOProduct(viewsets.GenericViewSet, mixins.ListModelMixin, mixins.CreateModelMixin,
+                   mixins.RetrieveModelMixin, mixins.UpdateModelMixin, mixins.DestroyModelMixin):
     serializer_class = SpecialOfferProductSerializer
     queryset = SpecialOfferProduct.objects.all()
     authentication_classes = [JWTAuthentication, BasicAuthentication, SessionAuthentication]
@@ -540,6 +566,10 @@ class ApiSOProduct(viewsets.GenericViewSet, mixins.ListModelMixin):
         queryset = SpecialOfferProduct.objects.annotate(
             special_offer_created_at=F('special_offer__created_at')
         ).order_by('-special_offer_created_at')
+        so_id = request.query_params.get('special_offer', '')
+        so_obj = SpecialOffer.objects.filter(id=so_id)
+        if so_obj.exists():
+            queryset = queryset.filter(special_offer_id=so_id)
         response = filter_data(self, request,
                                ['special_offer__id', 'special_offer__type_list', 'special_offer__priority',
                                 'product__name', 'product__id'],

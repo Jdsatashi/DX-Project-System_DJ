@@ -14,24 +14,13 @@ from utils.constants import so_type_list, perm_actions, so_type
 
 
 class ProductPriceSerializer(serializers.ModelSerializer):
-    product_id = serializers.CharField(write_only=True)
     price = serializers.FloatField()
     point = serializers.FloatField()
 
     class Meta:
         model = ProductPrice
         fields = '__all__'
-        read_only_fields = ('id', 'price_list', 'product')
-
-    def to_internal_value(self, data):
-        # Ensure that `product_id` remains a string
-        product_id = data.get('product_id')
-        if not isinstance(product_id, str):
-            raise serializers.ValidationError({
-                'message': 'Product ID must be a string.'
-            })
-
-        return super().to_internal_value(data)
+        read_only_fields = ('id',)
 
 
 class ProductReadSerializer(serializers.ModelSerializer):
@@ -59,7 +48,6 @@ class ProductPriceReadSerializer(serializers.ModelSerializer):
 
 
 class PriceListSerializer(BaseRestrictSerializer):
-    products = ProductPriceSerializer(many=True, write_only=True, required=False, allow_null=True)
     import_users = serializers.FileField(required=False)
 
     class Meta:
