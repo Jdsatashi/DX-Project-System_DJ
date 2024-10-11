@@ -242,6 +242,8 @@ class OrderSerializer(BaseRestrictSerializer):
                     raise serializers.ValidationError(
                         {'message': 'sản phẩm trong toa không khớp với sản phẩm trong xét duyệt ưu đãi'})
             else:
+                if buy_target == 0:
+                    buy_target = 1
                 print(f"Check buy target: {buy_target}")
                 # Normal SO use default target of SaleTarget by month
                 number_box_can_buy = user_sale_statistic.available_turnover // buy_target
