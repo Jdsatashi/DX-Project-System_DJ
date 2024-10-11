@@ -170,7 +170,6 @@ class NotificationSerializer(serializers.ModelSerializer):
         groups = validated_data.pop('groups', None)
         files = validated_data.pop('files', None)
         import_users = validated_data.pop('import_users', None)
-        app_log.info(f"Number of files to update: {len(files)}")
 
         try:
             with transaction.atomic():
@@ -216,6 +215,8 @@ class NotificationSerializer(serializers.ModelSerializer):
 
                 # Handle files associated with the notification
                 if files:
+                    app_log.info(f"Number of files to update: {len(files)}")
+
                     NotificationFile.objects.filter(notify=instance).delete()
                     for file in files:
                         file_upload = FileUpload.objects.create(file=file)
