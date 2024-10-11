@@ -58,3 +58,9 @@ class PointOfSeason(models.Model):
         print(f"Total points: {self.user} {total_points}")
         self.point = total_points
         self.total_point = total_points
+
+
+class SystemConfig(models.Model):
+    name = models.CharField(max_length=255, null=True)
+    value = models.TextField(null=True)
+    note = models.TextField(null=True)
