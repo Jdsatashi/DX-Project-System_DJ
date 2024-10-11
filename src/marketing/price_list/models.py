@@ -54,6 +54,11 @@ class ProductPrice(models.Model):
     quantity_in_box = models.IntegerField(null=False, default=0)
     point = models.FloatField(null=True, blank=True)
 
+    def save(self, *args, **kwargs):
+        if ProductPrice.objects.filter(price_list=self.price_list, product=self.product).exists():
+            raise ValueError(f"Sản phẩm {self.product_id} đã có trong bảng giá {self.price_list_id}")
+        return super().save(*args, **kwargs)
+
 
 class SpecialOffer(models.Model):
     id = models.CharField(max_length=64, primary_key=True)
@@ -97,6 +102,11 @@ class SpecialOfferProduct(models.Model):
     quantity_in_box = models.IntegerField(default=0)
     cashback = models.BigIntegerField(null=True)
     max_order_box = models.IntegerField(null=True)
+
+    def save(self, *args, **kwargs):
+        if ProductPrice.objects.filter(price_list=self.special_offer, product=self.product).exists():
+            raise ValueError(f"Sản phẩm {self.product_id} đã có trong ưu đãi {self.special_offer_id}")
+        return super().save(*args, **kwargs)
 
 
 def get_month_start_end(date):

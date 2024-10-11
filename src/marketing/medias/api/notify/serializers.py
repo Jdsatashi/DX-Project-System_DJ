@@ -1,53 +1,24 @@
 from datetime import datetime
-from types import SimpleNamespace
 
+from django.conf import settings
 from django.contrib.contenttypes.models import ContentType
 from django.db import transaction
 from django.utils import timezone
-from django.utils.timezone import make_aware, now
 from rest_framework import serializers
-from marketing.medias.tasks import send_scheduled_notification, send_firebase_notification
+
 from account.handlers.restrict_serializer import create_full_perm, list_user_has_perm, \
     list_group_has_perm, add_perm
 from account.models import Perm, User, GroupPerm, PhoneNumber
 from app.logs import app_log
 from marketing.medias.models import Notification, NotificationUser, NotificationFile
+from marketing.medias.tasks import send_scheduled_notification
 from system.file_upload.models import FileUpload
 from utils.constants import perm_actions, admin_role
 from utils.env import APP_SERVER
-from firebase_admin import messaging
-
 from utils.import_excel import get_user_list
 
-
-def send_firebase_notification3(title, body, registration_tokens, data):
-    """
-    Function to send a Firebase notification with custom data.
-    :param title: Title of the notification
-    :param body: Body of the notification
-    :param registration_tokens: List of device registration tokens
-    :param data: Additional custom data to send with the notification
-    """
-    app_log.info(f"Handling upload notify to FIREBASE")
-
-    message = messaging.MulticastMessage(
-        notification=messaging.Notification(
-            title=title,
-            body=body,
-        ),
-        data=data,
-        tokens=registration_tokens
-    )
-    app_log.info(f"Check data: {data}")
-    try:
-        # response = messaging.send_multicast(message)
-        response = messaging.send_each_for_multicast(message)
-        app_log.info(f"FIREBASE response: {response}")
-        app_log.info('{0} messages were sent successfully'.format(response.success_count))
-        return response
-    except Exception as e:
-        app_log.error(f"Error sending notification to FIREBASE: {e}")
-        return None
+notifying_choices = (('all', 'all'), ('unread', 'unread'), ('only_new', 'only_new'),
+                     ('new_and_unread', 'new_and_unread'), ('none', 'none'))
 
 
 class NotificationSerializer(serializers.ModelSerializer):
@@ -55,6 +26,7 @@ class NotificationSerializer(serializers.ModelSerializer):
     groups = serializers.ListField(child=serializers.CharField(), write_only=True, allow_null=True, required=False)
     files = serializers.ListField(child=serializers.FileField(), write_only=True, allow_null=True, required=False)
     import_users = serializers.FileField(required=False)
+    notifying = serializers.ChoiceField(required=False, choices=notifying_choices)
 
     class Meta:
         model = Notification
@@ -91,7 +63,8 @@ class NotificationSerializer(serializers.ModelSerializer):
         groups = validated_data.pop('groups', [])
         files = validated_data.pop('files', [])
         import_users = validated_data.pop('import_users', None)
-        app_log.info(f"Number of files: {len(files)}")
+        notifying = validated_data.pop('notifying', None)
+
         try:
             with transaction.atomic():
                 notify = super().create(validated_data)
@@ -135,15 +108,8 @@ class NotificationSerializer(serializers.ModelSerializer):
                 registration_tokens = list(PhoneNumber.objects.filter(user_id__in=distinct_users).values_list('device_code', flat=True))
                 registration_tokens = [token for token in registration_tokens if token]
 
-                # Send Firebase notification
-                my_data = {
-                    "notification_id": str(notify.id),
-                    "click_action": "click_action"
-                }
-
                 time_now = timezone.now()
                 alert_datetime = datetime.combine(notify.alert_date, notify.alert_time)
-                # alert_datetime = timezone.make_aware(alert_datetime, timezone.get_current_timezone())
 
                 delay = (alert_datetime - time_now).total_seconds()
 
@@ -154,22 +120,23 @@ class NotificationSerializer(serializers.ModelSerializer):
                 }
 
                 if delay < 10:
-                    # Gửi thông báo ngay lập tức
                     send_scheduled_notification.apply_async((notify.id, send_notify, registration_tokens), countdown=10)
                 else:
                     send_scheduled_notification.apply_async((notify.id, send_notify, registration_tokens), countdown=delay)
 
-                # send_firebase_notification3(notify.title, notify.short_description, registration_tokens, my_data)
-                # schedule_notification(notify)
                 return notify
         except Exception as e:
-            raise e
+            if settings.DEBUG:
+                raise e
+            else:
+                raise serializers.ValidationError({"message": f"got error when add notification: {e}"})
 
     def update(self, instance, validated_data):
         users = validated_data.pop('users', None)
         groups = validated_data.pop('groups', None)
         files = validated_data.pop('files', None)
         import_users = validated_data.pop('import_users', None)
+        notifying = validated_data.pop('notifying', None)
 
         try:
             with transaction.atomic():
@@ -190,28 +157,22 @@ class NotificationSerializer(serializers.ModelSerializer):
                 # Xử lý người dùng từ tệp nếu có
                 if import_users:
                     users = get_user_list(import_users)
-                    distinct_users = User.objects.filter(id__in=users).distinct()
+                    combined_users = User.objects.filter(id__in=users)
                 else:
-                    if groups:
-                        # Get all user from group and specified user ids
-                        user_in_group = User.objects.filter(group_user__name__in=groups).exclude(
-                            is_superuser=True).distinct()
-                    else:
-                        user_in_group = []
-                    if users:
-                        users_from_ids = User.objects.filter(id__in=users).distinct()
-                    else:
-                        users_from_ids = []
+                    user_in_group = User.objects.filter(group_user__name__in=groups).exclude(
+                        is_superuser=True).distinct()
+                    users_from_ids = User.objects.filter(id__in=users).distinct()
                     combined_users = user_in_group | users_from_ids
-                    distinct_users = combined_users.distinct()
+                distinct_users = combined_users.distinct()
 
-                app_log.info(f"Count updated users: {distinct_users.count()}")
+                current_users = set(instance.notificationuser_set.all().values_list('user_id', flat=True))
+                new_users = set(distinct_users.values_list('id', flat=True))
+                to_add = new_users - current_users
+                to_remove = current_users - new_users
 
-                if distinct_users:
-                    # Update notification users
-                    NotificationUser.objects.filter(notify=instance).delete()
-                    notify_users = [NotificationUser(notify=instance, user=user) for user in distinct_users]
-                    NotificationUser.objects.bulk_create(notify_users)
+                NotificationUser.objects.filter(notify=instance, user_id__in=to_remove).delete()
+                NotificationUser.objects.bulk_create(
+                    [NotificationUser(notify=instance, user_id=user_id) for user_id in to_add])
 
                 # Handle files associated with the notification
                 if files:
@@ -222,9 +183,33 @@ class NotificationSerializer(serializers.ModelSerializer):
                         file_upload = FileUpload.objects.create(file=file)
                         NotificationFile.objects.create(notify=instance, file=file_upload)
 
+                # Registration tokens for FCM might need updating too
+                registration_tokens = list(
+                    PhoneNumber.objects.filter(user_id__in=distinct_users).values_list('device_code', flat=True))
+                registration_tokens = [token for token in registration_tokens if token]
+
+                # Scheduling notifications similar to creation logic
+                time_now = timezone.now()
+                alert_datetime = datetime.combine(instance.alert_date, instance.alert_time)
+                delay = (alert_datetime - time_now).total_seconds()
+
+                send_notify = {'id': instance.id, 'title': instance.title,
+                               'short_description': instance.short_description}
+
+                if notifying:
+                    if delay < 10:
+                        send_scheduled_notification.apply_async((instance.id, send_notify, registration_tokens),
+                                                                countdown=10)
+                    else:
+                        send_scheduled_notification.apply_async((instance.id, send_notify, registration_tokens),
+                                                                countdown=delay)
+
                 return instance
         except Exception as e:
-            raise serializers.ValidationError({'message': str(e)})
+            if settings.DEBUG:
+                raise e
+            else:
+                raise serializers.ValidationError({"message": f"lỗi khi update thông báo {instance.pk}: {e}"})
 
 
 class NotifyReadSerializer(serializers.ModelSerializer):
