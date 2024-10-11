@@ -17,12 +17,12 @@ class ApiPeriodSeason(viewsets.GenericViewSet, mixins.ListModelMixin, mixins.Cre
     serializer_class = PeriodSeasonSerializer
     queryset = PeriodSeason.objects.all()
     authentication_classes = [JWTAuthentication, BasicAuthentication, SessionAuthentication]
-    permission_classes = [partial(ValidatePermRest, model=PeriodSeason)]
+    # permission_classes = [partial(ValidatePermRest, model=PeriodSeason)]
 
-    def list(self, request, *args, **kwargs):
-        response = filter_data(self, request, ['type', 'period'],
-                               **kwargs)
-        return Response(response, status.HTTP_200_OK)
+    # def list(self, request, *args, **kwargs):
+    #     response = filter_data(self, request, ['type', 'period'],
+    #                            **kwargs)
+    #     return Response(response, status.HTTP_200_OK)
 
 
 class ApiSystemConfig(viewsets.GenericViewSet, mixins.ListModelMixin, mixins.CreateModelMixin,
