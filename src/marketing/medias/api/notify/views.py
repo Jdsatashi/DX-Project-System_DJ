@@ -23,15 +23,7 @@ class ApiNotification(viewsets.GenericViewSet, mixins.ListModelMixin, mixins.Cre
     # permission_classes = [partial(ValidatePermRest, model=User)]
 
     def list(self, request, *args, **kwargs):
-        queryset = self.get_queryset()
-        user = request.user
-        if user.is_authenticated:
-            if not user.is_superuser or  not user.group_user.filter(name=admin_role):
-                queryset = queryset.exclude(status='deactivate')
-        else:
-            queryset = queryset.exclude(status='deactivate')
-        print(f"queryset: {queryset}")
-        response = filter_data(self, request, ['id', 'title'], queryset=queryset,
+        response = filter_data(self, request, ['id', 'title'],
                                **kwargs)
         return Response(response, status.HTTP_200_OK)
 
