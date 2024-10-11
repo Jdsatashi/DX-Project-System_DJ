@@ -1,17 +1,16 @@
+from django.conf import settings
 from django.db import transaction
 from rest_framework import serializers
 from rest_framework.exceptions import ValidationError
 
 from account.handlers.perms import get_full_permname, get_perm_name
 from account.handlers.restrict_serializer import BaseRestrictSerializer
-from account.models import GroupPerm, Perm, User
+from account.models import GroupPerm, Perm
 from account.queries import get_user_by_permname_sql, get_user_like_permname_sql
 from app.logs import app_log
 from marketing.price_list.models import PriceList, ProductPrice, SpecialOfferProduct, SpecialOffer
 from marketing.product.models import Product
-from user_system.employee_profile.models import EmployeeProfile
 from utils.constants import so_type_list, perm_actions, so_type
-from utils.import_excel import get_user_list
 
 
 class ProductPriceSerializer(serializers.ModelSerializer):
@@ -110,30 +109,12 @@ class PriceListSerializer(BaseRestrictSerializer):
     def create(self, validated_data):
         # Split data for permission
         data, perm_data = self.split_data(validated_data)
-        products_data = data.pop('products', None)
         import_users = data.pop('import_users', None)
-        # Kiểm tra quyền hạn và ngày tháng
-        # self.check_user_or_group_perm(perm_data['allow_users'], perm_data['allow_nhom'], data['date_start'],
-        #                               data['date_end'], data['type'])
 
         try:
             with transaction.atomic():
                 # Create price list
                 price_list = PriceList.objects.create(**data)
-                if products_data:
-                    # Add product to price list
-                    for product_data in products_data:
-                        product_id = product_data.pop('product_id')
-                        price = product_data.pop('price')
-                        quantity_in_box = product_data.pop('quantity_in_box')
-                        point = product_data.pop('point')
-                        try:
-                            product = Product.objects.get(id=str(product_id))
-                            ProductPrice.objects.create(price_list=price_list, product=product, price=price,
-                                                        quantity_in_box=quantity_in_box, point=point)
-                        except Product.DoesNotExist:
-                            raise serializers.ValidationError(
-                                {'message': f'Product with ID {product_id} does not exist.'})
 
                 user_actions = [perm_actions['view'], perm_actions['create']]
                 self.handle_restrict_import_users_id(import_users, perm_data, user_actions)
@@ -145,44 +126,20 @@ class PriceListSerializer(BaseRestrictSerializer):
                 return price_list
         except Exception as e:
             app_log.error(f"Error when create price_list: {e}")
-            raise serializers.ValidationError({'message': 'unexpected error'})
+            if settings.DEBUG:
+                raise e
+            else:
+                raise serializers.ValidationError({'message': 'unexpected error'})
 
     def update(self, instance, validated_data):
         data, perm_data = self.split_data(validated_data)
-        products_data = data.pop('products', None)
         import_users = data.pop('import_users', None)
-
-        # self.check_user_or_group_perm(perm_data['allow_users'], perm_data['allow_nhom'], data['date_start'],
-        #                               data['date_end'], data['type'])
 
         try:
             with transaction.atomic():
                 for attr, value in data.items():
                     setattr(instance, attr, value)
                 instance.save()
-
-                # if products_data:
-                #     # Update products within the price list
-                #     current_product_ids = {product.product.id for product in instance.productprice_set.all()}
-                #     new_product_ids = {item['product_id'] for item in products_data}
-                #
-                #     # Delete products that are not in the new data
-                #     instance.productprice_set.filter(
-                #         product_id__in=list(current_product_ids - new_product_ids)).delete()
-                #
-                #     # Update existing products and create new ones
-                #     for product_data in products_data:
-                #         product_id = product_data.pop('product_id')
-                #         product, _ = Product.objects.get_or_create(id=str(product_id))
-                #         ProductPrice.objects.update_or_create(
-                #             price_list=instance,
-                #             product=product,
-                #             defaults={
-                #                 'price': product_data.get('price'),
-                #                 'quantity_in_box': product_data.get('quantity_in_box'),
-                #                 'point': product_data.get('point'),
-                #             }
-                #         )
 
                 user_actions = [perm_actions['view'], perm_actions['create']]
                 self.handle_restrict_import_users_id(import_users, perm_data, user_actions)
@@ -195,7 +152,10 @@ class PriceListSerializer(BaseRestrictSerializer):
                 return instance
         except Exception as e:
             app_log.error(f"Error when update price_list: {e}")
-            raise serializers.ValidationError({'message': 'unexpected error'})
+            if settings.DEBUG:
+                raise e
+            else:
+                raise serializers.ValidationError({'message': 'unexpected error'})
 
     def check_user_or_group_perm(self, allow_users, allow_nhom, date_start, date_end, price_list_type):
         if price_list_type != 'sub':
@@ -261,7 +221,6 @@ class SpecialOfferProductSerializer(serializers.ModelSerializer):
 
 
 class SpecialOfferSerializer(BaseRestrictSerializer):
-    special_offers = SpecialOfferProductSerializer(many=True, required=False, allow_null=True)
     import_users = serializers.FileField(required=False, allow_null=True)
 
     class Meta:
@@ -292,24 +251,12 @@ class SpecialOfferSerializer(BaseRestrictSerializer):
         # Split insert data
         data, perm_data = self.split_data(validated_data)
         import_users = data.pop('import_users', None)
-        products_data = data.pop('special_offers', None)
         try:
             with transaction.atomic():
                 if data.get('type_list') not in so_type_list:
                     raise ValidationError({'message': f'type_list phải thuộc danh sách {so_type_list}'})
                 # Create new SpecialOffer
                 special_offer = SpecialOffer.objects.create(**data)
-                if products_data:
-                    # Add product to SpecialOfferProduct
-                    for product_data in products_data:
-                        print(f"Adding")
-                        product = product_data.get('product')
-                        print(f"Check product: {product.id}")
-                        if not Product.objects.filter(id=product.id).exists():
-                            raise serializers.ValidationError(
-                                {'message': f'Product {product.id} is not in the PriceList'})
-                        app_log.info(f"Check product_data: {product_data}")
-                        SpecialOfferProduct.objects.create(special_offer=special_offer, **product_data)
 
                 if special_offer.type_list == so_type.manual:
                     user_actions = [perm_actions['view'], perm_actions['create']]
@@ -321,14 +268,15 @@ class SpecialOfferSerializer(BaseRestrictSerializer):
                 return special_offer
         except Exception as e:
             app_log.error(f"Error when create special offer: {e}")
-            # raise serializers.ValidationError({'message': 'unexpected error when create special offer'})
-            raise e
+            if settings.DEBUG:
+                raise e
+            else:
+                raise serializers.ValidationError({'message': 'unexpected error when create special offer'})
 
     def update(self, instance: SpecialOffer, validated_data):
         # Split insert data
         data, perm_data = self.split_data(validated_data)
         import_users = data.pop('import_users', None)
-        products_data = data.pop('special_offers', None)
         try:
             with transaction.atomic():
                 # Update SpecialOffer fields
@@ -356,29 +304,6 @@ class SpecialOfferSerializer(BaseRestrictSerializer):
                     setattr(instance, attr, value)
                 instance.save()
 
-                # Update SpecialOfferProduct details
-                keep_products = []
-                # if products_data:
-                #     for product_data in products_data:
-                #         print(f"Adding")
-                #         if "id" in product_data:
-                #             print(f"Adding with id")
-                #             product = SpecialOfferProduct.objects.get(id=product_data["id"], special_offer=instance)
-                #             for attr, value in product_data.items():
-                #                 if attr != 'special_offer':  # Avoid setting special_offer attribute again
-                #                     setattr(product, attr, value)
-                #             product.save()
-                #             keep_products.append(product.id)
-                #         else:
-                #             print(f"Adding without id")
-                #             product_data.pop('special_offer', None)  # Remove special_offer from product_data if exists
-                #             product = SpecialOfferProduct.objects.create(special_offer=instance, **product_data)
-                #             keep_products.append(product.id)
-                #
-                #     # Remove products not included in the update
-                #     for product in instance.special_offers.all():
-                #         if product.id not in keep_products:
-                #             product.delete()
                 # if instance.for_nvtt:
                 # perm_data['groups'] = ['nvtt']
                 if instance.type_list == so_type.manual:
@@ -396,7 +321,10 @@ class SpecialOfferSerializer(BaseRestrictSerializer):
             raise ve
         except Exception as e:
             app_log.error(f"Error when update special offer: {e}")
-            raise serializers.ValidationError({'message': f'unexpected error when update special offer {instance.id}'})
+            if settings.DEBUG:
+                raise e
+            else:
+                raise serializers.ValidationError({'message': f'unexpected error when update special offer {instance.id}'})
             # raise e
 
 
