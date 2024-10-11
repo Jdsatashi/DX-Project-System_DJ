@@ -13,3 +13,8 @@ class SystemConfigSerializer(serializers.ModelSerializer):
     class Meta:
         model = SystemConfig
         fields = '__all__'
+        extra_kwargs = {
+            'name': {'required': True, 'allow_null': False, 'allow_blank': False},
+            'value': {'required': True, 'allow_blank': True},
+            'note': {'required': False, 'allow_blank': True},
+        }
