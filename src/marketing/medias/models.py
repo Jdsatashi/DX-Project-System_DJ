@@ -16,8 +16,9 @@ class Notification(models.Model):
     content = models.TextField(null=True)
     alert_date = models.DateField(null=True)
     alert_time = models.TimeField()
-    type = models.CharField(max_length=64, null=True)
+    type = models.CharField(max_length=64, null=True)   # [news, ]
     note = models.CharField(max_length=255, null=True, blank=True)
+    status = models.CharField(max_length=64, default='active')
     created_by = models.CharField(max_length=255, null=True, blank=True)
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)

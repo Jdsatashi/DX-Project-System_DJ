@@ -1,20 +1,15 @@
 from datetime import datetime, time, timedelta
 
-from django.core.mail import send_mail
 from rest_framework import viewsets, mixins, status
 from rest_framework.authentication import SessionAuthentication, BasicAuthentication
 from rest_framework.response import Response
 from rest_framework.views import APIView
 from rest_framework_simplejwt.authentication import JWTAuthentication
 
-from account.handlers.perms import perm_queryset
-from account.models import User
-from app import settings
 from app.logs import app_log
 from marketing.medias.api.notify.serializers import NotificationSerializer, NotificationUserSerializer
 from marketing.medias.models import Notification, NotificationUser
 from utils.constants import admin_role
-from utils.env import EMAIL_SENDER, EMAIL_SENDER_NAME
 from utils.model_filter_paginate import filter_data
 
 
@@ -29,14 +24,14 @@ class ApiNotification(viewsets.GenericViewSet, mixins.ListModelMixin, mixins.Cre
 
     def list(self, request, *args, **kwargs):
         queryset = self.get_queryset()
-        # user: User = request.user
-        # if user.is_authenticated:
-        #     if user.is_superuser or user.group_user.filter(name=admin_role):
-        #         return queryset.objects.all()
-        #     else:
-        #         queryset = queryset.exclude(status='deactivate')
-        # else:
-        #     queryset = queryset.exclude(status='deactivate')
+        user = request.user
+        if user.is_authenticated:
+            if user.is_superuser or user.group_user.filter(name=admin_role):
+                return queryset.objects.all()
+            else:
+                queryset = queryset.exclude(status='deactivate')
+        else:
+            queryset = queryset.exclude(status='deactivate')
         print(f"queryset: {queryset}")
         response = filter_data(self, request, ['id', 'title'], queryset=queryset,
                                **kwargs)
