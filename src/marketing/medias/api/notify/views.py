@@ -27,7 +27,7 @@ class ApiNotification(viewsets.GenericViewSet, mixins.ListModelMixin, mixins.Cre
         user = request.user
         if user.is_authenticated:
             if user.is_superuser or user.group_user.filter(name=admin_role):
-                return queryset.objects.all()
+                return queryset
             else:
                 queryset = queryset.exclude(status='deactivate')
         else:
