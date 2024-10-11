@@ -32,6 +32,7 @@ from marketing.pick_number.api.serializers import UserJoinEventSerializer, Event
     AwardUserSerializer
 from marketing.pick_number.models import UserJoinEvent, EventNumber, NumberList, PrizeEvent, AwardNumber, PickNumberLog, \
     NumberSelected
+from user_system.employee_profile.models import EmployeeProfile
 from utils.model_filter_paginate import filter_data
 
 
@@ -346,7 +347,9 @@ class ApiExportEventNumberUser(APIView):
         ws.append([])  # Thêm dòng trống
 
         # Tạo header
-        headers = ["Mã KH", "Tên KH", "Tổng tem đạt", "Tem chưa chọn", "Số đã chọn"]
+        headers = ["Mã KH", "Tên KH",
+                   "Mã NVTT", "Tên NVTT",
+                   "Tổng tem đạt", "Tem chưa chọn", "Số đã chọn"]
         ws.append(headers)
 
         # Định dạng header
@@ -358,17 +361,24 @@ class ApiExportEventNumberUser(APIView):
 
         ws.column_dimensions['A'].width = 12.73  # Đặt độ rộng cột "Mã KH"
         ws.column_dimensions['B'].width = 20
+
         ws.column_dimensions['C'].width = 12.73
-        ws.column_dimensions['D'].width = 12.73
-        ws.column_dimensions['E'].width = 32
+        ws.column_dimensions['D'].width = 20
+        ws.column_dimensions['E'].width = 12.73
+        ws.column_dimensions['F'].width = 12.73
+        ws.column_dimensions['G'].width = 32
 
         # Lấy danh sách user_join_event với prefetch_related cho NumberSelected
         users_join_event = UserJoinEvent.objects.filter(event=event).select_related('user').prefetch_related(
             'number_selected__number')
+        nvtt_ids = {user_join_event.user.clientprofile.nvtt_id for user_join_event in users_join_event}
 
+        nvtt_profiles = EmployeeProfile.objects.filter(employee_id__in=nvtt_ids).values_list('employee_id_id', 'register_name').distinct()
+        nvtt_profiles = dict(nvtt_profiles)
         row_num = 4  # Bắt đầu từ hàng thứ 4 do tiêu đề và header đã chiếm 3 hàng
         for user_join_event in users_join_event:
             user = user_join_event.user
+            # print(f"Test: {nvtt_profiles[user.clientprofile.nvtt_id]}")
             selected_numbers: QuerySet = user_join_event.number_selected.all().order_by('created_at')
             turn_pick = user_join_event.turn_pick or 0
             turn_not_pick = turn_pick - selected_numbers.count()
@@ -380,8 +390,12 @@ class ApiExportEventNumberUser(APIView):
 
             picked_numbers = selected_numbers.values_list('number__number', flat=True).distinct()
             split_numbers = ",".join(map(str, list(picked_numbers)))
-            export_data = [user.id, register_name, turn_pick, turn_not_pick, split_numbers]
-            print(f"Test: {export_data}")
+            try:
+                nvtt_name = nvtt_profiles[user.clientprofile.nvtt_id]
+            except Exception:
+                nvtt_name = ''
+            export_data = [user.id, register_name, user.clientprofile.nvtt_id,
+                           nvtt_name, turn_pick, turn_not_pick, split_numbers]
             self._write_to_sheet(ws, row_num, export_data, data_font, center_alignment, thin_border)
             row_num += 1
 
@@ -421,6 +435,13 @@ class ApiUserAward(viewsets.GenericViewSet, mixins.ListModelMixin):
         response = filter_data(self, request, ['number'],
                                **kwargs)
         return Response(response, status.HTTP_200_OK)
+
+    def export_award(self, request, *args, **kwargs):
+        pk = kwargs.get('pk')
+        evn = EventNumber.objects.filter(id=pk)
+        if not evn.exists():
+            return Response({'message': f"không tìm thấy sự kiện quay số {pk}"}, 404)
+
 
 
 class ApiUserNumberPdf2(APIView):
