@@ -55,7 +55,7 @@ class ProductPrice(models.Model):
     point = models.FloatField(null=True, blank=True)
 
     def save(self, *args, **kwargs):
-        if ProductPrice.objects.filter(price_list=self.price_list, product=self.product).exists():
+        if ProductPrice.objects.filter(price_list=self.price_list, product=self.product).exclude(id=self.id).exists():
             raise ValueError(f"Sản phẩm {self.product_id} đã có trong bảng giá {self.price_list_id}")
         return super().save(*args, **kwargs)
 
@@ -104,7 +104,7 @@ class SpecialOfferProduct(models.Model):
     max_order_box = models.IntegerField(null=True)
 
     def save(self, *args, **kwargs):
-        if SpecialOfferProduct.objects.filter(special_offer=self.special_offer, product=self.product).exists():
+        if SpecialOfferProduct.objects.filter(special_offer=self.special_offer, product=self.product).exclude(id=self.id).exists():
             raise ValueError(f"Sản phẩm {self.product_id} đã có trong ưu đãi {self.special_offer_id}")
         return super().save(*args, **kwargs)
 
