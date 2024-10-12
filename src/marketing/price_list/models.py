@@ -104,7 +104,7 @@ class SpecialOfferProduct(models.Model):
     max_order_box = models.IntegerField(null=True)
 
     def save(self, *args, **kwargs):
-        if ProductPrice.objects.filter(price_list=self.special_offer, product=self.product).exists():
+        if SpecialOfferProduct.objects.filter(special_offer=self.special_offer, product=self.product).exists():
             raise ValueError(f"Sản phẩm {self.product_id} đã có trong ưu đãi {self.special_offer_id}")
         return super().save(*args, **kwargs)
 
