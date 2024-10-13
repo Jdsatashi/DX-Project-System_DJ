@@ -10,38 +10,35 @@ import numpy as np
 import openpyxl
 import pandas as pd
 from django.core.exceptions import FieldError
-from django.core.paginator import Paginator, PageNotAnInteger, EmptyPage
+from django.core.paginator import Paginator
 from django.db import transaction
 from django.db.models import Prefetch, QuerySet
 from django.db.models import Sum, Q, Case, When, FloatField, F
-from django.db.models.functions import Abs, Coalesce
+from django.db.models.functions import Coalesce
 from django.http import HttpResponse
 from django.http import StreamingHttpResponse
 from django.utils import timezone
 from openpyxl.styles import Font, Alignment, PatternFill, Border, Side
 from openpyxl.utils import get_column_letter
-from rest_framework import viewsets, mixins, status, serializers
+from rest_framework import viewsets, mixins, status
 from rest_framework.authentication import BasicAuthentication, SessionAuthentication
 from rest_framework.decorators import action
 from rest_framework.response import Response
 from rest_framework.views import APIView
 from rest_framework_simplejwt.authentication import JWTAuthentication
-from rest_framework_simplejwt.tokens import AccessToken
 
-from account.handlers.perms import DataFKModel, get_perm_name
+from account.handlers.perms import get_perm_name
 from account.handlers.validate_perm import ValidatePermRest
-from account.models import User, Perm
+from account.models import User
 from app.logs import app_log
 from marketing.order.api.serializers import OrderSerializer, ProductStatisticsSerializer, SeasonalStatisticSerializer, \
     SeasonStatsUserPointSerializer, update_point, update_season_stats_user, update_user_turnover, OrderUpdateSerializer
 from marketing.order.models import Order, OrderDetail, SeasonalStatistic, SeasonalStatisticUser
 from marketing.price_list.models import SpecialOffer, PriceList, ProductPrice, SpecialOfferProduct
 from marketing.product.models import Product
-from marketing.sale_statistic.models import UserSaleStatistic
-from system_func.models import PeriodSeason, PointOfSeason
 from user_system.client_profile.models import ClientProfile
 from user_system.employee_profile.models import EmployeeProfile
-from utils.constants import maNhomND, so_type, data_status, perm_actions
+from utils.constants import maNhomND, data_status, perm_actions
 from utils.datetime_handle import convert_date_format
 from utils.model_filter_paginate import filter_data, get_query_parameters, build_absolute_uri_with_params
 
@@ -1138,7 +1135,7 @@ def generate_order_excel(orders: list[Order]):
                 except ZeroDivisionError:
                     price = 0
                 formatted_price = "{:,.0f}".format(price)
-                formatted_total_price = "{:,.0f}".format(detail.product_price)
+                formatted_total_price = "{:,.0f}".format(total_price)
                 details_data = [
                     product_id,
                     product_name,
@@ -1491,3 +1488,51 @@ def get_excel_to_dict(file):
         final_result.append(client_group)
 
     return final_result
+
+
+class ApiNvttGetOrderDaily(APIView):
+    def get(self, request, *args, **kwargs):
+        pk = kwargs.get('pk')
+        nvtt = User.objects.filter(id=pk).first()
+        if not nvtt:
+            return Response({'message': f"nvtt {pk} not found"}, status=status.HTTP_404_NOT_FOUND)
+
+        today = datetime.now().date()
+        date_default = today - timedelta(days=1)
+        from_date_default = date_default.strftime('%d/%m/%Y')
+        to_date_default = today.strftime('%d/%m/%Y')
+
+        date_get = request.query_params.get('from_date', from_date_default)
+        next_date_get = request.query_params.get('to_date', to_date_default)
+
+        date_get = datetime.strptime(date_get, '%d/%m/%Y')
+        next_date_get = datetime.strptime(next_date_get, '%d/%m/%Y')
+
+        daily = request.query_params.get('daily', 'all')
+        daily_q = Q()
+
+        if daily != 'all':
+            daily_list = daily.split(',')
+            for daily_id in daily_list:
+                daily_q |= Q(client_id_id=daily_id)
+
+        default_q = Q(date_company_get__gte=date_get, date_company_get__lt=next_date_get, nvtt_id=nvtt.id)
+
+        orders = (Order.objects.filter(default_q & daily_q)
+                  .exclude(status='deactivate').order_by('-date_get'))
+
+        start_time = time.time()
+
+        workbook = generate_order_excel(orders)
+        output = BytesIO()
+        workbook.save(output)
+        output.seek(0)
+
+        response = StreamingHttpResponse(
+            output,
+            content_type='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'
+        )
+        response['Content-Disposition'] = f'attachment; filename=BangToa_{datetime.now().strftime("%d-%m-%Y")}.xlsx'
+
+        print(f"Time export to excel: {time.time() - start_time}")
+        return response
