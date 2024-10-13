@@ -82,7 +82,6 @@ class ValidatePermRest(permissions.BasePermission):
             return True
         action = get_action(view, request.method)
 
-        app_log.info(f"--- Test Has Permission ---")
         perm_name = get_perm_name(self.model)
         # Check all perm
         all_perm = perm_actions['all'] + f"_{perm_name}"
