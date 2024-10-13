@@ -1,3 +1,4 @@
+import base64
 import json
 import os
 import time
@@ -9,7 +10,9 @@ from itertools import groupby
 import numpy as np
 import openpyxl
 import pandas as pd
+from django.conf import settings
 from django.core.exceptions import FieldError
+from django.core.mail import EmailMessage
 from django.core.paginator import Paginator
 from django.db import transaction
 from django.db.models import Prefetch, QuerySet
@@ -34,6 +37,7 @@ from app.logs import app_log
 from marketing.order.api.serializers import OrderSerializer, ProductStatisticsSerializer, SeasonalStatisticSerializer, \
     SeasonStatsUserPointSerializer, update_point, update_season_stats_user, update_user_turnover, OrderUpdateSerializer
 from marketing.order.models import Order, OrderDetail, SeasonalStatistic, SeasonalStatisticUser
+from marketing.order.tasks import send_report_email
 from marketing.price_list.models import SpecialOffer, PriceList, ProductPrice, SpecialOfferProduct
 from marketing.product.models import Product
 from user_system.client_profile.models import ClientProfile
@@ -1504,6 +1508,11 @@ class ApiNvttGetOrderDaily(APIView):
 
         date_get = request.query_params.get('from_date', from_date_default)
         next_date_get = request.query_params.get('to_date', to_date_default)
+        date_field = request.query_params.get('date_field', 'date_get')
+
+        if date_field not in ['date_get', 'date_company_get']:
+            return Response({'message': "params date_field phải thuộc ['date_get', 'date_company_get']"},
+                            status=status.HTTP_400_BAD_REQUEST)
 
         date_get = datetime.strptime(date_get, '%d/%m/%Y')
         next_date_get = datetime.strptime(next_date_get, '%d/%m/%Y')
@@ -1516,23 +1525,37 @@ class ApiNvttGetOrderDaily(APIView):
             for daily_id in daily_list:
                 daily_q |= Q(client_id_id=daily_id)
 
-        default_q = Q(date_company_get__gte=date_get, date_company_get__lt=next_date_get, nvtt_id=nvtt.id)
+        date_query = {
+            f'{date_field}__gte': date_get,
+            f'{date_field}__lt': next_date_get
+        }
+
+        other_conditions = {
+            'nvtt_id': nvtt.id
+        }
+
+        default_q = Q(**date_query, **other_conditions)
 
         orders = (Order.objects.filter(default_q & daily_q)
-                  .exclude(status='deactivate').order_by('-date_get'))
-
-        start_time = time.time()
+                  .exclude(status='deactivate').order_by('-date_get', 'client_id'))
 
         workbook = generate_order_excel(orders)
         output = BytesIO()
         workbook.save(output)
         output.seek(0)
+        encoded_output = base64.b64encode(output.getvalue()).decode('utf-8')
+        try:
+            try:
+                date_get = date_get.date()
+            except Exception:
+                date_get = ''
 
-        response = StreamingHttpResponse(
-            output,
-            content_type='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'
-        )
-        response['Content-Disposition'] = f'attachment; filename=BangToa_{datetime.now().strftime("%d-%m-%Y")}.xlsx'
+            file_name = f"BaoCaoToa_{date_get}.xlsx"
 
-        print(f"Time export to excel: {time.time() - start_time}")
-        return response
+            send_report_email.apply_async((nvtt.email, encoded_output, file_name), countdown=5)
+
+            return Response({'message': 'ok'})
+
+        except Exception as e:
+            app_log.error(f"got error in send daily email: \n{e}")
+            return Response({'message': f'error: {e}'})
