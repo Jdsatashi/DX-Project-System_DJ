@@ -306,31 +306,16 @@ class ExportReport(APIView):
         orders = handle_order(request)
         orders = orders.order_by('-date_get', '-id')
         total_items = orders.count()
-        limit = request.query_params.get('limit', 20000)
-        page = request.query_params.get('page', 1)
-
-        limit = int(limit)
-        page = int(page)
-        if limit == 0:
-            limit = orders.count()
-        if orders.count() > 20000:
-            limit = 20000
-        if page <= 0:
-            page = 1
-        start_item = (page - 1) * limit
-        end_item = page * limit
-
-        if end_item > total_items:
-            end_item = total_items - 1
-
-        orders = orders[start_item:end_item]
+        end_item = total_items if total_items < 20000 else 20000
+        orders = orders[0:end_item]
         start_time2 = time.time()
-        workbook = generate_order_excel(orders)
+        today = datetime.now().date()
+
+        workbook = generate_order_excel(orders, today)
         output = BytesIO()
         workbook.save(output)
         output.seek(0)
         print(f"Time generate file: {time.time() - start_time2}")
-
         response = StreamingHttpResponse(
             output,
             content_type='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'
@@ -958,9 +943,10 @@ def handle_order(request) -> QuerySet[Order]:
     return orders
 
 
-def generate_order_excel(orders: list[Order]):
+def generate_order_excel(orders, date_get, report=False):
     workbook = openpyxl.Workbook()
     sheet = workbook.active
+    sheet.title = "Danh sách toa"
 
     title_font = Font(name='Times New Roman', bold=True, size=20)
     note_font = Font(name='Times New Roman', size=11)
@@ -973,14 +959,14 @@ def generate_order_excel(orders: list[Order]):
     border_style = Side(style='medium')
     full_border_style = Border(left=border_style, right=border_style, top=border_style, bottom=border_style,
                                diagonal=border_style, diagonal_direction=0)
-
     sheet.merge_cells('A1:N1')
+
+    date_get = date_get.strftime('%d-%m-%Y')
+
     title_cell = sheet.cell(row=1, column=1)
-    title_cell.value = f'Bảng thống kê toa thuốc {datetime.now().strftime("%d-%m-%Y")}'
+    title_cell.value = f'Báo cáo phiếu đặt hàng ngày {date_get}'
     title_cell.font = title_font
     title_cell.alignment = center_alignment
-
-    total_price = orders.aggregate(total_price=Sum('order_price'))['total_price']
 
     total_price = OrderDetail.objects.filter(order_id__in=orders).aggregate(
         total_price=Sum('product_price'))['total_price']
@@ -994,23 +980,15 @@ def generate_order_excel(orders: list[Order]):
     note_cell.font = note_font
     note_cell.alignment = center_alignment
 
-    columns = [
-        'Mã toa',
-        'Loại bảng kê', 'Mã khách hàng', 'Tên Khách hàng', 'Khách hàng cấp 1', 'NVTT',
-        'Ngày nhận toa', 'Người tạo toa', 'Ngày nhận hàng', 'Ngày gửi trễ', 'Ghi chú',
-        'Mã sản phẩm', 'Tên sản phẩm', 'Số lượng', 'Số thùng', 'Đơn giá', 'Thành tiền',
-        'Đơn giá KM', 'Điểm đạt'
-    ]
-
     column_widths = {
-        'Mã toa': 106,
-        'Loại bảng kê': 92,
+        'Mã phiếu': 106,
+        'Loại phiếu': 80,
         'Mã khách hàng': 98,
         'Tên Khách hàng': 136,
-        'Khách hàng cấp 1': 140,
+        'NPP': 140,
         'NVTT': 144,
-        'Ngày nhận toa': 92,
-        'Người tạo toa': 86,
+        'Ngày nhận phiếu': 92,
+        'Người tạo phiếu': 86,
         'Ngày nhận hàng': 98,
         'Ngày gửi trễ': 84,
         'Ghi chú': 72,
@@ -1020,9 +998,15 @@ def generate_order_excel(orders: list[Order]):
         'Số thùng': 68,
         'Đơn giá': 80,
         'Thành tiền': 82,
-        'Đơn giá KM': 80,
-        'Điểm đạt': 64
     }
+
+    columns = list(column_widths.keys())
+
+    if report is False:
+        updated: list[dict] = [{'Đơn giá ưu đãi': 80}, {'Điểm đạt': 80}]
+        for value in updated:
+            columns.append(list(value.keys())[0])
+            column_widths[list(value.keys())[0]] = value[list(value.keys())[0]]
 
     for col_num, column_title in enumerate(columns, 1):
         cell = sheet.cell(row=4, column=col_num)  # Thêm tiêu đề cột từ dòng 4
@@ -1031,7 +1015,7 @@ def generate_order_excel(orders: list[Order]):
         cell.alignment = center_alignment
         cell.fill = header_fill
         cell.border = full_border_style
-
+        print(f"Test: {column_title}")
         col_letter = get_column_letter(col_num)
         if column_title in column_widths:
             sheet.column_dimensions[col_letter].width = column_widths[column_title] / 7.2
@@ -1048,8 +1032,6 @@ def generate_order_excel(orders: list[Order]):
     npp_ids = list(set(npp_ids))
     npp_profiles = {cp.client_id_id: cp for cp in ClientProfile.objects.filter(client_id__in=npp_ids)}
 
-    # price_lists = orders.values_list('price_list_id_id', flat=True).distinct()
-
     nvtt_ids = set()
     for o in orders:
         if o.nvtt_id and o.nvtt_id not in nvtt_ids:
@@ -1060,8 +1042,6 @@ def generate_order_excel(orders: list[Order]):
     employee_profiles = {ep.employee_id_id: ep for ep in EmployeeProfile.objects.filter(employee_id__in=nvtt_ids)}
     app_log.info(f"__ Count order: {orders.count()}")
     for i, order in enumerate(orders):
-        if order.id == 'MTN240901256':
-            app_log.info(f"Test EXPORT 1: {order}")
         # Get client data from query result
         client_data = client_profiles.get(order.client_id_id)
         # Handle change datetime format date_company_get
@@ -1123,17 +1103,6 @@ def generate_order_excel(orders: list[Order]):
                 total_price = detail.product_price or 0
                 price_so = detail.price_so if detail.price_so else ''
 
-                # Get price from note
-                # try:
-                #     note_price = json.loads(detail.note).get('price')
-                #     price = float(note_price) if note_price else None
-                # except (json.JSONDecodeError, TypeError, ValueError):
-                #     price = None
-                # if price is None:
-                #     if order.new_special_offer_id:
-                #         price = get_special_offer_price(detail.product_id, order.new_special_offer_id)
-                #     elif order.price_list_id_id:
-                #         price = get_product_price(detail.product_id, order.price_list_id_id)
                 try:
                     price = total_price / detail.order_quantity
                 except ZeroDivisionError:
@@ -1147,9 +1116,10 @@ def generate_order_excel(orders: list[Order]):
                     detail.order_box,
                     formatted_price,
                     formatted_total_price,
-                    price_so,
-                    detail.point_get
                 ]
+                if report is False:
+                    details_data.append(price_so)
+                    details_data.append(detail.point_get)
                 export_data = data_list + details_data
                 sheet.append(export_data)
 
@@ -1172,9 +1142,10 @@ def generate_order_excel(orders: list[Order]):
                 0,
                 order.order_price,
                 0,
-                0,
-                0
             ]
+            if report is False:
+                details_data.append(0)
+                details_data.append(0)
             export_data = data_list + details_data
             sheet.append(export_data)
 
@@ -1538,8 +1509,8 @@ class ApiNvttGetOrderDaily(APIView):
 
         orders = (Order.objects.filter(default_q & daily_q)
                   .exclude(status='deactivate').order_by('-date_get', 'client_id'))
-
-        workbook = generate_order_excel(orders)
+        today = datetime.now().date()
+        workbook = generate_order_excel(orders, today)
         output = BytesIO()
         workbook.save(output)
         output.seek(0)

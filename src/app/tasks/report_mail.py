@@ -17,7 +17,7 @@ from utils.constants import mail_type
 from utils.helpers import local_time
 
 
-def send_daily_email(date_get):
+def send_daily_email(date_get, email=None):
     email_detail = EmailDetail.objects.filter(email_type=mail_type.report_order).first()
 
     user_get_mails = UserGetMail.objects.filter(email_detail=email_detail)
@@ -25,11 +25,13 @@ def send_daily_email(date_get):
     # orders = Order.objects.filter(date_company_get=date_get).exclude(status='deactivate').order_by('-date_get')
     next_date_get = date_get + timedelta(days=1)
     orders = (Order.objects.filter(date_company_get__gte=date_get, date_company_get__lt=next_date_get)
-              .exclude(status='deactivate').order_by('-date_get'))
+              .exclude(status='deactivate', client_id__group_user__name='test').order_by('-date_get'))
 
-    workbook = generate_order_excel(orders)
+    workbook = generate_order_excel(orders, date_get, True)
 
     workbook = add_new_sheet(workbook, date_get)
+
+    workbook = add_sheet_product(workbook, orders, date_get, next_date_get)
 
     excel_data = BytesIO()
     workbook.save(excel_data)
@@ -40,8 +42,11 @@ def send_daily_email(date_get):
         'body_message': email_detail.description,
     }
     # emails = ["vdt1073@gmail.com"]
-    emails = [user_get_mail.user.email for user_get_mail in user_get_mails
-              if user_get_mail.user.email and user_get_mail.user.email != '']
+    if email is not None:
+        emails = email
+    else:
+        emails = [user_get_mail.user.email for user_get_mail in user_get_mails
+                  if user_get_mail.user.email and user_get_mail.user.email != '']
 
     send_bulk_email(emails, context, date_get, excel_data)
 
@@ -66,7 +71,8 @@ def send_bulk_email(emails, context, date_get=None, excel_data=None):
         file_name = f"BaoCaoToa_{date_get}.xlsx"
 
         if excel_data:
-            email.attach(file_name, excel_data.read(), 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet')
+            email.attach(file_name, excel_data.read(),
+                         'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet')
             email.send()
     except Exception as e:
         app_log.error(f"got error in send daily email: \n{e}")

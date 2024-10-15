@@ -59,8 +59,8 @@ class TestMail(APIView):
     def get(self, request):
         from app.tasks.report_mail import send_daily_email
 
-        last_date = datetime.combine(datetime.today(), time.min) - timedelta(days=1)
+        last_date = datetime.today().date() - timedelta(days=4)
         app_log.info(f"Date analysis: {last_date}")
         # - timedelta(days=1)
-        send_daily_email(last_date)
+        send_daily_email(last_date, ['vdt1073@gmail.com'])
         return Response({'message': 'mail sent'}, status.HTTP_200_OK)
