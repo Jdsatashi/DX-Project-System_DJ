@@ -47,7 +47,7 @@ def send_daily_email(date_get, email=None):
     else:
         emails = [user_get_mail.user.email for user_get_mail in user_get_mails
                   if user_get_mail.user.email and user_get_mail.user.email != '']
-
+    app_log.info(f"Send mail to: {emails}")
     send_bulk_email(emails, context, date_get, excel_data)
 
     # Cập nhật last_sent cho từng user
