@@ -31,7 +31,7 @@ def send_daily_email(date_get, email=None):
 
     workbook = add_new_sheet(workbook, date_get)
 
-    workbook = add_sheet_product(workbook, orders, date_get, next_date_get)
+    # workbook = add_sheet_product(workbook, orders, date_get, next_date_get)
 
     excel_data = BytesIO()
     workbook.save(excel_data)
