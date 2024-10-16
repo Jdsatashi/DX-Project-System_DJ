@@ -70,4 +70,5 @@ class TestMail(APIView):
             send_daily_email(last_date, emails)
             return Response({'message': 'mail sent'}, status=status.HTTP_200_OK)
         except Exception as e:
+            raise e
             return Response({'message': f'error when test mail: {e}'}, status=status.HTTP_400_BAD_REQUEST)
