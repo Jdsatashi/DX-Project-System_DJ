@@ -203,7 +203,8 @@ def add_new_sheet(workbook, date_get):
 
 def format_number(value):
     if value is None:
-        return 0
+        return Decimal(0)
+    value = str(value).replace(',', '')
     return Decimal(value)
 
 
