@@ -258,14 +258,13 @@ def add_sheet_product(workbook, orders, next_date_get):
         'Phát sinh': 16
     }
     columns = list(column_widths.keys())
+    product_sheet.append(columns)
     for i, column in enumerate(columns, start=1):
         column_letter = get_column_letter(i)
         product_sheet.column_dimensions[column_letter].width = column_widths[column]
         cell = product_sheet.cell(row=1, column=i)
         cell.font = bold_font
         cell.border = medium_border
-
-    product_sheet.append(columns)
 
     # Get npp_id list
     npp_ids_today = orders.values_list('npp_id', flat=True).distinct()
