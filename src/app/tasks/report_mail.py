@@ -300,13 +300,13 @@ def add_sheet_product(workbook, orders, next_date_get):
                 total_today += product_boxes_today
 
                 npp_name = npp_profiles_dict.get(npp_id, '')
-                product_boxes_today = product_boxes_today if float(product_boxes_today) != 0 else ''
+                product_boxes_today = "{:,.2f}".format(product_boxes_today) if float(product_boxes_today) != 0 else ''
                 append_data = [
                     product_id,
                     npp_name,
                     "{:,.2f}".format(product_boxes_last),
                     "{:,.2f}".format(product_boxes),
-                    "{:,.2f}".format(product_boxes_today) if product_boxes_today != 0 else ''
+                    product_boxes_today
                 ]
                 product_sheet.append(append_data)
         row = [product_name, 'Tổng cộng', "{:,.2f}".format(total_last), "{:,.2f}".format(total_current),
