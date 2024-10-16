@@ -203,11 +203,8 @@ def add_new_sheet(workbook, date_get):
 
 def format_number(value):
     if value is None:
-        return "0"  # Return integer format as string
-    # Check if the value is a float and has a decimal part
-    if isinstance(value, float) and (value % 1 != 0):
-        return "{:,.2f}".format(value)  # Float with decimal places
-    return "{:,}".format(int(value))  # Integer format
+        return 0
+    return Decimal(value)
 
 
 def add_sheet_product(workbook, orders, next_date_get):
@@ -297,18 +294,18 @@ def add_sheet_product(workbook, orders, next_date_get):
             if float(product_boxes_last) == 0 and float(product_boxes) == 0 and float(product_boxes_today) == 0:
                 continue
             else:
-                total_last += Decimal(product_boxes_last.replace(',', ''))
-                total_current += Decimal(product_boxes.replace(',', ''))
-                total_today += Decimal(product_boxes_today.replace(',', ''))
+                total_last += product_boxes_last
+                total_current += product_boxes
+                total_today += product_boxes_today
 
                 npp_name = npp_profiles_dict.get(npp_id, '')
                 product_boxes_today = product_boxes_today if float(product_boxes_today) != 0 else ''
                 append_data = [
                     product_id,
                     npp_name,
-                    product_boxes_last,
-                    product_boxes,
-                    product_boxes_today
+                    "{:,.2f}".format(product_boxes_last),
+                    "{:,.2f}".format(product_boxes),
+                    "{:,.2f}".format(product_boxes_today) if product_boxes_today != 0 else ''
                 ]
                 product_sheet.append(append_data)
         row = [product_name, 'Tổng cộng', "{:,.2f}".format(total_last), "{:,.2f}".format(total_current),
