@@ -32,14 +32,20 @@ class ApiSystemConfig(viewsets.GenericViewSet, mixins.ListModelMixin, mixins.Cre
     authentication_classes = [JWTAuthentication, BasicAuthentication, SessionAuthentication]
 
     def get_permissions(self):
-        if self.request.method == 'GET':
-            return [AllowAny()]
-        return [IsAuthenticated()]
+        try:
+            if self.request.method == 'GET':
+                return [AllowAny()]
+            return [IsAuthenticated()]
+        except Exception as e:
+            return []
 
     def get_authenticators(self):
-        if self.request.method == 'GET':
+        try:
+            if self.request.method == 'GET':
+                return []
+            return super().get_authenticators()
+        except Exception as e:
             return []
-        return super().get_authenticators()
 
     def list(self, request, *args, **kwargs):
         response = filter_data(self, request, ['name', 'id'],
