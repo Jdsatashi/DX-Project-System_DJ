@@ -1,17 +1,22 @@
+import time
 from datetime import datetime, timedelta
+from decimal import Decimal
 from io import BytesIO
 
+from dateutil.relativedelta import relativedelta
 from django.conf import settings
 from django.core.mail import EmailMessage
-from django.db.models import ExpressionWrapper, DurationField, F, Max
+from django.db.models import ExpressionWrapper, DurationField, F, Max, Q, Sum
 from django.db.models.functions import ExtractDay
-from openpyxl.styles import Font, Alignment
+from openpyxl.styles import Font, Alignment, Border, Side
+from openpyxl.utils import get_column_letter
 
 from account.models import User
 from app.logs import app_log
 from marketing.order.api.views import generate_order_excel
-from marketing.order.models import Order
+from marketing.order.models import Order, OrderDetail
 from system_func.models import PeriodSeason
+from user_system.client_profile.models import ClientProfile
 from user_system.daily_email.models import EmailDetail, UserGetMail
 from utils.constants import mail_type
 from utils.helpers import local_time
@@ -28,10 +33,8 @@ def send_daily_email(date_get, email=None):
               .exclude(status='deactivate', client_id__group_user__name='test').order_by('-date_get'))
 
     workbook = generate_order_excel(orders, date_get, True)
-
     workbook = add_new_sheet(workbook, date_get)
-
-    # workbook = add_sheet_product(workbook, orders, date_get, next_date_get)
+    workbook = add_sheet_product(workbook, orders, next_date_get)
 
     excel_data = BytesIO()
     workbook.save(excel_data)
@@ -137,6 +140,7 @@ def get_clients():
 
     return clients_with_orders
 
+
 def add_new_sheet(workbook, date_get):
     clients = get_clients()
     sheet = workbook.create_sheet("KhachKoPhatSinhToa")
@@ -194,4 +198,125 @@ def add_new_sheet(workbook, date_get):
             if col_idx == 5:
                 cell.font = bold_font
 
+    return workbook
+
+
+def format_number(value):
+    if value is None:
+        return "0"  # Return integer format as string
+    # Check if the value is a float and has a decimal part
+    if isinstance(value, float) and (value % 1 != 0):
+        return "{:,.2f}".format(value)  # Float with decimal places
+    return "{:,}".format(int(value))  # Integer format
+
+
+def add_sheet_product(workbook, orders, next_date_get):
+    # Get data for pre-queries
+    current_period = PeriodSeason.get_period_by_date('turnover')
+    last_period = PeriodSeason.objects.filter(
+        from_date__lte=current_period.from_date - timedelta(days=1),
+        to_date__gte=current_period.from_date - timedelta(days=1),
+        type='turnover'
+    ).first()
+    next_date_get_last = next_date_get - relativedelta(years=1)
+
+    # Exclude items queries
+    exclude_order = Q(status='deactivate', client_id__group_user__name='test',
+                      order_detail__product_id_id__in=['KTUDLH'])
+    # Get today products got updating
+    product_ids = orders.values_list('order_detail__product_id', 'order_detail__product_id__name').distinct()
+
+    # Query current period data orders
+    orders_current_data = Order.objects.filter(
+        date_company_get__gte=current_period.from_date,
+        date_company_get__lt=next_date_get,
+    ).exclude(exclude_order).values('npp_id', 'order_detail__product_id').annotate(
+        total_boxes=Sum('order_detail__order_box')
+    )
+
+    # Query last period data orders
+    orders_last_data = Order.objects.filter(
+        date_company_get__gte=last_period.from_date,
+        date_company_get__lt=next_date_get_last
+    ).exclude(exclude_order).values('npp_id', 'order_detail__product_id').annotate(
+        total_boxes=Sum('order_detail__order_box')
+    )
+
+    # Query today orders
+    orders_today_data = orders.values('npp_id', 'order_detail__product_id').annotate(
+        total_boxes=Sum('order_detail__order_box')
+    )
+
+    # Create excel sheet
+    product_sheet = workbook.create_sheet("Báo cáo mặt hàng")
+    bold_font = Font(bold=True)
+    medium_border = Border(left=Side(style='medium'), right=Side(style='medium'),
+                           top=Side(style='medium'), bottom=Side(style='medium'))
+    column_widths = {
+        'Mã hàng': 24,
+        'Tên NPP': 24,
+        'Kì trước': 16,
+        'Kì này': 16,
+        'Phát sinh': 16
+    }
+    columns = list(column_widths.keys())
+    for i, column in enumerate(columns, start=1):
+        column_letter = get_column_letter(i)
+        product_sheet.column_dimensions[column_letter].width = column_widths[column]
+        cell = product_sheet.cell(row=1, column=i)
+        cell.font = bold_font
+        cell.border = medium_border
+
+    product_sheet.append(columns)
+
+    # Get npp_id list
+    npp_ids_today = orders.values_list('npp_id', flat=True).distinct()
+    npp_ids_last = orders_last_data.values_list('npp_id', flat=True).distinct()
+
+    npp_ids = (npp_ids_today | npp_ids_last).distinct()
+
+    # Get npp profile with id: name
+    npp_profiles = ClientProfile.objects.filter(client_id_id__in=npp_ids).values_list('client_id_id', 'register_name')
+    npp_profiles_dict = dict(npp_profiles)
+    # Loop product to add the comparison of last and current period
+    start_time = time.time()
+    for product_id, product_name in dict(product_ids).items():
+        total_last = Decimal(0)
+        total_current = Decimal(0)
+        total_today = Decimal(0)
+        for npp_id in set(npp_ids):
+            product_boxes_last = format_number(
+                orders_last_data.filter(npp_id=npp_id, order_detail__product_id=product_id).aggregate(
+                    Sum('total_boxes'))['total_boxes__sum'])
+            product_boxes = format_number(
+                orders_current_data.filter(npp_id=npp_id, order_detail__product_id=product_id).aggregate(
+                    Sum('total_boxes'))['total_boxes__sum'])
+            product_boxes_today = format_number(
+                orders_today_data.filter(npp_id=npp_id, order_detail__product_id=product_id).aggregate(
+                    Sum('total_boxes'))['total_boxes__sum'])
+            if float(product_boxes_last) == 0 and float(product_boxes) == 0 and float(product_boxes_today) == 0:
+                continue
+            else:
+                total_last += Decimal(product_boxes_last.replace(',', ''))
+                total_current += Decimal(product_boxes.replace(',', ''))
+                total_today += Decimal(product_boxes_today.replace(',', ''))
+
+                npp_name = npp_profiles_dict.get(npp_id, '')
+                product_boxes_today = product_boxes_today if float(product_boxes_today) != 0 else ''
+                append_data = [
+                    product_id,
+                    npp_name,
+                    product_boxes_last,
+                    product_boxes,
+                    product_boxes_today
+                ]
+                product_sheet.append(append_data)
+        row = [product_name, 'Tổng cộng', "{:,.2f}".format(total_last), "{:,.2f}".format(total_current),
+               "{:,.2f}".format(total_today)]
+        product_sheet.append(row)
+        for col in range(1, len(row) + 1):
+            cell = product_sheet.cell(row=product_sheet.max_row, column=col)
+            cell.font = bold_font
+            cell.border = medium_border
+    print(f"End looping: {time.time() - start_time}")
     return workbook

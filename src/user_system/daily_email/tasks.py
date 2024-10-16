@@ -24,7 +24,7 @@ def send_order_report_email(email: list, subject, context, date_get):
     app_log.info(f"Test date: {start_date} - {end_date}")
     orders = Order.objects.filter(date_company_get__gte=start_date, date_company_get__lt=end_date).exclude(status='deactivate').order_by('-date_get')
     app_log.info(f"Data: {orders.count()} items")
-    workbook = generate_order_excel(orders)
+    workbook = generate_order_excel(orders, start_date)
 
     excel_data = BytesIO()
     workbook.save(excel_data)
@@ -62,7 +62,7 @@ def send_order_report_email(email: list, subject, context, date_get):
 
 def send_report_order_email(email, date_get, use_async: bool):
     context = {
-        'subject': f'Báo cáo đơn hàng {date_get}',
+        'subject': f'Báo cáo bảng kê {date_get}',
         'body_message': 'Đính kèm là báo cáo đơn hàng của bạn.',
     }
 

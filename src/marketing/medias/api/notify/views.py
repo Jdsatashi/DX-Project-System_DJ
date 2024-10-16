@@ -59,8 +59,15 @@ class TestMail(APIView):
     def get(self, request):
         from app.tasks.report_mail import send_daily_email
 
-        last_date = datetime.today().date() - timedelta(days=4)
+        last_date = datetime.today().date() - timedelta(days=1)
         app_log.info(f"Date analysis: {last_date}")
         # - timedelta(days=1)
-        send_daily_email(last_date, ['vdt1073@gmail.com'])
-        return Response({'message': 'mail sent'}, status.HTTP_200_OK)
+        emails_param: str = request.query_params.get('emails', 'vdt1073@gmail.com')
+        if emails_param in ['', None]:
+            emails_param = 'vdt1073@gmail.com'
+        emails = emails_param.split(',')
+        try:
+            send_daily_email(last_date, emails)
+            return Response({'message': 'mail sent'}, status=status.HTTP_200_OK)
+        except Exception as e:
+            return Response({'message': f'error when test mail: {e}'}, status=status.HTTP_400_BAD_REQUEST)

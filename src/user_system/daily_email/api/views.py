@@ -55,7 +55,7 @@ class ApiSendMail(APIView):
             email = serializer.validated_data.get('email')
             date_get = serializer.validated_data.get('date_get')
             if not date_get:
-                date_get = datetime.combine(datetime.today(), time.min)
+                date_get = datetime.today().date()
             try:
                 send_report_order_email(email, date_get, True)
             except Exception as e:
