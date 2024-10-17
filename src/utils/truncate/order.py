@@ -1,4 +1,5 @@
 import datetime
+import json
 import math
 import os
 import random
@@ -395,4 +396,39 @@ def update_point():
         point_user.auto_point()
         point_user.save()
 
+
+def remove_fields():
+    orders = Order.objects.filter(Q(Q(id_so__isnull=False) | Q(id_offer_consider__isnull=False)))
+    print(f"{orders.count()}")
+    orders_update = list()
+    for order in orders:
+        input_note_data = dict()
+        id_so = order.id_so
+        id_offer_consider = order.id_offer_consider
+        if id_so not in ['', None]:
+            input_note_data['id_so'] = id_so
+        if id_offer_consider not in ['', None]:
+            input_note_data['id_offer_consider'] = id_offer_consider
+        order.id_so = None
+        order.id_offer_consider = None
+        note = order.note
+
+        if note is None:
+            new_note = json.dumps(input_note_data)
+        else:
+            try:
+                current_note = json.loads(note)
+
+                current_note.update(input_note_data)
+                new_note = json.dumps(current_note)
+            except Exception as e:
+                raise e
+        order.note = new_note
+        print(f"Update: {order.note} | {order.id_so} | {order.id_offer_consider}")
+        orders_update.append(order)
+    try:
+        with transaction.atomic():
+            Order.objects.bulk_update(orders_update, ['id_so', 'id_offer_consider', 'note'])
+    except Exception as e:
+        raise e
 # from utils.truncate.order import get_all_kh
