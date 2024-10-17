@@ -399,36 +399,52 @@ def update_point():
 
 def remove_fields():
     orders = Order.objects.filter(Q(Q(id_so__isnull=False) | Q(id_offer_consider__isnull=False)))
-    print(f"{orders.count()}")
-    orders_update = list()
-    for order in orders:
-        input_note_data = dict()
-        id_so = order.id_so
-        id_offer_consider = order.id_offer_consider
-        if id_so not in ['', None]:
-            input_note_data['id_so'] = id_so
-        if id_offer_consider not in ['', None]:
-            input_note_data['id_offer_consider'] = id_offer_consider
-        order.id_so = None
-        order.id_offer_consider = None
-        note = order.note
+    total_item = orders.count()
+    total_items = int(total_item)
+    print(f"{total_items}")
+    chunk = 3000
+    time_loop = round(total_items / 3000)
+    print(f"Time loop: {time_loop}")
+    listing_update = list()
+    for i in range(time_loop):
+        start_item = i * chunk
+        end_item = (i + 1) * chunk - 1
+        if end_item > total_items:
+            end_item = total_items
+        print(f"Start {start_item} - {end_item}")
+        orders_loop = orders[start_item:end_item]
 
-        if note is None:
-            new_note = json.dumps(input_note_data)
-        else:
-            try:
-                current_note = json.loads(note)
+        orders_update = list()
+        for order in orders_loop:
+            input_note_data = dict()
+            id_so = order.id_so
+            id_offer_consider = order.id_offer_consider
+            if id_so not in ['', None]:
+                input_note_data['id_so'] = id_so
+            if id_offer_consider not in ['', None]:
+                input_note_data['id_offer_consider'] = id_offer_consider
+            order.id_so = None
+            order.id_offer_consider = None
+            note = order.note
 
-                current_note.update(input_note_data)
-                new_note = json.dumps(current_note)
-            except Exception as e:
-                raise e
-        order.note = new_note
-        print(f"Update: {order.note} | {order.id_so} | {order.id_offer_consider}")
-        orders_update.append(order)
-    try:
-        with transaction.atomic():
-            Order.objects.bulk_update(orders_update, ['id_so', 'id_offer_consider', 'note'])
-    except Exception as e:
-        raise e
+            if note is None:
+                new_note = json.dumps(input_note_data)
+            else:
+                try:
+                    current_note = json.loads(note)
+
+                    current_note.update(input_note_data)
+                    new_note = json.dumps(current_note)
+                except Exception as e:
+                    raise e
+            order.note = new_note
+            orders_update.append(order)
+        listing_update.append(orders_update)
+    for order_update in listing_update:
+        try:
+            with transaction.atomic():
+                print(f"Updating {len(order_update)} items")
+                Order.objects.bulk_update(order_update, ['id_so', 'id_offer_consider', 'note'])
+        except Exception as e:
+            raise e
 # from utils.truncate.order import get_all_kh
