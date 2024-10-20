@@ -298,6 +298,14 @@ def files_fields_details(request, files, representation):
         if file_data['image'] is not None:
             file_data['image'].update({'priority': file_data['priority'], 'docs_type': file_data['docs_type']})
             images.append(file_data['image'])
+    if len(images) <= 0:
+        images.append({
+            "id": 0,
+            "type": "image",
+            "file": "https://www.wolflair.com/wp-content/uploads/2017/02/placeholder-600x600.jpg",
+            "priority": 0,
+            "docs_type": "image"
+        })
     representation['files'] = {
         'documents': documents,
         'images': images
