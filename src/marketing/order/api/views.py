@@ -2,6 +2,7 @@ import base64
 import json
 import os
 import time
+from dataclasses import fields
 from datetime import datetime, timedelta
 from functools import partial
 from io import BytesIO
@@ -11,7 +12,7 @@ import numpy as np
 import openpyxl
 import pandas as pd
 from django.conf import settings
-from django.core.exceptions import FieldError
+from django.core.exceptions import FieldError, ValidationError
 from django.core.mail import EmailMessage
 from django.core.paginator import Paginator
 from django.db import transaction
@@ -176,8 +177,10 @@ class ProductStatisticsView(APIView):
         except ValueError as e:
             return Response({"error": str(e)}, status=status.HTTP_400_BAD_REQUEST)
         except Exception as e:
-            raise e
-            # return Response({"error": str(e)}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+            if settings.DEBUG:
+                raise e
+            else:
+                return Response({"error": str(e)}, status=status.HTTP_400_BAD_REQUEST)
 
     def paginate_orders(self, user, input_date, product_ids, type_statistic, limit, page):
         start_date_1, end_date_1, start_date_2, end_date_2 = self.convert_dates(input_date)
@@ -412,9 +415,12 @@ class TotalStatisticsView(APIView):
             return Response(response_data, status=status.HTTP_200_OK)
 
         except ValueError as e:
-            return Response({"error": str(e)}, status=status.HTTP_400_BAD_REQUEST)
+            return Response({'message': str(e)}, status=status.HTTP_400_BAD_REQUEST)
         except Exception as e:
-            raise e
+            if settings.DEBUG:
+                raise e
+            else:
+                return Response({'message': f"{e}"}, status=status.HTTP_400_BAD_REQUEST)
 
     def get_order_details(self, user, start_date_1, end_date_1, start_date_2, end_date_2, product_ids, type_statistic):
         start_date_1, end_date_1, start_date_2, end_date_2 = self.convert_dates(start_date_1, end_date_1, start_date_2,
@@ -747,8 +753,11 @@ class ApiSeasonalStatistic(viewsets.GenericViewSet, mixins.ListModelMixin, mixin
 
             return response
         except Exception as e:
-            # return Response({'error': str(e)}, status=status.HTTP_400_BAD_REQUEST)
-            raise e
+            if settings.DEBUG:
+                raise e
+            else:
+                return Response({'message': str(e)}, status=status.HTTP_400_BAD_REQUEST)
+
 
 
 class OrderSOCount(APIView):
@@ -811,7 +820,10 @@ class OrderSOCount(APIView):
 
             return Response(response)
         except Exception as e:
-            raise e
+            if settings.DEBUG:
+                raise e
+            else:
+                return Response({'message': f"unexpected error: {e}"}, status=status.HTTP_400_BAD_REQUEST)
 
     def serializer(self, so_objs, get_so_order):
         data = []
@@ -933,7 +945,10 @@ def handle_order(request) -> QuerySet[Order]:
             orders = orders.order_by('id')
         except Exception as e:
             app_log.error("Error in order_by with default fields")
-            raise e
+            if settings.DEBUG:
+                raise e
+            else:
+                raise ValidationError("Erro in order_by with default fields")
 
     orders = orders.select_related('client_id').prefetch_related(
         Prefetch('order_detail', queryset=OrderDetail.objects.select_related('product_id'))
@@ -1059,6 +1074,8 @@ def generate_order_excel(orders, date_get, report=False):
 
         # Get type list
         type_list = order.list_type if order.list_type and order.list_type != '' else 'cấp 2 gửi'
+        if order.is_so and report:
+            type_list = 'ưu đãi'
 
         # Get client lv1/npp name
         npp_name = ''
@@ -1190,8 +1207,10 @@ class ApiImportOrder(APIView):
                 'errors': error
             }, status=status.HTTP_200_OK)
         except Exception as e:
-            # return Response({'error': str(e)}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
-            raise e
+            if settings.DEBUG:
+                raise e
+            else:
+                return Response({'message': str(e)}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
 
 
 def create_order(data):
@@ -1272,6 +1291,11 @@ def create_order(data):
                         'minus': turnover_minus,
                         'count': count_turnover
                     }
+
+                    order_data.count_turnover = count_turnover
+                    order_data.minus_so_box = turnover_minus
+                    orders_data.save(update_fields=['count_turnover', 'minus_so_box'])
+
                     total_point = 0
                     total_price = 0
                     detail_error = False
@@ -1365,12 +1389,14 @@ def create_order(data):
             }
             error_data.append(error_)
         except Exception as e:
-            raise e
-            data_error = {
-                'error_lines': data_lines,
-                'message': f'lỗi import: {e}'
-            }
-            error_data.append(data_error)
+            if settings.DEBUG:
+                raise e
+            else:
+                data_error = {
+                    'error_lines': data_lines,
+                    'message': f'lỗi import: {e}'
+                }
+                error_data.append(data_error)
 
     return update_list, error_data
 
@@ -1529,4 +1555,7 @@ class ApiNvttGetOrderDaily(APIView):
 
         except Exception as e:
             app_log.error(f"got error in send daily email: \n{e}")
-            return Response({'message': f'error: {e}'})
+            if settings.DEBUG:
+                raise e
+            else:
+                return Response({'message': f'error: {e}'})

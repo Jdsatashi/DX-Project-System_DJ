@@ -1,18 +1,15 @@
-import json
-import time
 from datetime import datetime
 
 import pandas as pd
 import pytz
 from dateutil.relativedelta import relativedelta
 from django.db import transaction
-from django.db.models import Sum, F
+from django.db.models import Sum
 from rest_framework import serializers
 from rest_framework.exceptions import ValidationError
 from rest_framework_simplejwt.tokens import AccessToken
 
 from account.handlers.restrict_serializer import BaseRestrictSerializer
-from account.handlers.validate_perm import ValidatePermRest
 from account.models import PhoneNumber, User
 from app.logs import app_log
 from app.settings import TIME_ZONE
@@ -23,7 +20,7 @@ from marketing.pick_number.models import UserJoinEvent
 from marketing.price_list.models import ProductPrice, SpecialOfferProduct, SpecialOffer
 from marketing.product.models import Product
 from marketing.sale_statistic.models import SaleTarget, SaleStatistic, UserSaleStatistic
-from system.file_upload.api.serializers import FileProductViewSerializer, FileShortViewSerializer
+from system.file_upload.api.serializers import FileShortViewSerializer
 from system_func.models import PeriodSeason, PointOfSeason
 from user_system.client_profile.models import ClientProfile
 from user_system.employee_profile.models import EmployeeProfile
@@ -49,7 +46,7 @@ class OrderSerializer(BaseRestrictSerializer):
         model = Order
         fields = '__all__'
         read_only_fields = ['id', 'created_by', 'created_at', 'updated_at', 'order_point', 'order_price',
-                            'is_so', 'id_so', 'id_offer_consider'
+                            'is_so', 'count_turnover', 'minus_so_box'
                             ]
         extra_kwargs = {
             'client_id': {
@@ -75,10 +72,11 @@ class OrderSerializer(BaseRestrictSerializer):
         try:
             with transaction.atomic():
                 price_list_id = data.get('price_list_id', None)
+                new_special_offer = data.get('new_special_offer', None)
                 # Validate orders
-                if price_list_id is None:
-                    raise ValidationError({'message': 'toa yêu cầu bảng giá'})
-                if price_list_id.status == 'deactivate':
+                if not price_list_id and not new_special_offer:
+                    raise ValidationError({'message': 'toa yêu cầu bảng giá hoặc ưu đãi'})
+                if price_list_id and price_list_id.status == 'deactivate':
                     raise ValidationError({'message': 'bảng giá không hoạt động'})
 
                 local_datetime = data.get('date_company_get')
@@ -91,13 +89,18 @@ class OrderSerializer(BaseRestrictSerializer):
 
                 data['date_company_get'] = local_datetime
 
+                special_offer: SpecialOffer = data.get('new_special_offer', None)
+                if special_offer:
+                    data['count_turnover'] = special_offer.count_turnover
+                    data['minus_so_box'] = special_offer.target
+
                 order = Order.objects.create(**data)
 
                 # Add order_by
                 order_by = update_order_by(self)
                 if order_by:
                     order.created_by = order_by
-                    order.save()
+                    order.save(update_fields=['created_by'])
 
                 # Calculate total price and point
                 details = calculate_total_price_and_point(order, order_details_data)
@@ -123,7 +126,6 @@ class OrderSerializer(BaseRestrictSerializer):
 
                     # Deactivate when user used
                     if is_consider:
-                        special_offer: SpecialOffer = data.get('new_special_offer')
                         special_offer.status = 'deactivate'
                         special_offer.used = True
                         special_offer.save()
@@ -134,7 +136,7 @@ class OrderSerializer(BaseRestrictSerializer):
                     update_season_stats_user(order.client_id, order.date_get)
                     order_month = order.date_get.replace(day=1)
                     user_stats = create_or_get_sale_stats_user(order.client_id, order_month)
-                    print(user_stats)
+                    print(f"Test user STATS: {user_stats}")
                     update_user_turnover(order.client_id, order, order.is_so)
                     # Create perms
                     restrict = perm_data.get('restrict')
@@ -685,6 +687,7 @@ def update_user_turnover(user: User, order: Order, is_so: bool, old_order=None, 
         else:
             try:
                 so_target = order.new_special_offer.target
+                app_log.info(f"TEST TARGET: SO - {so_target} | ORD - {order.minus_so_box}")
                 target = so_target if so_target >= 0 else sale_target.month_target
             except AttributeError:
                 target = sale_target.month_target
@@ -694,6 +697,7 @@ def update_user_turnover(user: User, order: Order, is_so: bool, old_order=None, 
 
         count_turnover = False
         if order.new_special_offer is not None:
+            app_log.error(f"TEST count_turnover: SO - {order.new_special_offer.count_turnover} - ORD {order.count_turnover}")
             if order.new_special_offer.count_turnover:
                 count_turnover = order.new_special_offer.count_turnover
         elif so_data.get('count', None) not in ['', 'nan', None]:

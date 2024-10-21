@@ -9,6 +9,8 @@ from django.utils.dateparse import parse_date
 from rest_framework.exceptions import ValidationError
 
 from account.models import User
+from app import settings
+from app.logs import app_log
 from marketing.price_list.models import ProductPrice, PriceList, SpecialOffer, SpecialOfferProduct
 from marketing.product.models import Product
 from marketing.sale_statistic.models import SaleStatistic, SaleTarget
@@ -29,8 +31,9 @@ class Order(models.Model):
 
     # SO mean Special Offer
     is_so = models.BooleanField(null=True, default=False)
-    id_so = models.CharField(null=True, max_length=255, default=None)
-    id_offer_consider = models.CharField(null=True, max_length=255, default=None)
+
+    count_turnover = models.BooleanField(default=True)
+    minus_so_box = models.BigIntegerField(null=True, default=None)
 
     new_special_offer = models.ForeignKey(SpecialOffer, null=True, on_delete=models.SET_NULL, related_name='orders')
 
@@ -68,7 +71,7 @@ class Order(models.Model):
                 self.npp_id = self.client_id.clientprofile.client_lv1_id
             except AttributeError:
                 pass
-        if self.new_special_offer or self.id_so:
+        if self.new_special_offer:
             self.is_so = True
 
         if self.note:
@@ -174,107 +177,102 @@ class OrderBackupDetail(models.Model):
 
 
 def create_or_get_sale_stats_user(user: User, month, breaking=False) -> SaleStatistic | None:
-    return None
-    old_month = None
-    if breaking:
-        return None
-    if isinstance(month, str):
-        month = parse_date(month)
-    if not isinstance(month, date) or month.day != 1:
-        # raise ValidationError("Month must be the first day of the month in 'YYYY-MM-DD' format.")
-        old_month = month
-        month = month.replace(days=1)
-    current_period = PeriodSeason.get_period_by_date('turnover')
+    try:
+        old_month = None
+        if breaking:
+            return None
+        if isinstance(month, str):
+            month = parse_date(month)
+        if not isinstance(month, date) or month.day != 1:
+            # raise ValidationError("Month must be the first day of the month in 'YYYY-MM-DD' format.")
+            old_month = month
+        current_period = PeriodSeason.get_period_by_date('turnover')
 
-    next_month = month + relativedelta(months=1)
-    last_month = month - relativedelta(months=1)
-    if last_month < current_period.from_date:
-        last_month = current_period.from_date
-        breaking = True
+        next_month = month + relativedelta(months=1)
+        last_month = month - relativedelta(months=1)
+        print(f"Test sale stats: {last_month} - {next_month}")
+        if last_month < current_period.from_date:
+            last_month = current_period.from_date
+            breaking = True
 
-    filter_month = month
-    if old_month:
-        filter_month = old_month
-    query_filter = Q(client_id=user) & Q(date_get__range=(filter_month, next_month - timedelta(days=1)))
-    filter_so_count = Q(Q(query_filter) & Q(
-        Q(new_special_offer__count_turnover=True)
-        # | Q(new_special_offer__type_list=so_type.consider_user)
-        | Q(new_special_offer__isnull=True)
-    ))
-    exclude_so = Q(Q(status='deactivate') |
-                   Q(id_so__isnull=False) | Q(id_offer_consider__isnull=False)
-                   )
-    orders_count = Order.objects.filter(filter_so_count).exclude(exclude_so)
+        filter_month = month
+        if old_month:
+            filter_month = old_month
+        query_filter = Q(client_id=user) & Q(date_get__range=(filter_month, next_month - timedelta(days=1)))
+        filter_so_count = Q(Q(query_filter) & Q(
+            Q(new_special_offer__count_turnover=True)
+            # | Q(new_special_offer__type_list=so_type.consider_user)
+            | Q(count_turnover=True)
+        ))
+        exclude_so = Q(status='deactivate')
 
-    # print(f"Test sale_stats user: {orders_count}")
-    orders_so = (Order.objects.filter(query_filter & Q(Q(is_so=True)))
-                 # .exclude(new_special_offer__type_list=so_type.consider_user)
-                 )
+        orders_count = Order.objects.filter(Q(filter_so_count) | Q(query_filter)).exclude(exclude_so)
+        print(f"Order count: {orders_count.count()}")
+        orders_so = (Order.objects.filter(query_filter & Q(Q(is_so=True))))
 
-    # print(f"Test orders_so user: {orders_so}")
+        total_used = 0
+        sale_target, _ = SaleTarget.objects.get_or_create(month=month)
+        for order in orders_so:
+            result = OrderDetail.objects.filter(order_id=order).aggregate(total_order_box=Sum('order_box'))
+            total_order_box = result.get('total_order_box', 0) or 0
+            if order.new_special_offer:
+                target = order.new_special_offer.target if order.new_special_offer.target > 0 else sale_target.month_target
+            else:
+                target = sale_target.month_target
+            total_used += total_order_box * target
+        sale_statistic: QuerySet = SaleStatistic.objects.filter(user=user, month=month)
 
-    total_used = 0
-    sale_target, _ = SaleTarget.objects.get_or_create(month=month)
-    for order in orders_so:
-        result = OrderDetail.objects.filter(order_id=order).aggregate(total_order_box=Sum('order_box'))
-        total_order_box = result.get('total_order_box', 0) or 0
-        if order.new_special_offer:
-            target = order.new_special_offer.target if order.new_special_offer.target > 0 else sale_target.month_target
+        total_turnover = OrderDetail.objects.filter(order_id__in=orders_count).aggregate(total_price=Sum('product_price'))[
+                             'total_price'] or 0
+
+        if orders_count.exists() and sale_statistic.exists():
+            print(f"Case 1")
+            last_sale_stats = create_or_get_sale_stats_user(user, last_month, breaking)
+            if last_sale_stats is not None:
+                last_month_turnover = last_sale_stats.available_turnover
+            else:
+                last_month_turnover = 0
+
+            sale_statistic: SaleStatistic = sale_statistic.first()
+            if sale_statistic.last_month_turnover <= 0:
+                sale_statistic.last_month_turnover = last_month_turnover
+            sale_statistic.bonus_turnover = last_month_turnover % sale_target.month_target
+            sale_statistic.total_turnover = total_turnover - sale_statistic.minus_turnover + sale_statistic.bonus_turnover
+            sale_statistic.used_turnover = total_used
+            sale_statistic.available_turnover = sale_statistic.total_turnover - sale_statistic.used_turnover
+            sale_statistic.save()
+            print(f"Check bonus: {sale_statistic.bonus_turnover}")
+            return sale_statistic
+        elif orders_count.exists() and not sale_statistic.exists():
+            print(f"Case 2")
+            last_sale_stats = create_or_get_sale_stats_user(user, last_month)
+            if last_sale_stats is not None:
+                last_month_turnover = last_sale_stats.available_turnover
+            else:
+                last_month_turnover = 0
+            sale_statistic = SaleStatistic.objects.create(
+                user=user, month=month, total_turnover=total_turnover,
+                available_turnover=(total_turnover - total_used), last_month_turnover=last_month_turnover,
+                used_turnover=total_used
+            )
+            return sale_statistic
+        elif not orders_count.exists() and sale_statistic.exists():
+            print(f"Case 3")
+            sale_statistic = sale_statistic.first()
+            sale_statistic.total_turnover = 0 - sale_statistic.minus_turnover + sale_statistic.bonus_turnover
+            sale_statistic.used_turnover = 0
+            sale_statistic.available_turnover = 0
+            sale_statistic.save()
+            return sale_statistic
         else:
-            target = sale_target.month_target
-        total_used += total_order_box * target
-    sale_statistic: QuerySet = SaleStatistic.objects.filter(user=user, month=month)
-
-    total_turnover = OrderDetail.objects.filter(order_id__in=orders_count).aggregate(total_price=Sum('product_price'))[
-                         'total_price'] or 0
-
-    if orders_count.exists() and sale_statistic.exists():
-        print(f"Case 1")
-        last_sale_stats = create_or_get_sale_stats_user(user, last_month, breaking)
-        if last_sale_stats is not None:
-            last_month_turnover = last_sale_stats.available_turnover
+            print(f"Case 4")
+            return None
+    except Exception as e:
+        app_log.error(f"Get error create and return None")
+        if settings.DEBUG:
+            raise e
         else:
-            last_month_turnover = 0
-        # try:
-        #     last_sale_stats = SaleStatistic.objects.get(user=user, month=last_month)
-        #     last_month_turnover = last_sale_stats.available_turnover
-        # except SaleStatistic.DoesNotExist:
-        #     last_month_turnover = 0
-
-        sale_statistic: SaleStatistic = sale_statistic.first()
-        if sale_statistic.last_month_turnover <= 0:
-            sale_statistic.last_month_turnover = last_month_turnover
-        sale_statistic.bonus_turnover = last_month_turnover % sale_target.month_target
-        sale_statistic.total_turnover = total_turnover - sale_statistic.minus_turnover + sale_statistic.bonus_turnover
-        sale_statistic.used_turnover = total_used
-        sale_statistic.available_turnover = sale_statistic.total_turnover - sale_statistic.used_turnover
-        sale_statistic.save()
-        print(f"Check bonus: {sale_statistic.bonus_turnover}")
-        return sale_statistic
-    elif orders_count.exists() and not sale_statistic.exists():
-        print(f"Case 2")
-        last_sale_stats = create_or_get_sale_stats_user(user, last_month)
-        if last_sale_stats is not None:
-            last_month_turnover = last_sale_stats.available_turnover
-        else:
-            last_month_turnover = 0
-        sale_statistic = SaleStatistic.objects.create(
-            user=user, month=month, total_turnover=total_turnover,
-            available_turnover=(total_turnover - total_used), last_month_turnover=last_month_turnover,
-            used_turnover=total_used
-        )
-        return sale_statistic
-    elif not orders_count.exists() and sale_statistic.exists():
-        print(f"Case 3")
-        sale_statistic = sale_statistic.first()
-        sale_statistic.total_turnover = 0 - sale_statistic.minus_turnover + sale_statistic.bonus_turnover
-        sale_statistic.used_turnover = 0
-        sale_statistic.available_turnover = 0
-        sale_statistic.save()
-        return sale_statistic
-    else:
-        print(f"Case 4")
-        return None
+            return None
 
 
 class SeasonalStatistic(models.Model):
