@@ -350,6 +350,48 @@ class ApiSpecialOffer(viewsets.GenericViewSet, mixins.ListModelMixin, mixins.Cre
         except Exception as e:
             raise e
 
+    def export_so_product(self, request, *args, **kwargs):
+        try:
+            pk = kwargs.get('pk')
+            so: SpecialOffer = SpecialOffer.objects.filter(id=pk).first()
+            if not so:
+                return Response({'message': f'không tìm thấy ưu đãi với id {pk}'}, status=404)
+
+            products = SpecialOfferProduct.objects.filter(special_offer=so)
+
+            # Tạo Workbook mới
+            workbook = openpyxl.Workbook()
+            sheet = workbook.active
+
+            # Ghi tiêu đề cột
+            columns = ['Mã thuốc', 'Tên thuốc', 'Số lượng', 'Đơn giá', 'Điểm', 'Hoàn tiền']
+            for col_num, column_title in enumerate(columns, 1):
+                column_letter = get_column_letter(col_num)
+                sheet[f'{column_letter}1'] = column_title
+
+            # Ghi dữ liệu sản phẩm vào các hàng tiếp theo
+            for row_num, product_price in enumerate(products, 2):
+                sheet[f'A{row_num}'] = product_price.product.id  # Cột Mã thuốc
+                sheet[f'B{row_num}'] = product_price.product.name  # Cột Tên thuốc
+                sheet[f'C{row_num}'] = product_price.quantity_in_box  # Cột Số lượng
+                sheet[f'D{row_num}'] = product_price.price  # Cột Đơn giá
+                sheet[f'E{row_num}'] = product_price.point if product_price.point is not None else 0  # Cột Điểm
+                sheet[f'F{row_num}'] = product_price.cashback if product_price.cashback is not None else 0  # Cột Điểm
+
+            # Tạo HTTP response với nội dung file Excel
+            response = HttpResponse(
+                content_type='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+            )
+            response['Content-Disposition'] = f'attachment; filename=product_prices_{pk}.xlsx'
+
+            # Lưu Workbook vào response
+            workbook.save(response)
+
+            return response
+
+        except Exception as e:
+            app_log.error(f"Error in price_list export_products: {e}")
+            return Response({'message': f'Error occurred: {str(e)}'}, status=500)
 
 def handle_non_serializable(value):
     if isinstance(value, float):
@@ -388,7 +430,7 @@ class ApiImportProductPL(APIView):
         # Validate file extension
         file_extension = os.path.splitext(excel_file.name)[1].lower()
         if file_extension not in ['.xls', '.xlsx']:
-            return Response({'message': "Invalid file format. Only .xls and .xlsx files are supported."},
+            return Response({'message': "Invalid file format. Only .xlsx files are supported."},
                             status=status.HTTP_400_BAD_REQUEST)
 
         price_list_id = self.request.data.get('price_list', None)
@@ -471,7 +513,7 @@ class ApiImportProductSO(APIView):
         # Validate file extension
         file_extension = os.path.splitext(excel_file.name)[1].lower()
         if file_extension not in ['.xls', '.xlsx']:
-            return Response({'message': "invalid file format, only .xls and .xlsx files are supported."},
+            return Response({'message': "invalid file format, only and .xlsx files are supported."},
                             status=status.HTTP_400_BAD_REQUEST)
         # Validate Special Offer
         if so_id is None:

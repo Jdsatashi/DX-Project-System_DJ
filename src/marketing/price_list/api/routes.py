@@ -36,7 +36,7 @@ urlpatterns = [
 
     path('special-offer/product/', ApiSOProduct.as_view(actions_views)),
     path('special-offer/product/<pk>', ApiSOProduct.as_view(actions_detail)),
-
+    path('special-offer/export-products/<pk>', ApiSpecialOffer.as_view({'get': 'export_so_product'})),
     path('special-offer/import-consider/', ApiSpecialOffer.as_view({'post': 'import_multi_so'})),
 
     path('<pk>/export-products/', GenericApiPriceList.as_view({'get': 'export_products'})),
