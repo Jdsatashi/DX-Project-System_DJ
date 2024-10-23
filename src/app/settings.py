@@ -26,6 +26,11 @@ CELERY_BEAT_SCHEDULE = {
         'schedule': crontab(hour="5", minute="00"),
         'args': (),
     },
+    'send-daily-nvtt-email-task': {
+        'task': 'app.celery.send_daily_nvtt_email_task',
+        'schedule': crontab(hour="4", minute="30"),
+        'args': (),
+    },
 }
 
 # Email service

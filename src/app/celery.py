@@ -30,3 +30,12 @@ def send_daily_email_task():
     app_log.info(f"Date analysis: {last_date}")
     # - timedelta(days=1)
     send_daily_email(last_date)
+
+
+@shared_task
+def send_daily_nvtt_email_task():
+    from app.tasks.report_mail import send_daily_nvtt_email
+
+    last_date = datetime.now().date() - timedelta(days=1)
+    app_log.info(f"Date analysis: {last_date}")
+    send_daily_nvtt_email(last_date)
