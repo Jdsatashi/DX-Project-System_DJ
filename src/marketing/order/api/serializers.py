@@ -306,8 +306,11 @@ def calculate_price_and_point(order, product_id, quantity):
 
 def calculate_box_point(product_price, quantity):
     prices = float(product_price.price) * float(quantity) if product_price.price is not None else 0
-    point = (float(product_price.point) * (quantity / product_price.quantity_in_box)
-             if product_price.point is not None else 0)
+    try:
+        point = (float(product_price.point) * (quantity / product_price.quantity_in_box)
+                 if product_price.point is not None else 0)
+    except ZeroDivisionError:
+        point = 0
     try:
         box = int(quantity) / int(product_price.quantity_in_box)
     except ZeroDivisionError:
