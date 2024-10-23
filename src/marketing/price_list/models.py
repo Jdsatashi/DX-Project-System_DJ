@@ -9,6 +9,7 @@ from account.models import User
 from marketing.livestream.models import LiveStream
 from marketing.product.models import Product
 from system_func.models import PeriodSeason
+from utils.constants import so_type_list
 from utils.helpers import self_id
 
 
@@ -91,6 +92,11 @@ class SpecialOffer(models.Model):
     def save(self, *args, **kwargs):
         if not self.pk:
             self.id = self_id('SO', SpecialOffer, 4, '%y%m')
+        if self.type_list == so_type_list.template:
+            priority = self.priority
+            while SpecialOffer.objects.filter(priority=priority).exists():
+                priority += 1
+            self.priority = priority
         return super().save(*args, **kwargs)
 
 
