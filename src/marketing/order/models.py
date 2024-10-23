@@ -139,41 +139,43 @@ class OrderDetail(models.Model):
         super().save(*args, **kwargs)
 
 
-class OrderBackup(models.Model):
-    order_id = models.CharField(max_length=255, null=True)
-    date_get = models.CharField(max_length=255, null=True)
-    date_company_get = models.CharField(max_length=255, null=True)
+class OrderDelete(models.Model):
+    order_id = models.CharField(max_length=255)
+    date_get = models.DateField(null=True)
+    date_company_get = models.DateTimeField(null=True)
     client_id = models.CharField(max_length=255, null=True)
-    date_delay = models.CharField(max_length=255, null=True)
-
+    date_delay = models.IntegerField(default=0)
+    list_type = models.CharField(max_length=24, null=True)
     price_list_id = models.CharField(max_length=255, null=True)
 
-    clientlv1_id = models.CharField(max_length=255, null=True)
-    list_type = models.CharField(max_length=255, null=True)
+    # SO mean Special Offer
+    is_so = models.BooleanField(null=True, default=False)
 
-    is_so = models.CharField(null=True, max_length=255, default=None)
-    id_so = models.CharField(null=True, max_length=255, default=None)
-    id_offer_consider = models.CharField(null=True, max_length=255, default=None)
+    count_turnover = models.BooleanField(default=True)
+    minus_so_box = models.BigIntegerField(null=True, default=None)
 
-    note = models.CharField(max_length=255, null=True)
+    new_special_offer = models.CharField(max_length=255, null=True)
 
-    created_by = models.CharField(max_length=255, null=True)
-    created_at = models.DateTimeField(null=True)
+    order_point = models.FloatField(null=True)
+    order_price = models.FloatField(null=True, default=0)  # Default value to ensure it's not None
+    nvtt_id = models.CharField(max_length=64, null=True)
+    npp_id = models.CharField(max_length=64, null=True)
+
+    created_by = models.CharField(max_length=64, null=True)
+    note = models.TextField(null=True)
+    status = models.CharField(max_length=24, null=True)
+    created_at = models.DateTimeField(auto_now_add=True)
 
 
-class OrderBackupDetail(models.Model):
+class OrderDetailDelete(models.Model):
     order_id = models.CharField(max_length=255, null=True)
     product_id = models.CharField(max_length=255, null=True)
-    order_quantity = models.IntegerField(null=False, default=1)
-    order_box = models.FloatField(null=False, default=0)
-
+    order_quantity = models.IntegerField(null=True, default=1)
+    order_box = models.FloatField(null=True, default=0)
+    price_so = models.FloatField(null=True)
+    note = models.TextField(null=True)
     product_price = models.BigIntegerField(null=True)
-    quantity_in_box = models.IntegerField(null=True)
-
     point_get = models.FloatField(null=True)
-    price_list_so = models.FloatField(null=True)
-
-    note = models.CharField(max_length=255, null=True)
 
 
 def create_or_get_sale_stats_user(user: User, month, breaking=False) -> SaleStatistic | None:

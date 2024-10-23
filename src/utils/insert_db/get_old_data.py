@@ -11,7 +11,7 @@ from django.utils.timezone import make_aware
 from account.models import User, GroupPerm
 from app.logs import app_log
 from marketing.company.models import Company
-from marketing.order.models import Order, OrderDetail, OrderBackup, OrderBackupDetail
+from marketing.order.models import Order, OrderDetail
 from marketing.price_list.models import PriceList, ProductPrice, SpecialOffer, SpecialOfferProduct
 from marketing.product.models import Product, UseObject, UseFor, ProductCategory, CategoryDetail, RegistrationCert, \
     Producer, RegistrationUnit, ProductType
@@ -412,7 +412,7 @@ def process_order(data):
                     'created_by': v[7],
                     'created_at': make_aware(v[8]),
                 }
-                list_data_backup.append(OrderBackup(**insert_backup))
+                list_data_backup.append((insert_backup))
 
                 try:
                     client = User.objects.get(id=v[3])
@@ -499,7 +499,7 @@ def process_order_detail(data):
             "note": note
         }
         app_log.info(f"Inserting: {order} - {product}")
-        backup = OrderBackupDetail(id=v[0], order_id=v[1], product_id=v[2], order_quantity=v[3], order_box=v[4],
+        backup = Order(id=v[0], order_id=v[1], product_id=v[2], order_quantity=v[3], order_box=v[4],
                                    product_price=v[5], quantity_in_box=v[6], point_get=v[7], price_list_so=v[8])
         order_backup_details.append(backup)
 
