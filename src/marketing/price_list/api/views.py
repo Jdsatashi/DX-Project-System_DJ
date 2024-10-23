@@ -194,7 +194,7 @@ class ApiSpecialOffer(viewsets.GenericViewSet, mixins.ListModelMixin, mixins.Cre
                 return Response({'message': f'user id {user_id} not found'})
             user = user.first()
             queryset = perm_queryset(self, user)
-        response = filter_data(self, request, ['id', 'name', 'status', 'type_list', 'priority'],
+        response = filter_data(self, request, ['id', 'name', 'status', 'type_list', 'priority', 'note'],
                                queryset=queryset, **kwargs)
         return Response(response, status.HTTP_200_OK)
 
