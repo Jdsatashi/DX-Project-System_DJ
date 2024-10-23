@@ -74,7 +74,7 @@ def backup_order(sender, instance: Order, **kwargs):
 
 
 @receiver(pre_delete, sender=OrderDetail)
-def backup_order(sender, instance: OrderDetail, **kwargs):
+def backup_orderdetail(sender, instance: OrderDetail, **kwargs):
     app_log.info(f"backup delete order detail: {instance.id}")
     try:
         # Backup the Order instance
