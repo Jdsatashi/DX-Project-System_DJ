@@ -391,7 +391,33 @@ class ApiSpecialOffer(viewsets.GenericViewSet, mixins.ListModelMixin, mixins.Cre
 
         except Exception as e:
             app_log.error(f"Error in price_list export_products: {e}")
-            return Response({'message': f'Error occurred: {str(e)}'}, status=500)
+            return Response({'message': f'Error when export product so: {str(e)}'}, status=400)
+
+    def export_users(self, request, *args, **kwargs):
+        try:
+            pk = kwargs.get('pk')
+            pl: SpecialOffer = SpecialOffer.objects.filter(id=pk).first()
+            if not pl:
+                return Response({'message': f'không tìm thấy bảng giá với id {pk}'}, status=404)
+            perm_name = get_perm_name(pl)
+            perm_name_pk = perm_name + f'_{pk}'
+
+            workbook = export_users_has_perm(pl, pk)
+
+            response = HttpResponse(
+                content_type='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+            )
+            response['Content-Disposition'] = f'attachment; filename="UserDungBangGia_{pk}.xlsx"'
+
+            # Lưu workbook vào response
+            workbook.save(response)
+
+            return response
+
+        except Exception as e:
+            app_log.error(f"Error in price_list export_users: {e}")
+            return Response({'message': f'Error when export users so: {str(e)}'}, status=400)
+
 
 def handle_non_serializable(value):
     if isinstance(value, float):
