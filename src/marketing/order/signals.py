@@ -1,5 +1,7 @@
 from django.db.models.signals import post_save, m2m_changed
 from django.dispatch import receiver
+
+from app.logs import app_log
 from .models import SeasonalStatisticUser, update_season_stats_users, SeasonalStatistic
 from ..pick_number.models import UserJoinEvent
 
@@ -42,46 +44,53 @@ from .models import Order, OrderDetail, OrderDelete, OrderDetailDelete
 
 @receiver(pre_delete, sender=Order)
 def backup_order(sender, instance: Order, **kwargs):
-    # Backup the Order instance
-    order_backup = OrderDelete(
-        order_id=instance.id,
-        date_get=instance.date_get,
-        date_company_get=instance.date_company_get,
-        client_id=instance.client_id_id,  # Save the ForeignKey relationship by ID
-        date_delay=instance.date_delay,
-        list_type=instance.list_type,
-        price_list_id=str(instance.price_list_id_id),
-        is_so=instance.is_so,
-        count_turnover=instance.count_turnover,
-        minus_so_box=instance.minus_so_box,
-        new_special_offer=str(instance.new_special_offer_id) if instance.new_special_offer else None,
-        order_point=instance.order_point,
-        order_price=instance.order_price,
-        nvtt_id=instance.nvtt_id,
-        npp_id=instance.npp_id,
-        created_by=instance.created_by,
-        note=instance.note,
-        status=instance.status,
-        created_at=instance.created_at
-    )
-    order_backup.save()
+    app_log.info(f"backup delete order: {instance.id}")
+    try:
+        # Backup the Order instance
+        order_backup = OrderDelete(
+            order_id=instance.id,
+            date_get=instance.date_get,
+            date_company_get=instance.date_company_get,
+            client_id=instance.client_id_id,  # Save the ForeignKey relationship by ID
+            date_delay=instance.date_delay,
+            list_type=instance.list_type,
+            price_list_id=str(instance.price_list_id_id),
+            is_so=instance.is_so,
+            count_turnover=instance.count_turnover,
+            minus_so_box=instance.minus_so_box,
+            new_special_offer=str(instance.new_special_offer_id) if instance.new_special_offer else None,
+            order_point=instance.order_point,
+            order_price=instance.order_price,
+            nvtt_id=instance.nvtt_id,
+            npp_id=instance.npp_id,
+            created_by=instance.created_by,
+            note=instance.note,
+            status=instance.status,
+            created_at=instance.created_at
+        )
+        order_backup.save()
+    except Exception as e:
+        app_log.error(f"Error when backup order: {e}")
 
 
 @receiver(pre_delete, sender=OrderDetail)
 def backup_order(sender, instance: OrderDetail, **kwargs):
-    # Backup the Order instance
-    detail_backup = OrderDetailDelete(
-        order_id=instance.order_id_id,
-        product_id=str(instance.product_id_id),
-        order_quantity=instance.order_quantity,
-        order_box=instance.order_box,
-        price_so=instance.price_so,
-        note=instance.note,
-        product_price=instance.product_price,
-        point_get=instance.point_get
-    )
-    detail_backup.save()
-
+    app_log.info(f"backup delete order detail: {instance.id}")
+    try:
+        # Backup the Order instance
+        detail_backup = OrderDetailDelete(
+            order_id=instance.order_id_id,
+            product_id=str(instance.product_id_id),
+            order_quantity=instance.order_quantity,
+            order_box=instance.order_box,
+            price_so=instance.price_so,
+            note=instance.note,
+            product_price=instance.product_price,
+            point_get=instance.point_get
+        )
+        detail_backup.save()
+    except Exception as e:
+        app_log.error(f"Error when backup order detail: {e}")
 # Connect the signal
 # pre_delete.connect(backup_order, sender=Order)
 
