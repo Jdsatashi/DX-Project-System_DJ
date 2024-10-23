@@ -140,7 +140,7 @@ class ValidatePermRest(permissions.BasePermission):
 
         action = get_action(view, request.method)
 
-        app_log.info(f"--- Test Permission Obj ---")
+        # app_log.info(f"--- Test Permission Obj ---")
         perm_name = get_perm_name(self.model)
 
         all_perm = perm_actions['all'] + f"_{perm_name}"
