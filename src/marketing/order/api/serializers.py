@@ -294,8 +294,10 @@ def calculate_price_and_point(order, product_id, quantity):
         if order.new_special_offer:
             product_price = SpecialOfferProduct.objects.get(special_offer=order.new_special_offer,
                                                             product=product_id)
+            app_log.info(f"_ Case so: {product_price}")
         else:
             product_price = ProductPrice.objects.get(price_list=order.price_list_id, product=product_id)
+            app_log.info(f"_ Case normal: {product_price}")
         prices, point, box = calculate_box_point(product_price, quantity)
     except (ProductPrice.DoesNotExist, SpecialOfferProduct.DoesNotExist):
         raise serializers.ValidationError({'message': 'sản phẩm không thuộc ưu đãi hoặc bảng giá'})

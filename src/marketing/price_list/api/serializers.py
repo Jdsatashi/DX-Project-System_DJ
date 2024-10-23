@@ -297,6 +297,7 @@ class SpecialOfferSerializer(BaseRestrictSerializer):
         try:
             with transaction.atomic():
                 if data.get('type_list') not in so_type_list:
+                    app_log.info(f"Test type_list: {data.get('type_list', None)}")
                     raise ValidationError({'message': f'type_list phải thuộc danh sách {so_type_list}'})
                 # Create new SpecialOffer
                 special_offer = SpecialOffer.objects.create(**data)
