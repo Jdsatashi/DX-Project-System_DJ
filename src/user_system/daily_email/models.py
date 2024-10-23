@@ -36,6 +36,13 @@ class UserGetMail(models.Model):
 
 
 def create_auto_mail():
-    detail = EmailDetail.objects.create(name='báo cáo toa mỗi ngày',
-                                        description='Báo cáo các toa thuốc phát sinh trong ngày',
-                                        email_type=mail_type.report_order)
+    if not EmailDetail.objects.filter(email_type=mail_type.report_order).exists():
+        detail = EmailDetail.objects.create(name='báo cáo toa mỗi ngày',
+                                            description='Báo cáo các toa thuốc phát sinh trong ngày',
+                                            email_type=mail_type.report_order)
+    if not EmailDetail.objects.filter(email_type=mail_type.report_nvtt).exists():
+        detail2 = EmailDetail.objects.create(name='báo cáo toa mỗi ngày cho nvtt',
+                                             description='Báo cáo các toa thuốc phát sinh trong ngày',
+                                             email_type=mail_type.report_nvtt)
+        nvtt_get_mails = User.objects.filter(group_user__name='nvtt')
+        add_nvtt = detail2.user_get_mail.add(nvtt_get_mails)

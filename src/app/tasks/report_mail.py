@@ -99,7 +99,7 @@ def send_daily_nvtt_email(date_get):
 
                 send_bulk_email([nvtt.email], context=context)
             else:
-                workbook = generate_order_excel(orders)
+                workbook = generate_order_excel(orders, date_get)
 
                 excel_data = BytesIO()
                 workbook.save(excel_data)
