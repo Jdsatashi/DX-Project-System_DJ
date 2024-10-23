@@ -1,15 +1,13 @@
-from datetime import datetime, date, timedelta
+from datetime import datetime, timedelta
 
 from django.apps import apps
 from django.db import models
-from django.db.models import Q, Sum
+from django.db.models import Q
 from django.utils.timezone import make_aware
 
-from account.models import User
 from marketing.livestream.models import LiveStream
 from marketing.product.models import Product
-from system_func.models import PeriodSeason
-from utils.constants import so_type_list
+from utils.constants import so_type
 from utils.helpers import self_id
 
 
@@ -92,7 +90,7 @@ class SpecialOffer(models.Model):
     def save(self, *args, **kwargs):
         if not self.pk:
             self.id = self_id('SO', SpecialOffer, 4, '%y%m')
-        if self.type_list == so_type_list.template:
+        if self.type_list == so_type.template:
             priority = self.priority
             while SpecialOffer.objects.filter(priority=priority).exists():
                 priority += 1
