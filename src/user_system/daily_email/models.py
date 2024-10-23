@@ -44,5 +44,8 @@ def create_auto_mail():
         detail2 = EmailDetail.objects.create(name='báo cáo toa mỗi ngày cho nvtt',
                                              description='Báo cáo các toa thuốc phát sinh trong ngày',
                                              email_type=mail_type.report_nvtt)
-        nvtt_get_mails = User.objects.filter(group_user__name='nvtt')
-        add_nvtt = detail2.user_get_mail.add(nvtt_get_mails)
+    detail2 = EmailDetail.objects.filter(email_type=mail_type.report_nvtt).first()
+    nvtt_get_mails = User.objects.filter(group_user__name='nvtt')
+    for user in nvtt_get_mails:
+        if not UserGetMail.objects.filter(user=user, email_detail=detail2).exists():
+            user_mail = UserGetMail.objects.create(user=user, email_detail=detail2)

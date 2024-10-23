@@ -83,33 +83,43 @@ def send_bulk_email(emails, context, date_get=None, excel_data=None):
 
 def send_daily_nvtt_email(date_get):
     print(f"Date get: {date_get}")
-    nvtts = User.objects.filter(group_user__name='nvtt').order_by('id')
-
     next_date_get = date_get + timedelta(days=1)
     orders = (Order.objects.filter(date_company_get__gte=date_get, date_company_get__lt=next_date_get)
               .exclude(status='deactivate').order_by('-date_get'))
-    for nvtt in nvtts:
-        if nvtt.id == 'NVTTTEST':
-            orders_of_nvtt = orders.filter(client_id__clientprofile__nvtt_id=nvtt.id)
-            if orders_of_nvtt.count() == 0:
-                context = {
-                    'subject': nvtt.email,
-                    'body_message': "Đại lý không có toa mới",
-                }
 
-                send_bulk_email([nvtt.email], context=context)
-            else:
-                workbook = generate_order_excel(orders, date_get)
+    email_detail = EmailDetail.objects.filter(email_type=mail_type.report_nvtt).first()
 
-                excel_data = BytesIO()
-                workbook.save(excel_data)
-                excel_data.seek(0)
-                context = {
-                    'subject': nvtt.email,
-                    'body_message': "Báo cáo toa của đại lý",
-                }
+    user_get_mails = UserGetMail.objects.filter(email_detail=email_detail)
+    nvtts = user_get_mails.values_list('user_id', 'user__email').distinct()
+    app_log.info(f"Test nvtt: {user_get_mails.count()}")
+    nvtts = dict(nvtts)
+    app_log.info(f"Test nvtts: {len(nvtts)}")
 
-                send_bulk_email([nvtt.email], context, date_get, excel_data)
+    for nvtt_id, nvtt_email in nvtts.items():
+        orders_of_nvtt = orders.filter(nvtt_id=nvtt_id)
+        if orders_of_nvtt.count() == 0:
+            context = {
+                'subject': nvtt_email,
+                'body_message': "Đại lý không có toa mới",
+            }
+
+            send_bulk_email([nvtt_email], context=context)
+        else:
+            workbook = generate_order_excel(orders_of_nvtt, date_get)
+
+            excel_data = BytesIO()
+            workbook.save(excel_data)
+            excel_data.seek(0)
+            context = {
+                'subject': nvtt_email,
+                'body_message': "Báo cáo toa của đại lý",
+            }
+
+            send_bulk_email([nvtt_email], context, date_get, excel_data)
+
+    for user_get_mail in user_get_mails:
+        user_get_mail.last_sent = local_time()
+        user_get_mail.save()
 
 
 def get_clients():
