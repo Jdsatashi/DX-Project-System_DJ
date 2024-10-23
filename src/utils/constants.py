@@ -49,8 +49,8 @@ max_phone = 3
 
 status = ['active', 'deactivate', 'pending', 'draft']
 data_status = SimpleNamespace(active='active', deactivate='deactivate', pending='pending', draft='draft')
-so_type = SimpleNamespace(manual='manual', consider_user='consider_offer_user', template='template')
+so_type = SimpleNamespace(manual='manual', consider_user='consider_offer_user', template='template', special_offer='special_offer')
 so_type_list = list(so_type.__dict__.values())
 
 # Email type
-mail_type = SimpleNamespace(report_order='report_order')
+mail_type = SimpleNamespace(report_order='report_order', report_nvtt='report_nvtt')
