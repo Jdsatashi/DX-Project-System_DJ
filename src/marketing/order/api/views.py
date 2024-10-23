@@ -1294,7 +1294,7 @@ def create_order(data):
 
                     order_data.count_turnover = count_turnover
                     order_data.minus_so_box = turnover_minus
-                    orders_data.save(update_fields=['count_turnover', 'minus_so_box'])
+                    order_data.save(update_fields=['count_turnover', 'minus_so_box'])
 
                     total_point = 0
                     total_price = 0
@@ -1380,12 +1380,10 @@ def create_order(data):
                     app_log.info(f"TEST so_data from import: {so_data}")
                     update_user_turnover(client, order_data, is_so, so_data=so_data)
         except ValueError as e:
-            error = str(e)
-            detail_message = error.split("'")[0]
             # print(f"Detail message: {detail_message}")
             error_ = {
                 'line': data_lines,
-                'message': f"{detail_message}"
+                'message': f"{e}"
             }
             error_data.append(error_)
         except Exception as e:
